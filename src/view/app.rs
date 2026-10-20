@@ -2806,7 +2806,7 @@ impl App {
                 egui::Frame::NONE
                     .fill(PANEL)
                     .stroke(Stroke::new(1.0, ETCH))
-                    .corner_radius(3.0)
+                    .corner_radius(theme::RADIUS)
                     .inner_margin(egui::Margin::symmetric(10, 8))
                     .show(ui, |ui| {
                         ui.set_max_width(300.0);
@@ -3110,7 +3110,7 @@ impl App {
                 egui::Frame::new()
                     .fill(BACKGROUND.gamma_multiply(0.92))
                     .stroke(egui::Stroke::new(1.0, ETCH))
-                    .corner_radius(3.0)
+                    .corner_radius(theme::RADIUS)
                     .inner_margin(8.0)
                     .show(ui, |ui| {
                         ui.set_width(340.0);
@@ -3395,7 +3395,9 @@ impl App {
         if !self.help_open {
             return;
         }
-        let modal = egui::Modal::new(egui::Id::new("gcad_help")).show(ctx, |ui| {
+        let modal = egui::Modal::new(egui::Id::new("gcad_help"))
+            .backdrop_color(Color32::from_black_alpha(150))
+            .show(ctx, |ui| {
             ui.set_width(560.0);
             modal_title(ui, "gcad is built for coding agents");
             note(
@@ -3422,11 +3424,8 @@ impl App {
                 hint(ui, "open a file to start working");
             }
             let label = if WEB { "open the examples" } else { "browse" };
-            let button = egui::Button::new(legend(label))
-                .fill(WELL)
-                .stroke(Stroke::new(1.0, ETCH));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.add(button).clicked() {
+            footer(ui, |ui| {
+                if ui.add(Key::new(label).solid(READOUT).min_width(100.0)).clicked() {
                     self.help_open = false;
                     self.browser = Some(browser_at(
                         if WEB {
@@ -3435,6 +3434,9 @@ impl App {
                             std::env::current_dir().unwrap_or_default()
                         },
                     ));
+                }
+                if ui.add(Key::new("close").outline(VALUE).min_width(100.0)).clicked() {
+                    self.help_open = false;
                 }
             });
         });
@@ -3659,15 +3661,17 @@ impl Library {
                     .is_some_and(|e| OPENS.contains(&&*e.to_string_lossy()))
             })
             .collect();
-        egui::Window::new("open a part or assembly")
-            .open(&mut open)
-            .collapsible(false)
-            .default_width(420.0)
+        let modal = egui::Modal::new(egui::Id::new("open a part or assembly"))
+            .backdrop_color(Color32::from_black_alpha(150))
             .show(ctx, |ui| {
+                ui.set_width(420.0);
+                modal_title(ui, "open a part or assembly");
                 note(ui, "or drop .gcad and .gasm files on the page", LEGEND);
+                let w = ui.available_width();
                 egui::ScrollArea::vertical()
                     .max_height(560.0)
                     .show(ui, |ui| {
+                        ui.set_max_width(w);
                         let mut folder = None;
                         for path in files {
                             let parent = path.parent().map(std::path::Path::to_path_buf);
@@ -3691,7 +3695,15 @@ impl Library {
                             }
                         }
                     });
+                footer(ui, |ui| {
+                    if ui.add(Key::new("cancel").outline(VALUE).min_width(100.0)).clicked() {
+                        open = false;
+                    }
+                });
             });
+        if modal.should_close() {
+            open = false;
+        }
         if open { picked } else { Picked::Cancelled }
     }
 }

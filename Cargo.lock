@@ -1087,9 +1087,7 @@ dependencies = [
 
 [[package]]
 name = "egui_bench"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f08f984796cdc9e2b11c326b2d8a0122757c6551b66d129142f81a74a6996eea"
+version = "0.5.4"
 dependencies = [
  "bytemuck",
  "egui",
@@ -6183,7 +6181,3 @@ checksum = "27bc9d5b815bc103f142aa054f561d9187d191692ec7c2d1e2b4737f8dbd7296"
 dependencies = [
  "zune-core",
 ]
-
-[[patch.unused]]
-name = "egui_bench"
-version = "0.5.2"

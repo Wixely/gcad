@@ -1504,20 +1504,29 @@ impl State {
         let thickness = named(line, "thickness")
             .map(|t| eval(t, &self.scope))
             .transpose()?;
-        let pieces = crate::nest::panels(model, &names, thickness)?;
-        let (length, width) = crate::nest::stock_size(
+        let mut pieces = crate::nest::panels(model, &names, thickness)?;
+        let stocks = crate::nest::stock_sizes(
             named(line, "stock")
                 .ok_or_else(|| anyhow!("give the stock size, like `stock=2400x600`"))?,
         )?;
+        if let Some(edges) = named(line, "edge") {
+            let patterns: Vec<String> = edges
+                .trim_matches('"')
+                .split(',')
+                .map(str::to_string)
+                .collect();
+            crate::nest::mark_edges(&mut pieces, &patterns)?;
+        }
         let num = |key: &str, default: f64| -> Result<f64> {
             named(line, key).map_or(Ok(default), |t| eval(t, &self.scope))
         };
+        let length = stocks.iter().map(|s| s.0).fold(0.0, f64::max);
         let options = crate::nest::Options {
-            length,
-            width,
+            stocks,
             gap: num("gap", 4.0)?,
             trim: num("trim", 0.0)?,
             grain: num("grain", 0.0)? != 0.0,
+            edged: num("edged", 0.0)? != 0.0,
         };
         let layout = crate::nest::nest(pieces, options)?;
         let template = self
@@ -1560,14 +1569,12 @@ impl State {
             self.nest_sheet(&layout, stock, s, count, scale)?;
         }
         self.frame = None;
-        let used: f64 = layout.pieces.iter().map(|p| p.length * p.width).sum();
         Ok(format!(
-            "{} pieces on {count} stock sheets of {} x {} at 1:{}, {:.0}% used",
+            "{} pieces on {} at 1:{}, {}",
             layout.pieces.len(),
-            number(length),
-            number(width),
+            layout.bought(),
             number(scale),
-            100.0 * used / (length * width * count as f64)
+            layout.waste_text()
         ))
     }
 
@@ -1579,7 +1586,7 @@ impl State {
         count: usize,
         scale: f64,
     ) -> Result<()> {
-        let (w, h) = (layout.length / scale, layout.width / scale);
+        let (w, h) = (stock.length / scale, stock.width / scale);
         let header = TEXT * 2.0;
         let (x, y) = self.place(w, h + header, None)?;
         let bottom = y;
@@ -1590,14 +1597,20 @@ impl State {
             y: bottom - h - TEXT * 0.8,
             size: TEXT,
             text: format!(
-                "stock {} of {count}: {} x {} x {}, gap {}, 1:{}, {:.0}% used",
+                "stock {} of {count}: {} x {} x {}, gap {}, 1:{}, {:.0}% used, waste {:.2} m²{}",
                 index + 1,
-                number(layout.length),
-                number(layout.width),
+                number(stock.length),
+                number(stock.width),
                 number(layout.pieces.first().map_or(0.0, |p| p.thickness)),
                 number(layout.gap),
                 number(scale),
-                100.0 * stock.used() / (layout.length * layout.width)
+                100.0 * stock.used() / stock.area(),
+                (stock.area() - stock.used()) / 1e6,
+                if index + 1 == count {
+                    format!("  |  all stock: {}, {}", layout.bought(), layout.waste_text())
+                } else {
+                    String::new()
+                }
             ),
             anchor: Anchor::Start,
             angle: 0.0,
@@ -1606,13 +1619,26 @@ impl State {
             vec![to(u0, v0), to(u1, v0), to(u1, v1), to(u0, v1)]
         };
         marks.push(Mark::Shape {
-            loops: vec![corner(0.0, 0.0, layout.length, layout.width)],
+            loops: vec![corner(0.0, 0.0, stock.length, stock.width)],
             closed: true,
             fill: Some([0.93, 0.93, 0.93]),
             stroke: Some(BLACK),
             width: 0.35,
             dashed: false,
         });
+        if layout.edged {
+            marks.push(Mark::Shape {
+                loops: vec![
+                    vec![to(0.0, 0.0), to(stock.length, 0.0)],
+                    vec![to(0.0, stock.width), to(stock.length, stock.width)],
+                ],
+                closed: false,
+                fill: None,
+                stroke: Some([0.55, 0.35, 0.15]),
+                width: 1.2,
+                dashed: false,
+            });
+        }
         for p in &stock.placed {
             marks.push(Mark::Shape {
                 loops: vec![corner(p.x, p.y, p.x + p.dx, p.y + p.dy)],
@@ -1627,7 +1653,12 @@ impl State {
             let (pw, ph) = (p.dx / scale, p.dy / scale);
             let words = [
                 format!("{} {}", p.piece + 1, piece.name),
-                format!("{} x {}", number(p.dx), number(p.dy)),
+                format!(
+                    "{} x {}{}",
+                    number(p.dx),
+                    number(p.dy),
+                    if p.on_edge { " edged" } else { "" }
+                ),
             ];
             let size = TEXT.min(ph / 2.6);
             let fits = |t: &str| text_width(t, size) <= pw - 1.0;

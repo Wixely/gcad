@@ -263,7 +263,7 @@ Assemblies are `.gasm` files. They bring in the bodies of `.gcad` part files and
 | section view | supported | `gcad export part.gcad part.svg --section y=0` | `output::drawing_dimensions_and_section` |
 | STL import | supported | `import part.stl` | `output::stl_import` |
 | drawing sheets | supported | `.gdwg` file: `sheet`, `view`, `section`, `dims`, `dim`, `level`, `callout`, `note`, `cutlist`, exported with `gcad export x.gdwg x.pdf` | `output::drawing_sheets`, `output::drawing_view_that_does_not_fit` |
-| panel nesting | supported | `nest panels_* stock=2400x600 gap=4` in a `.gdwg`, or `gcad nest file.gasm --stock 2400x600 --gap 4`: packs flat parts onto stock with guillotine cuts and lists the cuts in order | `output::drawing_nests_panels_on_stock` |
+| panel nesting | supported | `nest panels_* stock=2400x600 gap=4` in a `.gdwg`, or `gcad nest file.gasm --stock 2400x600 --gap 4`: packs flat parts onto stock with guillotine cuts, picks the least-waste mix of stock sizes, keeps showing edges on factory-edged sides, reports waste and lists the cuts in order | `output::drawing_nests_panels_on_stock` |
 | STEP colours | supported | `color red` | `output::step_colours` |
 | see-through bodies in the viewer | supported | `color #9cc7d9 opacity=0.3`, `color glass red opacity=0.5` | `assembly::see_through_parts` |
 | STEP assembly structure | supported | `gcad export top.gasm top.step` | `output::step_assembly`, `output::step_assembly_opens_in_opencascade` |

@@ -115,9 +115,15 @@ enum Command {
     /// Nest the flat parts of a file onto stock sheets and print where every piece and saw cut goes
     Nest {
         file: String,
-        /// The stock sheet, length x width in mm
+        /// The stock sheet, length x width in mm; several sizes, comma separated, buy the mix that wastes least
         #[arg(long, default_value = "2440x1220")]
         stock: String,
+        /// The stock's two long edges are finished (factory edge banded)
+        #[arg(long)]
+        edged: bool,
+        /// Parts whose long edge shows and must sit on a finished stock edge (name patterns, repeatable)
+        #[arg(long)]
+        edge: Vec<String>,
         /// The least space between pieces: the saw kerf plus any allowance, in mm
         #[arg(long, default_value_t = 4.0)]
         gap: f64,
@@ -556,20 +562,22 @@ fn main() -> Result<()> {
             thickness,
             grain,
             parts,
+            edged,
+            edge,
         } => {
             let run = load(&file, None, &vars)?;
             finished(&run)?;
             let names = gcad::nest::pick(&run.model, &parts)?;
-            let pieces = gcad::nest::panels(&run.model, &names, thickness)?;
-            let (length, width) = gcad::nest::stock_size(&stock)?;
+            let mut pieces = gcad::nest::panels(&run.model, &names, thickness)?;
+            gcad::nest::mark_edges(&mut pieces, &edge)?;
             let layout = gcad::nest::nest(
                 pieces,
                 gcad::nest::Options {
-                    length,
-                    width,
+                    stocks: gcad::nest::stock_sizes(&stock)?,
                     gap,
                     trim,
                     grain,
+                    edged,
                 },
             )?;
             print!("{}", layout.report());

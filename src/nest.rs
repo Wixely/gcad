@@ -15,6 +15,8 @@ pub struct Piece {
     pub length: f64,
     pub width: f64,
     pub thickness: f64,
+    /// One long side shows, so it must lie on a finished (edged) edge of the stock.
+    pub edge: bool,
 }
 
 /// A piece placed on a stock sheet. `x` runs along the stock's length, `y`
@@ -27,11 +29,14 @@ pub struct Placed {
     pub y: f64,
     pub dx: f64,
     pub dy: f64,
+    /// The piece's long side lies on a finished edge of the stock.
+    pub on_edge: bool,
 }
 
 /// One saw cut on a stock sheet. A rip runs along the stock's length at
 /// `y = at`, from `x = from` to `to`; a crosscut runs across it at `x = at`,
-/// from `y = from` to `to`. The kerf is taken from the far side of `at`.
+/// from `y = from` to `to`. `at` is the edge of a piece; the kerf goes into
+/// the waste side of it.
 #[derive(Clone, Debug)]
 pub struct Cut {
     pub rip: bool,
@@ -50,6 +55,8 @@ pub struct Rect {
 
 #[derive(Clone, Debug, Default)]
 pub struct Stock {
+    pub length: f64,
+    pub width: f64,
     pub placed: Vec<Placed>,
     /// In an order they can be sawn in: each cut lies inside a piece of board
     /// that earlier cuts have already freed.
@@ -62,28 +69,61 @@ impl Stock {
     pub fn used(&self) -> f64 {
         self.placed.iter().map(|p| p.dx * p.dy).sum()
     }
+
+    pub fn area(&self) -> f64 {
+        self.length * self.width
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct Layout {
-    pub length: f64,
-    pub width: f64,
     pub gap: f64,
     pub trim: f64,
+    pub edged: bool,
     pub pieces: Vec<Piece>,
     pub sheets: Vec<Stock>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct Options {
-    pub length: f64,
-    pub width: f64,
+    /// The stock sizes on offer, length and width; the layout buys whichever
+    /// mix of them wastes the least board.
+    pub stocks: Vec<(f64, f64)>,
     /// The least space between pieces: the saw kerf, plus any allowance.
     pub gap: f64,
-    /// Trimmed off every edge of the stock before cutting (chipped factory edges).
+    /// Trimmed off the stock's edges before cutting (chipped factory edges);
+    /// on edged stock only off the two bare ends.
     pub trim: f64,
     /// Keep each piece's length along the stock's length (grain or pattern).
     pub grain: bool,
+    /// The stock's two long edges are finished (edge banded at the factory).
+    pub edged: bool,
+}
+
+/// `2440x1220,2440x600`: one or more stock sizes.
+pub fn stock_sizes(text: &str) -> Result<Vec<(f64, f64)>> {
+    text.trim_matches('"')
+        .split([',', ' '])
+        .filter(|t| !t.is_empty())
+        .map(stock_size)
+        .collect()
+}
+
+/// Marks the pieces whose names match the patterns as showing a long edge.
+pub fn mark_edges(pieces: &mut [Piece], patterns: &[String]) -> Result<()> {
+    for pattern in patterns {
+        let mut hit = false;
+        for p in pieces.iter_mut() {
+            if crate::sim::matches(pattern, &p.name) {
+                p.edge = true;
+                hit = true;
+            }
+        }
+        if !hit {
+            bail!("no part to nest matches `{pattern}` in `edge`");
+        }
+    }
+    Ok(())
 }
 
 /// `2400x600` as length and width, the longer first.
@@ -151,6 +191,7 @@ pub fn panels(model: &Model, names: &[String], thickness: Option<f64>) -> Result
             length: round(size[2]),
             width: round(size[1]),
             thickness: t,
+            edge: false,
         });
     }
     if pieces.is_empty() {
@@ -193,33 +234,35 @@ enum Fit {
     Area,
 }
 
-/// Packs the pieces onto as few sheets as it can, trying several orders and
-/// ways to split the board, and keeps the layout with the fewest sheets, then
-/// the biggest single offcut, then the fewest cuts.
+/// Packs the pieces onto stock, trying several orders, ways to split the
+/// board and mixes of the stock sizes, and keeps the layout that buys the
+/// least board, then the fewest sheets, the biggest single offcut and the
+/// fewest cuts.
 pub fn nest(pieces: Vec<Piece>, options: Options) -> Result<Layout> {
-    let Options {
-        length,
-        width,
-        gap,
-        trim,
-        grain,
-    } = options;
-    if gap < 0.0 || trim < 0.0 {
+    let o = &options;
+    if o.gap < 0.0 || o.trim < 0.0 {
         bail!("`gap` and `trim` cannot be negative");
     }
-    let (ul, uw) = (length - 2.0 * trim, width - 2.0 * trim);
+    if o.stocks.is_empty() {
+        bail!("give at least one stock size");
+    }
+    if pieces.iter().any(|p| p.edge) && !o.edged {
+        bail!("`edge` parts need edged stock: say the stock's long edges are finished with `edged=1`");
+    }
     for p in &pieces {
-        let fits = (p.length <= ul + EPS && p.width <= uw + EPS)
-            || (!grain && p.width <= ul + EPS && p.length <= uw + EPS);
-        if !fits {
+        if !o.stocks.iter().any(|&s| fits_stock(p, s, o)) {
+            let sizes: Vec<String> = o
+                .stocks
+                .iter()
+                .map(|(l, w)| format!("{} x {}", number(*l), number(*w)))
+                .collect();
             bail!(
-                "{} ({} x {}) is bigger than the {} x {} stock{}",
+                "{} ({} x {}) does not fit the {} stock{}",
                 p.name,
                 number(p.length),
                 number(p.width),
-                number(length),
-                number(width),
-                if trim > 0.0 { " after trimming" } else { "" }
+                sizes.join(" or "),
+                if o.trim > 0.0 { " after trimming" } else { "" }
             );
         }
     }
@@ -231,66 +274,146 @@ pub fn nest(pieces: Vec<Piece>, options: Options) -> Result<Layout> {
         |p| (p.length + p.width, p.length),
         |p| (p.length.max(p.width) - p.length.min(p.width), p.length),
     ];
-    let mut best: Option<(Vec<Stock>, (usize, f64, usize))> = None;
-    for key in keys {
-        let mut order: Vec<usize> = (0..n).collect();
-        order.sort_by(|&a, &b| {
-            let (ka, kb) = (key(&pieces[a]), key(&pieces[b]));
-            kb.0.total_cmp(&ka.0)
-                .then(kb.1.total_cmp(&ka.1))
-                .then(a.cmp(&b))
-        });
-        for split in [
-            Split::Shorter,
-            Split::Longer,
-            Split::RipFirst,
-            Split::CrossFirst,
-        ] {
-            for fit in [Fit::ShortSide, Fit::Area] {
-                let sheets = pack(&pieces, &order, options, split, fit);
-                let biggest = sheets
-                    .iter()
-                    .flat_map(|s| &s.free)
-                    .map(|r| r.w * r.h)
-                    .fold(0.0, f64::max);
-                let cuts: usize = sheets.iter().map(|s| s.cuts.len()).sum();
-                let score = (sheets.len(), -biggest, cuts);
-                let better = best.as_ref().is_none_or(|(_, b)| {
-                    score
-                        .0
-                        .cmp(&b.0)
-                        .then(score.1.total_cmp(&b.1))
-                        .then(score.2.cmp(&b.2))
-                        .is_lt()
-                });
-                if better {
-                    best = Some((sheets, score));
+    let orders: Vec<Vec<usize>> = keys
+        .iter()
+        .map(|key| {
+            let mut order: Vec<usize> = (0..n).collect();
+            order.sort_by(|&a, &b| {
+                let (ka, kb) = (key(&pieces[a]), key(&pieces[b]));
+                pieces[b]
+                    .edge
+                    .cmp(&pieces[a].edge)
+                    .then(kb.0.total_cmp(&ka.0))
+                    .then(kb.1.total_cmp(&ka.1))
+                    .then(a.cmp(&b))
+            });
+            order
+        })
+        .collect();
+    let mut best: Option<(Vec<Stock>, (f64, usize, f64, usize))> = None;
+    let mut try_all = |sequence: &[usize], best: &mut Option<(Vec<Stock>, (f64, usize, f64, usize))>| {
+        for order in &orders {
+            for split in [
+                Split::Shorter,
+                Split::Longer,
+                Split::RipFirst,
+                Split::CrossFirst,
+            ] {
+                for fit in [Fit::ShortSide, Fit::Area] {
+                    let sheets = pack(&pieces, order, o, split, fit, sequence);
+                    let bought: f64 = sheets.iter().map(Stock::area).sum();
+                    let biggest = sheets
+                        .iter()
+                        .flat_map(|s| &s.free)
+                        .map(|r| r.w * r.h)
+                        .fold(0.0, f64::max);
+                    let cuts: usize = sheets.iter().map(|s| s.cuts.len()).sum();
+                    let score = (bought, sheets.len(), -biggest, cuts);
+                    let better = best.as_ref().is_none_or(|(_, b)| {
+                        score
+                            .0
+                            .total_cmp(&(b.0 - 1.0))
+                            .is_lt()
+                            || ((score.0 - b.0).abs() <= 1.0
+                                && score
+                                    .1
+                                    .cmp(&b.1)
+                                    .then(score.2.total_cmp(&b.2))
+                                    .then(score.3.cmp(&b.3))
+                                    .is_lt())
+                    });
+                    if better {
+                        *best = Some((sheets, score));
+                    }
                 }
             }
+        }
+    };
+    let k = o.stocks.len();
+    for t in 0..k {
+        try_all(&[t], &mut best);
+    }
+    if k > 1 {
+        let most = best.as_ref().map_or(1, |(s, _)| s.len()).max(
+            (0..k)
+                .map(|t| {
+                    let mut b = None;
+                    try_all(&[t], &mut b);
+                    b.map_or(1, |(s, _)| s.len())
+                })
+                .max()
+                .unwrap_or(1),
+        );
+        let mut length = most.min(8);
+        while (k as f64).powi(length as i32) > 4096.0 {
+            length -= 1;
+        }
+        let mut sequence = vec![0; length];
+        for code in 0..k.pow(length as u32) {
+            let mut c = code;
+            for slot in sequence.iter_mut() {
+                *slot = c % k;
+                c /= k;
+            }
+            try_all(&sequence, &mut best);
         }
     }
     let sheets = best.map(|(s, _)| s).unwrap_or_default();
     Ok(Layout {
-        length,
-        width,
-        gap,
-        trim,
+        gap: o.gap,
+        trim: o.trim,
+        edged: o.edged,
         pieces,
         sheets,
     })
 }
 
-fn pack(pieces: &[Piece], order: &[usize], o: Options, split: Split, fit: Fit) -> Vec<Stock> {
+/// The board left to cut on a fresh stock sheet.
+fn usable(stock: (f64, f64), o: &Options) -> Rect {
+    let side = if o.edged { 0.0 } else { o.trim };
+    Rect {
+        x: o.trim,
+        y: side,
+        w: stock.0 - 2.0 * o.trim,
+        h: stock.1 - 2.0 * side,
+    }
+}
+
+fn turns(p: &Piece, o: &Options) -> Vec<(f64, f64)> {
+    let mut turns = vec![(p.length, p.width)];
+    if !o.grain && !p.edge && (p.length - p.width).abs() > EPS {
+        turns.push((p.width, p.length));
+    }
+    turns
+}
+
+fn fits_stock(p: &Piece, stock: (f64, f64), o: &Options) -> bool {
+    let r = usable(stock, o);
+    turns(p, o)
+        .iter()
+        .any(|&(dx, dy)| dx <= r.w + EPS && dy <= r.h + EPS)
+}
+
+fn pack(
+    pieces: &[Piece],
+    order: &[usize],
+    o: &Options,
+    split: Split,
+    fit: Fit,
+    sequence: &[usize],
+) -> Vec<Stock> {
     let mut sheets: Vec<Stock> = Vec::new();
     for &i in order {
         let p = &pieces[i];
-        let mut turns = vec![(p.length, p.width)];
-        if !o.grain && (p.length - p.width).abs() > EPS {
-            turns.push((p.width, p.length));
-        }
-        let mut choice: Option<(f64, f64, usize, usize, f64, f64)> = None;
+        let turns = turns(p, o);
+        let mut choice: Option<(f64, f64, usize, usize, f64, f64, bool)> = None;
         for (s, sheet) in sheets.iter().enumerate() {
             for (r, rect) in sheet.free.iter().enumerate() {
+                let low = rect.y <= EPS;
+                let high = rect.y + rect.h >= sheet.width - EPS;
+                if p.edge && !low && !high {
+                    continue;
+                }
                 for &(dx, dy) in &turns {
                     if dx > rect.w + EPS || dy > rect.h + EPS {
                         continue;
@@ -303,53 +426,84 @@ fn pack(pieces: &[Piece], order: &[usize], o: Options, split: Split, fit: Fit) -
                     if choice.is_none_or(|c| {
                         score.0 < c.0 - EPS || (score.0 < c.0 + EPS && score.1 < c.1)
                     }) {
-                        choice = Some((score.0, score.1, s, r, dx, dy));
+                        choice = Some((score.0, score.1, s, r, dx, dy, p.edge && !low));
                     }
                 }
             }
         }
-        let (s, r, dx, dy) = match choice {
-            Some((_, _, s, r, dx, dy)) => (s, r, dx, dy),
+        let (s, r, dx, dy, top) = match choice {
+            Some((_, _, s, r, dx, dy, top)) => (s, r, dx, dy, top),
             None => {
+                let wanted = sequence
+                    .get(sheets.len())
+                    .or(sequence.last())
+                    .copied()
+                    .unwrap_or(0);
+                let t = if fits_stock(p, o.stocks[wanted], o) {
+                    wanted
+                } else {
+                    (0..o.stocks.len())
+                        .filter(|&t| fits_stock(p, o.stocks[t], o))
+                        .min_by(|&a, &b| {
+                            let area = |t: usize| o.stocks[t].0 * o.stocks[t].1;
+                            area(a).total_cmp(&area(b))
+                        })
+                        .expect("checked that every piece fits some stock")
+                };
+                let rect = usable(o.stocks[t], o);
                 sheets.push(Stock {
-                    free: vec![Rect {
-                        x: o.trim,
-                        y: o.trim,
-                        w: o.length - 2.0 * o.trim,
-                        h: o.width - 2.0 * o.trim,
-                    }],
+                    length: o.stocks[t].0,
+                    width: o.stocks[t].1,
+                    free: vec![rect],
                     ..Stock::default()
                 });
-                let rect = sheets.last().expect("just pushed").free[0];
                 let &(dx, dy) = turns
                     .iter()
                     .find(|(dx, dy)| *dx <= rect.w + EPS && *dy <= rect.h + EPS)
-                    .expect("checked that every piece fits the stock");
-                (sheets.len() - 1, 0, dx, dy)
+                    .expect("checked that the piece fits this stock");
+                (sheets.len() - 1, 0, dx, dy, false)
             }
         };
         let sheet = &mut sheets[s];
         let rect = sheet.free.remove(r);
-        place(sheet, rect, i, dx, dy, o.gap, split);
+        place(sheet, rect, i, dx, dy, o.gap, split, top, p.edge);
     }
     sheets
 }
 
-fn place(sheet: &mut Stock, rect: Rect, piece: usize, dx: f64, dy: f64, gap: f64, split: Split) {
+/// Puts the piece in a corner of the free rectangle, at its bottom (low `y`)
+/// or, with `top`, against its top, and saws the rest into new free
+/// rectangles with one rip and one crosscut.
+#[allow(clippy::too_many_arguments)]
+fn place(
+    sheet: &mut Stock,
+    rect: Rect,
+    piece: usize,
+    dx: f64,
+    dy: f64,
+    gap: f64,
+    split: Split,
+    top: bool,
+    edge: bool,
+) {
+    let (lw, lh) = (rect.w - dx, rect.h - dy);
+    let py = if top { rect.y + lh } else { rect.y };
     sheet.placed.push(Placed {
         piece,
         x: rect.x,
-        y: rect.y,
+        y: py,
         dx,
         dy,
+        on_edge: edge,
     });
-    let (lw, lh) = (rect.w - dx, rect.h - dy);
     let rip_first = match split {
         Split::Shorter => lw > lh,
         Split::Longer => lw <= lh,
         Split::RipFirst => true,
         Split::CrossFirst => false,
     };
+    let rip_at = if top { py } else { py + dy };
+    let rest_y = if top { rect.y } else { py + dy + gap };
     let mut keep = |r: Rect| {
         if r.w > EPS && r.h > EPS {
             sheet.free.push(r);
@@ -360,13 +514,13 @@ fn place(sheet: &mut Stock, rect: Rect, piece: usize, dx: f64, dy: f64, gap: f64
         if lh > EPS {
             cuts.push(Cut {
                 rip: true,
-                at: rect.y + dy,
+                at: rip_at,
                 from: rect.x,
                 to: rect.x + rect.w,
             });
             keep(Rect {
                 x: rect.x,
-                y: rect.y + dy + gap,
+                y: rest_y,
                 w: rect.w,
                 h: lh - gap,
             });
@@ -375,12 +529,12 @@ fn place(sheet: &mut Stock, rect: Rect, piece: usize, dx: f64, dy: f64, gap: f64
             cuts.push(Cut {
                 rip: false,
                 at: rect.x + dx,
-                from: rect.y,
-                to: rect.y + dy,
+                from: py,
+                to: py + dy,
             });
             keep(Rect {
                 x: rect.x + dx + gap,
-                y: rect.y,
+                y: py,
                 w: lw - gap,
                 h: dy,
             });
@@ -403,13 +557,13 @@ fn place(sheet: &mut Stock, rect: Rect, piece: usize, dx: f64, dy: f64, gap: f64
         if lh > EPS {
             cuts.push(Cut {
                 rip: true,
-                at: rect.y + dy,
+                at: rip_at,
                 from: rect.x,
                 to: rect.x + dx,
             });
             keep(Rect {
                 x: rect.x,
-                y: rect.y + dy + gap,
+                y: rest_y,
                 w: dx,
                 h: lh - gap,
             });
@@ -419,52 +573,100 @@ fn place(sheet: &mut Stock, rect: Rect, piece: usize, dx: f64, dy: f64, gap: f64
 }
 
 impl Layout {
+    /// The board bought, the parts cut from it and the rest, all in mm².
+    pub fn areas(&self) -> (f64, f64, f64) {
+        let bought: f64 = self.sheets.iter().map(Stock::area).sum();
+        let parts: f64 = self.sheets.iter().map(Stock::used).sum();
+        (bought, parts, bought - parts)
+    }
+
+    /// The stock bought, as `1 x 2440 x 1220 + 1 x 2440 x 600`.
+    pub fn bought(&self) -> String {
+        let mut sizes: Vec<((f64, f64), usize)> = Vec::new();
+        for s in &self.sheets {
+            match sizes
+                .iter_mut()
+                .find(|(z, _)| (z.0 - s.length).abs() < EPS && (z.1 - s.width).abs() < EPS)
+            {
+                Some((_, n)) => *n += 1,
+                None => sizes.push(((s.length, s.width), 1)),
+            }
+        }
+        sizes
+            .iter()
+            .map(|((l, w), n)| format!("{n} x {} x {}", number(*l), number(*w)))
+            .collect::<Vec<_>>()
+            .join(" + ")
+    }
+
+    /// One line: what is bought and how much of it is wasted.
+    pub fn waste_text(&self) -> String {
+        let (bought, parts, waste) = self.areas();
+        format!(
+            "stock {:.2} m², parts {:.2} m², waste {:.2} m² ({:.0}%)",
+            bought / 1e6,
+            parts / 1e6,
+            waste / 1e6,
+            100.0 * waste / bought.max(EPS)
+        )
+    }
+
     /// The layout as text: the pieces, then each sheet's pieces and its cuts
     /// in the order to saw them.
     pub fn report(&self) -> String {
         let mut out = String::new();
-        let area: f64 = self.pieces.iter().map(|p| p.length * p.width).sum();
-        let stock = self.length * self.width * self.sheets.len() as f64;
         out += &format!(
-            "{} pieces {} thick on {} sheets of {} x {}, gap {}{}, {:.0}% used\n\n",
+            "{} pieces {} thick on {}, gap {}{}{}\n{}\n\n",
             self.pieces.len(),
             number(self.pieces.first().map_or(0.0, |p| p.thickness)),
-            self.sheets.len(),
-            number(self.length),
-            number(self.width),
+            self.bought(),
             number(self.gap),
             if self.trim > 0.0 {
-                format!(", edges trimmed {}", number(self.trim))
+                format!(
+                    ", {} trimmed {}",
+                    if self.edged { "ends" } else { "edges" },
+                    number(self.trim)
+                )
             } else {
                 String::new()
             },
-            100.0 * area / stock.max(EPS)
+            if self.edged { ", long edges finished" } else { "" },
+            self.waste_text()
         );
         out += " no  part                      size\n";
         for (i, p) in self.pieces.iter().enumerate() {
             out += &format!(
-                "{:3}  {:24}  {} x {}\n",
+                "{:3}  {:24}  {} x {}{}\n",
                 i + 1,
                 p.name,
                 number(p.length),
-                number(p.width)
+                number(p.width),
+                if p.edge { "  edge shows" } else { "" }
             );
         }
         for (s, sheet) in self.sheets.iter().enumerate() {
             out += &format!(
-                "\nsheet {} of {}: {:.0}% used\n",
+                "\nsheet {} of {}: {} x {}, {:.0}% used, waste {:.2} m²\n",
                 s + 1,
                 self.sheets.len(),
-                100.0 * sheet.used() / (self.length * self.width)
+                number(sheet.length),
+                number(sheet.width),
+                100.0 * sheet.used() / sheet.area(),
+                (sheet.area() - sheet.used()) / 1e6
             );
             for p in &sheet.placed {
                 out += &format!(
-                    "  piece {:3} at x {} y {}, {} along x {} across\n",
+                    "  piece {:3} at x {} y {}, {} along x {} across{}\n",
                     p.piece + 1,
                     number(p.x),
                     number(p.y),
                     number(p.dx),
-                    number(p.dy)
+                    number(p.dy),
+                    if p.on_edge {
+                        "  (showing edge on the factory edge)"
+                    } else {
+                        ""
+                    }
                 );
             }
             for (c, cut) in sheet.cuts.iter().enumerate() {
@@ -508,6 +710,7 @@ mod tests {
             length: l,
             width: w,
             thickness: 18.0,
+            edge: false,
         }
     }
 
@@ -523,11 +726,11 @@ mod tests {
             })
             .collect();
         let o = Options {
-            length: 1200.0,
-            width: 600.0,
+            stocks: vec![(1200.0, 600.0)],
             gap: 4.0,
             trim: 5.0,
             grain: false,
+            edged: false,
         };
         let layout = nest(pieces, o).unwrap();
         let placed: usize = layout.sheets.iter().map(|s| s.placed.len()).sum();
@@ -550,21 +753,73 @@ mod tests {
     #[test]
     fn grain_keeps_pieces_along_the_length() {
         let o = Options {
-            length: 2400.0,
-            width: 600.0,
+            stocks: vec![(2400.0, 600.0)],
             gap: 4.0,
             trim: 0.0,
             grain: true,
+            edged: false,
         };
-        let layout = nest(vec![piece("a", 500.0, 400.0)], o).unwrap();
+        let layout = nest(vec![piece("a", 500.0, 400.0)], o.clone()).unwrap();
         let p = &layout.sheets[0].placed[0];
         assert_eq!((p.dx, p.dy), (500.0, 400.0));
         assert!(
             nest(
                 vec![piece("b", 590.0, 590.0)],
-                Options { width: 500.0, ..o }
+                Options {
+                    stocks: vec![(2400.0, 500.0)],
+                    ..o
+                }
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn edge_pieces_sit_on_a_finished_edge() {
+        let mut pieces: Vec<Piece> = (0..4).map(|i| piece(&format!("s{i}"), 744.0, 380.0)).collect();
+        pieces.push(piece("rail", 744.0, 100.0));
+        for p in pieces.iter_mut().take(4) {
+            p.edge = true;
+        }
+        let o = Options {
+            stocks: vec![(2440.0, 1220.0)],
+            gap: 4.0,
+            trim: 5.0,
+            grain: true,
+            edged: true,
+        };
+        let layout = nest(pieces, o.clone()).unwrap();
+        for s in &layout.sheets {
+            for p in &s.placed {
+                if layout.pieces[p.piece].edge {
+                    assert!(
+                        p.y.abs() < EPS || (p.y + p.dy - s.width).abs() < EPS,
+                        "{p:?} is off the edge"
+                    );
+                }
+            }
+        }
+        assert!(nest(vec![piece("x", 10.0, 10.0)], Options { edged: false, ..o }).is_ok());
+    }
+
+    #[test]
+    fn mixed_stock_buys_the_least_board() {
+        let pieces = vec![
+            piece("big", 2000.0, 1000.0),
+            piece("small", 2000.0, 500.0),
+        ];
+        let o = Options {
+            stocks: vec![(2440.0, 1220.0), (2440.0, 600.0)],
+            gap: 4.0,
+            trim: 0.0,
+            grain: true,
+            edged: false,
+        };
+        let layout = nest(pieces, o).unwrap();
+        let mut widths: Vec<f64> = layout.sheets.iter().map(|s| s.width).collect();
+        widths.sort_by(f64::total_cmp);
+        assert_eq!(widths, vec![600.0, 1220.0]);
+        let (bought, parts, waste) = layout.areas();
+        assert!((bought - parts - waste).abs() < 1e-6);
     }
 }

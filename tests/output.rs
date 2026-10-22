@@ -667,6 +667,46 @@ fn drawing_sheets() {
 }
 
 #[test]
+fn drawing_nests_panels_on_stock() {
+    let dir = std::path::PathBuf::from(scratch("drawing_nest"));
+    std::fs::create_dir_all(&dir).expect("dir");
+    std::fs::write(
+        dir.join("panels.gcad"),
+        "rect 18 380 at=9,190\nextrude 1900\nbody b\nrect 744 380 at=500,190\nextrude 18\nbody c\nrect 744 380 at=1500,190\nextrude 18\nbody d\nrect 744 100 at=2500,50\nextrude 18\nbody thick\nrect 300 300 at=4000,0\nextrude 40\n",
+    )
+    .expect("part");
+    let path = dir.join("panels.gdwg");
+    std::fs::write(
+        &path,
+        "part panels.gcad\nsheet \"Stock\" size=A3\nnest !thick stock=2400x600 gap=4\n",
+    )
+    .expect("drawing");
+    let drawing = gcad::drafting::run(&path, &[]).expect("runs");
+    assert!(
+        drawing.failed().is_none(),
+        "{:?}",
+        drawing.failed().map(|(l, e)| format!("{}: {e:#}", l.text))
+    );
+    assert_eq!(
+        drawing.sheets.len(),
+        2,
+        "1900x380 + 744x100 on one, two 744x380 on another"
+    );
+    let svg = gcad::drafting::svg(&drawing.sheets[0]);
+    for words in [">1900 x 380<", "rip at y 380", "stock 1 of 2"] {
+        assert!(svg.contains(words), "the sheet lacks {words}");
+    }
+    std::fs::write(
+        &path,
+        "part panels.gcad\nsheet \"Stock\" size=A3\nnest stock=2400x600\n",
+    )
+    .expect("drawing");
+    let drawing = gcad::drafting::run(&path, &[]).expect("runs");
+    let (_, error) = drawing.failed().expect("mixed thicknesses");
+    assert!(format!("{error:#}").contains("thickness="), "{error:#}");
+}
+
+#[test]
 fn drawing_view_that_does_not_fit() {
     let path = drawing_files(
         "drawing_too_big",

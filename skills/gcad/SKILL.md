@@ -409,7 +409,7 @@ note "Ø12 silver steel, 131 long|Break all edges 0.5" place=20,20
   z viewed from -y) and stack by raising the offset (`offset=12`, then `24`). It prints one decimal
   (102.2) and `text="..."` overrides. `dims parts along=h|v of=ends|edges|centres` chains between
   parts of an assembly, `style=ordinate` sets out from the first mark, `level` marks heights on an
-  elevation, `cutlist` tables structural members.
+  elevation, `cutlist` tables structural members, `nest` lays panels out on stock sheets with the saw cuts in order.
 - **Notes.** `note "line one|line two" place=x,y` (an error if it would sit on a view) for the material, finish, general tolerances
   and anything a view cannot show. Keep a made part's drawing to one sheet: views, the
   dimensions a machinist needs, one label per feature, a note for the rest. Say the quantity in

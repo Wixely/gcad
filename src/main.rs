@@ -112,6 +112,27 @@ enum Command {
         #[arg(long)]
         csv: bool,
     },
+    /// Nest the flat parts of a file onto stock sheets and print where every piece and saw cut goes
+    Nest {
+        file: String,
+        /// The stock sheet, length x width in mm
+        #[arg(long, default_value = "2440x1220")]
+        stock: String,
+        /// The least space between pieces: the saw kerf plus any allowance, in mm
+        #[arg(long, default_value_t = 4.0)]
+        gap: f64,
+        /// Trim this much off every stock edge first, in mm
+        #[arg(long, default_value_t = 0.0)]
+        trim: f64,
+        /// Only parts this thick (the thinnest side of each part's box)
+        #[arg(long)]
+        thickness: Option<f64>,
+        /// Keep each part's length along the stock's length (grain or pattern)
+        #[arg(long)]
+        grain: bool,
+        /// Parts to nest, by name with * wildcards; ! leaves parts out (default: all)
+        parts: Vec<String>,
+    },
     /// Draw iso, top, front and right views into one PNG
     Render {
         file: String,
@@ -525,6 +546,33 @@ fn main() -> Result<()> {
                 "{}",
                 gcad::model::materials::table(file.as_deref().map(std::path::Path::new))?
             );
+            Ok(())
+        }
+        Command::Nest {
+            file,
+            stock,
+            gap,
+            trim,
+            thickness,
+            grain,
+            parts,
+        } => {
+            let run = load(&file, None, &vars)?;
+            finished(&run)?;
+            let names = gcad::nest::pick(&run.model, &parts)?;
+            let pieces = gcad::nest::panels(&run.model, &names, thickness)?;
+            let (length, width) = gcad::nest::stock_size(&stock)?;
+            let layout = gcad::nest::nest(
+                pieces,
+                gcad::nest::Options {
+                    length,
+                    width,
+                    gap,
+                    trim,
+                    grain,
+                },
+            )?;
+            print!("{}", layout.report());
             Ok(())
         }
         Command::Bom { file, csv } => {

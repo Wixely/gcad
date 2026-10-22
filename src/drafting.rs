@@ -390,6 +390,7 @@ impl State {
             "callout" => self.op_callout(line),
             "label" => self.op_label(line),
             "cutlist" => self.op_cutlist(line),
+            "nest" => self.op_nest(line),
             other => bail!("`{other}` is not a drawing operation; see `gcad docs`"),
         }
     }
@@ -1495,6 +1496,242 @@ impl State {
             .collect();
         self.sheet()?.marks.extend(marks);
         Ok(format!("{} lines", lines.len()))
+    }
+
+    fn op_nest(&mut self, line: &Line) -> Result<String> {
+        let names = self.picked_by(line)?;
+        let model = self.model()?;
+        let thickness = named(line, "thickness")
+            .map(|t| eval(t, &self.scope))
+            .transpose()?;
+        let pieces = crate::nest::panels(model, &names, thickness)?;
+        let (length, width) = crate::nest::stock_size(
+            named(line, "stock")
+                .ok_or_else(|| anyhow!("give the stock size, like `stock=2400x600`"))?,
+        )?;
+        let num = |key: &str, default: f64| -> Result<f64> {
+            named(line, key).map_or(Ok(default), |t| eval(t, &self.scope))
+        };
+        let options = crate::nest::Options {
+            length,
+            width,
+            gap: num("gap", 4.0)?,
+            trim: num("trim", 0.0)?,
+            grain: num("grain", 0.0)? != 0.0,
+        };
+        let layout = crate::nest::nest(pieces, options)?;
+        let template = self
+            .drawing
+            .sheets
+            .last()
+            .cloned()
+            .ok_or_else(|| anyhow!("start a `sheet` before drawing on it"))?;
+        let scale = match named(line, "scale") {
+            Some(t) => scale_of(t)?,
+            None => {
+                let room = template.width - 2.0 * MARGIN - 50.0;
+                [5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40.0, 50.0]
+                    .into_iter()
+                    .find(|s| length / s <= room)
+                    .unwrap_or(50.0)
+            }
+        };
+        let count = layout.sheets.len();
+        self.sheet()?.scale = scale;
+        for (s, stock) in layout.sheets.iter().enumerate() {
+            if s > 0 {
+                let mut sheet = Sheet {
+                    name: format!("{} ({})", template.name, s + 1),
+                    scale,
+                    marks: Vec::new(),
+                    ..template.clone()
+                };
+                rectangle(
+                    &mut sheet,
+                    MARGIN,
+                    MARGIN,
+                    template.width - MARGIN,
+                    template.height - MARGIN,
+                    0.5,
+                );
+                self.drawing.sheets.push(sheet);
+                self.cursor = (MARGIN + 22.0, MARGIN + 14.0, 0.0);
+            }
+            self.nest_sheet(&layout, stock, s, count, scale)?;
+        }
+        self.frame = None;
+        let used: f64 = layout.pieces.iter().map(|p| p.length * p.width).sum();
+        Ok(format!(
+            "{} pieces on {count} stock sheets of {} x {} at 1:{}, {:.0}% used",
+            layout.pieces.len(),
+            number(length),
+            number(width),
+            number(scale),
+            100.0 * used / (length * width * count as f64)
+        ))
+    }
+
+    fn nest_sheet(
+        &mut self,
+        layout: &crate::nest::Layout,
+        stock: &crate::nest::Stock,
+        index: usize,
+        count: usize,
+        scale: f64,
+    ) -> Result<()> {
+        let (w, h) = (layout.length / scale, layout.width / scale);
+        let header = TEXT * 2.0;
+        let (x, y) = self.place(w, h + header, None)?;
+        let bottom = y;
+        let to = |u: f64, v: f64| (x + u / scale, bottom - v / scale);
+        let mut marks = Vec::new();
+        marks.push(Mark::Text {
+            x,
+            y: bottom - h - TEXT * 0.8,
+            size: TEXT,
+            text: format!(
+                "stock {} of {count}: {} x {} x {}, gap {}, 1:{}, {:.0}% used",
+                index + 1,
+                number(layout.length),
+                number(layout.width),
+                number(layout.pieces.first().map_or(0.0, |p| p.thickness)),
+                number(layout.gap),
+                number(scale),
+                100.0 * stock.used() / (layout.length * layout.width)
+            ),
+            anchor: Anchor::Start,
+            angle: 0.0,
+        });
+        let corner = |u0: f64, v0: f64, u1: f64, v1: f64| {
+            vec![to(u0, v0), to(u1, v0), to(u1, v1), to(u0, v1)]
+        };
+        marks.push(Mark::Shape {
+            loops: vec![corner(0.0, 0.0, layout.length, layout.width)],
+            closed: true,
+            fill: Some([0.93, 0.93, 0.93]),
+            stroke: Some(BLACK),
+            width: 0.35,
+            dashed: false,
+        });
+        for p in &stock.placed {
+            marks.push(Mark::Shape {
+                loops: vec![corner(p.x, p.y, p.x + p.dx, p.y + p.dy)],
+                closed: true,
+                fill: Some([1.0, 1.0, 1.0]),
+                stroke: Some(BLACK),
+                width: 0.25,
+                dashed: false,
+            });
+            let piece = &layout.pieces[p.piece];
+            let (cx, cy) = to(p.x + p.dx / 2.0, p.y + p.dy / 2.0);
+            let (pw, ph) = (p.dx / scale, p.dy / scale);
+            let words = [
+                format!("{} {}", p.piece + 1, piece.name),
+                format!("{} x {}", number(p.dx), number(p.dy)),
+            ];
+            let size = TEXT.min(ph / 2.6);
+            let fits = |t: &str| text_width(t, size) <= pw - 1.0;
+            let lines: Vec<&String> = if size < 1.2 {
+                Vec::new()
+            } else if words.iter().all(|t| fits(t)) {
+                words.iter().collect()
+            } else if fits(&format!("{}", p.piece + 1)) {
+                vec![&words[0]]
+            } else {
+                Vec::new()
+            };
+            let short = format!("{}", p.piece + 1);
+            let lines: Vec<String> = if lines.len() == 1 && !fits(&words[0]) {
+                vec![short]
+            } else {
+                lines.into_iter().cloned().collect()
+            };
+            let n = lines.len() as f64;
+            for (k, text) in lines.into_iter().enumerate() {
+                marks.push(Mark::Text {
+                    x: cx,
+                    y: cy + size * 0.35 + (k as f64 - (n - 1.0) / 2.0) * size * 1.3,
+                    size,
+                    text,
+                    anchor: Anchor::Middle,
+                    angle: 0.0,
+                });
+            }
+        }
+        for (c, cut) in stock.cuts.iter().enumerate() {
+            let (a, b) = if cut.rip {
+                (to(cut.from, cut.at), to(cut.to, cut.at))
+            } else {
+                (to(cut.at, cut.from), to(cut.at, cut.to))
+            };
+            marks.push(Mark::Shape {
+                loops: vec![vec![a, b]],
+                closed: false,
+                fill: None,
+                stroke: Some([0.8, 0.1, 0.1]),
+                width: 0.3,
+                dashed: true,
+            });
+            let (tx, ty) = if cut.rip {
+                (a.0 - 1.2, a.1 + TEXT * 0.35)
+            } else {
+                (b.0, b.1 - 1.0)
+            };
+            marks.push(Mark::Text {
+                x: tx,
+                y: ty,
+                size: TEXT * 0.8,
+                text: format!("{}", c + 1),
+                anchor: if cut.rip { Anchor::End } else { Anchor::Middle },
+                angle: 0.0,
+            });
+        }
+        self.sheet()?.marks.extend(marks);
+        let rows: Vec<String> = stock
+            .cuts
+            .iter()
+            .enumerate()
+            .map(|(c, cut)| format!("{:>2}  {}", c + 1, crate::nest::cut_text(cut)))
+            .collect();
+        let size = TEXT * 0.85;
+        let row_h = size * 1.45;
+        let col_w = rows.iter().map(|r| text_width(r, size)).fold(0.0, f64::max) + 4.0;
+        let sheet = self.drawing.sheets.last().expect("a sheet");
+        let (sw, sh) = (sheet.width, sheet.height);
+        let top = bottom + 8.0;
+        let per_col = (((sh - MARGIN - TITLE_H - 4.0) - top) / row_h)
+            .floor()
+            .max(1.0) as usize;
+        let mut marks = Vec::new();
+        marks.push(Mark::Text {
+            x,
+            y: top,
+            size,
+            text: "cuts in order (rip: along the length at y; cross: across at x; mm from the stock corner)"
+                .into(),
+            anchor: Anchor::Start,
+            angle: 0.0,
+        });
+        for (k, row) in rows.iter().enumerate() {
+            let col = k / per_col;
+            let cx = x + col as f64 * col_w;
+            if cx + col_w > sw - MARGIN {
+                bail!(
+                    "the cut list does not fit under the stock; use a bigger sheet or smaller scale"
+                );
+            }
+            marks.push(Mark::Text {
+                x: cx,
+                y: top + ((k % per_col) as f64 + 1.0) * row_h,
+                size,
+                text: row.clone(),
+                anchor: Anchor::Start,
+                angle: 0.0,
+            });
+        }
+        self.sheet()?.marks.extend(marks);
+        self.cursor = (sw, sh, 0.0);
+        Ok(())
     }
 
     fn op_cutlist(&mut self, line: &Line) -> Result<String> {

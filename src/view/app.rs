@@ -3102,7 +3102,7 @@ impl App {
         if activity.rows.is_empty() {
             return false;
         }
-        egui::Area::new(egui::Id::new("building progress"))
+        egui::Area::new(egui::Id::unique("building progress"))
             .fixed_pos(at)
             .pivot(pivot)
             .order(egui::Order::Foreground)
@@ -3395,7 +3395,7 @@ impl App {
         if !self.help_open {
             return;
         }
-        let modal = egui::Modal::new(egui::Id::new("gcad_help"))
+        let modal = egui::Modal::new(egui::Id::unique("gcad_help"))
             .backdrop_color(Color32::from_black_alpha(150))
             .show(ctx, |ui| {
             ui.set_width(560.0);
@@ -3449,21 +3449,12 @@ impl App {
         let files = ctx.input(|i| i.raw.dropped_files.clone());
         let mut found: Vec<PathBuf> = Vec::new();
         for file in files {
-            let path = match (file.path, &file.bytes) {
-                (_, Some(bytes)) if WEB => {
-                    let path = PathBuf::from("dropped").join(&file.name);
-                    match std::str::from_utf8(bytes) {
-                        Ok(text) => crate::host::save(&path, text),
-                        Err(_) => {
-                            let _ = crate::host::write(&path, bytes);
-                        }
-                    }
-                    path
-                }
-                (Some(path), _) => path,
-                _ => continue,
-            };
-            found.push(path);
+            #[cfg(not(target_arch = "wasm32"))]
+            found.push(file.path().to_path_buf());
+            #[cfg(target_arch = "wasm32")]
+            {
+                let _ = &file;
+            }
         }
         let rank = |p: &PathBuf| match p.extension().and_then(|e| e.to_str()) {
             Some("gasm") => 0,
@@ -3661,7 +3652,7 @@ impl Library {
                     .is_some_and(|e| OPENS.contains(&&*e.to_string_lossy()))
             })
             .collect();
-        let modal = egui::Modal::new(egui::Id::new("open a part or assembly"))
+        let modal = egui::Modal::new(egui::Id::unique("open a part or assembly"))
             .backdrop_color(Color32::from_black_alpha(150))
             .show(ctx, |ui| {
                 ui.set_width(420.0);

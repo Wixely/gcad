@@ -1,6 +1,6 @@
 [package]
 name = "gcad"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2024"
 description = "Parametric CAD written like G-code: one operation per line"
 license = "GPL-3.0-or-later"
@@ -13,9 +13,9 @@ members = [".", "web", "sims-proto"]
 anyhow = "1.0.104"
 rayon = "1.12"
 clap = { version = "4.6.7", features = ["derive"] }
-eframe = { version = "0.35", default-features = false, features = ["default_fonts", "wgpu"] }
-egui = "0.35"
-egui_bench = { version = "0.5.4", features = ["viewer3d"] }
+eframe = { version = "0.37", default-features = false, features = ["default_fonts", "wgpu"] }
+egui = "0.37"
+egui_bench = { version = "0.9.2", features = ["viewer3d"] }
 epaint_default_fonts = "0.35"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
 monstertruck = { version = "0.4.1", features = ["solid", "step"] }
@@ -31,16 +31,16 @@ spade = "2.15"
 robust = "1.2"
 faer = { version = "0.24", default-features = false, features = ["std", "sparse-linalg"] }
 ttf-parser = "0.25"
-wgpu = "29"
-sims-field = { git = "https://github.com/v0l/sims", rev = "ae5c5a5ead01be186c1cfbebb78c1b5f2d4d7efc" }
-sims-acoustics = { git = "https://github.com/v0l/sims", rev = "ae5c5a5ead01be186c1cfbebb78c1b5f2d4d7efc" }
-sims-frame = { git = "https://github.com/v0l/sims", rev = "ae5c5a5ead01be186c1cfbebb78c1b5f2d4d7efc" }
-sims-thermal = { git = "https://github.com/v0l/sims", rev = "ae5c5a5ead01be186c1cfbebb78c1b5f2d4d7efc" }
-sims-flow = { git = "https://github.com/v0l/sims", rev = "ae5c5a5ead01be186c1cfbebb78c1b5f2d4d7efc" }
-sims-magnetic = { git = "https://github.com/v0l/sims", rev = "ae5c5a5ead01be186c1cfbebb78c1b5f2d4d7efc" }
-sims-fem = { git = "https://github.com/v0l/sims", rev = "ae5c5a5ead01be186c1cfbebb78c1b5f2d4d7efc" }
-sims-tet = { git = "https://github.com/v0l/sims", rev = "ae5c5a5ead01be186c1cfbebb78c1b5f2d4d7efc" }
-sims-progress = { git = "https://github.com/v0l/sims", rev = "ae5c5a5ead01be186c1cfbebb78c1b5f2d4d7efc" }
+wgpu = "30"
+sims-field = { git = "https://github.com/v0l/sims", rev = "99ab20b26822ac11125e2fefb41a83995ca75b62" }
+sims-acoustics = { git = "https://github.com/v0l/sims", rev = "99ab20b26822ac11125e2fefb41a83995ca75b62" }
+sims-frame = { git = "https://github.com/v0l/sims", rev = "99ab20b26822ac11125e2fefb41a83995ca75b62" }
+sims-thermal = { git = "https://github.com/v0l/sims", rev = "99ab20b26822ac11125e2fefb41a83995ca75b62" }
+sims-flow = { git = "https://github.com/v0l/sims", rev = "99ab20b26822ac11125e2fefb41a83995ca75b62" }
+sims-magnetic = { git = "https://github.com/v0l/sims", rev = "99ab20b26822ac11125e2fefb41a83995ca75b62" }
+sims-fem = { git = "https://github.com/v0l/sims", rev = "99ab20b26822ac11125e2fefb41a83995ca75b62" }
+sims-tet = { git = "https://github.com/v0l/sims", rev = "99ab20b26822ac11125e2fefb41a83995ca75b62" }
+sims-progress = { git = "https://github.com/v0l/sims", rev = "99ab20b26822ac11125e2fefb41a83995ca75b62" }
 pollster = "0.4"
 bytemuck = "1"
 toml = "1.1.8"
@@ -52,7 +52,7 @@ lopdf = { version = "0.45", default-features = false }
 gpu-tests = []
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-eframe = { version = "0.35", default-features = false, features = ["wayland", "x11"] }
+eframe = { version = "0.37", default-features = false, features = ["wayland", "x11"] }
 faer = { version = "0.24", features = ["rayon"] }
 notify = "8"
 ureq = { version = "2.12", features = ["json"] }

@@ -6,6 +6,14 @@ All notable changes to gcad are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-31
+
+### Added
+- `gcad nest` packs flat parts onto stock sheets with guillotine cuts, with mixed stock sizes, edged stock and a waste report, and a `.gdwg` operation for it.
+
+### Changed
+- egui and eframe 0.37, which keeps the window running on Wayland when its workspace is hidden.
+
 ## [0.5.0] - 2026-10-19
 
 ### Added

@@ -6,6 +6,11 @@ All notable changes to gcad are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-31
+
+### Fixed
+- The web build compiles again on egui 0.37, and dropping a file on it reads the file asynchronously.
+
 ## [0.5.1] - 2026-10-31
 
 ### Added

@@ -15,7 +15,7 @@ use egui_bench::viewer3d::{
 };
 use monstertruck::modeling::{Matrix4, Solid, SquareMatrix};
 use std::path::PathBuf;
-use std::sync::mpsc::{Receiver, TryRecvError, channel};
+use std::sync::mpsc::{Receiver, Sender, TryRecvError, channel};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -271,6 +271,7 @@ pub struct App {
     cam: Camera,
     orbit: Orbit,
     events: Option<Receiver<()>>,
+    arrived: (Sender<PathBuf>, Receiver<PathBuf>),
     #[cfg(not(target_arch = "wasm32"))]
     watching: Option<Watching>,
     dirty: Option<Instant>,
@@ -948,6 +949,7 @@ impl App {
             cam: Camera::default(),
             orbit: Orbit::default(),
             events: None,
+            arrived: channel(),
             #[cfg(not(target_arch = "wasm32"))]
             watching: None,
             dirty: None,
@@ -3448,12 +3450,28 @@ impl App {
     fn dropped(&mut self, ctx: &egui::Context) {
         let files = ctx.input(|i| i.raw.dropped_files.clone());
         let mut found: Vec<PathBuf> = Vec::new();
+        while let Ok(path) = self.arrived.1.try_recv() {
+            found.push(path);
+        }
         for file in files {
             #[cfg(not(target_arch = "wasm32"))]
             found.push(file.path().to_path_buf());
             #[cfg(target_arch = "wasm32")]
             {
-                let _ = &file;
+                let name = file.path().file_name().map(PathBuf::from).unwrap_or_default();
+                let path = PathBuf::from("dropped").join(name);
+                let (tx, ctx) = (self.arrived.0.clone(), ctx.clone());
+                wasm_bindgen_futures::spawn_local(async move {
+                    let Ok(bytes) = file.bytes_async().await else { return };
+                    match std::str::from_utf8(&bytes) {
+                        Ok(text) => crate::host::save(&path, text),
+                        Err(_) => {
+                            let _ = crate::host::write(&path, &bytes);
+                        }
+                    }
+                    let _ = tx.send(path);
+                    ctx.request_repaint();
+                });
             }
         }
         let rank = |p: &PathBuf| match p.extension().and_then(|e| e.to_str()) {

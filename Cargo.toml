@@ -1,6 +1,6 @@
 [package]
 name = "gcad"
-version = "0.5.1"
+version = "0.5.2"
 edition = "2024"
 description = "Parametric CAD written like G-code: one operation per line"
 license = "GPL-3.0-or-later"
@@ -10,6 +10,7 @@ repository = "https://github.com/v0l/gcad"
 members = [".", "web", "sims-proto"]
 
 [dependencies]
+gcad-sims-proto = { path = "sims-proto" }
 anyhow = "1.0.104"
 rayon = "1.12"
 clap = { version = "4.6.7", features = ["derive"] }
@@ -56,9 +57,9 @@ eframe = { version = "0.37", default-features = false, features = ["wayland", "x
 faer = { version = "0.24", features = ["rayon"] }
 notify = "8"
 ureq = { version = "2.12", features = ["json"] }
-gcad-sims-proto = { path = "sims-proto" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = ["Window", "Storage"] }
 web-time = "1"
 getrandom = { version = "0.4", features = ["wasm_js"] }

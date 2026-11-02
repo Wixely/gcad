@@ -103,6 +103,9 @@ mod files {
     }
 
     pub fn read(path: &Path) -> io::Result<Vec<u8>> {
+        if let Some(snapshot) = egui_bench::revision::covering(path) {
+            return snapshot.read(path);
+        }
         let was = stamp(path);
         let bytes = std::fs::read(path);
         note(path, was, bytes.is_ok(), bytes.as_deref().ok());
@@ -110,6 +113,9 @@ mod files {
     }
 
     pub fn is_file(path: &Path) -> bool {
+        if let Some(snapshot) = egui_bench::revision::covering(path) {
+            return snapshot.is_file(path);
+        }
         let was = stamp(path);
         let file = path.is_file();
         note(path, was, file, None);
@@ -117,19 +123,38 @@ mod files {
     }
 
     pub fn is_dir(path: &Path) -> bool {
+        if let Some(snapshot) = egui_bench::revision::covering(path) {
+            return snapshot.is_dir(path);
+        }
         path.is_dir()
     }
 
     pub fn canonicalize(path: &Path) -> io::Result<PathBuf> {
+        if let Some(snapshot) = egui_bench::revision::covering(path) {
+            return snapshot.canonicalize(path);
+        }
         std::fs::canonicalize(path)
     }
 
+    fn frozen(path: &Path) -> io::Result<()> {
+        if egui_bench::revision::covering(path).is_some() {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "an earlier revision is read only",
+            ));
+        }
+        Ok(())
+    }
+
     pub fn write(path: &Path, bytes: &[u8]) -> io::Result<()> {
+        frozen(path)?;
         std::fs::write(path, bytes)
     }
 
     pub fn save(path: &Path, text: &str) {
-        let _ = std::fs::write(path, text);
+        if frozen(path).is_ok() {
+            let _ = std::fs::write(path, text);
+        }
     }
 
     pub fn edited(_path: &Path) -> bool {

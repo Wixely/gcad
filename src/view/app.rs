@@ -298,6 +298,9 @@ pub struct App {
     locks: Option<Locks>,
     lock_job: Option<Receiver<Locks>>,
     browser: Option<Picker>,
+    #[cfg(not(target_arch = "wasm32"))]
+    history: Option<egui_bench::revision::Picker>,
+    viewing: Option<(String, PathBuf)>,
     help_open: bool,
     render_open: bool,
     mode: RenderMode,
@@ -978,6 +981,9 @@ impl App {
             locks: None,
             lock_job: None,
             browser: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            history: None,
+            viewing: None,
             help_open: false,
             render_open: false,
             mode: RenderMode::Shaded,
@@ -1010,12 +1016,25 @@ impl App {
     }
 
     fn open(&mut self, path: PathBuf, ctx: &egui::Context) {
+        #[cfg(not(target_arch = "wasm32"))]
+        self.show_snapshot(None);
+        self.open_here(path, ctx);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn show_snapshot(&mut self, snapshot: Option<std::sync::Arc<egui_bench::revision::Snapshot>>) {
+        egui_bench::revision::set_active(snapshot);
+        crate::model::forget_kept();
+    }
+
+    fn open_here(&mut self, path: PathBuf, ctx: &egui::Context) {
         let path = crate::host::canonicalize(&path).unwrap_or(path);
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(format!(
             "gcad - {}",
             path.display()
         )));
         crate::host::opened(&path);
+        self.viewing = None;
         self.source = crate::host::read_to_string(&path).unwrap_or_default();
         self.cursor_row = None;
         self.path = Some(path);
@@ -1374,6 +1393,8 @@ impl App {
                     )),
                 };
             }
+            #[cfg(not(target_arch = "wasm32"))]
+            self.history_controls(ui, ctx);
             if toggle(ui, "?", self.help_open).clicked() {
                 self.help_open = !self.help_open;
             }
@@ -1711,7 +1732,9 @@ impl App {
                             #[cfg(not(target_arch = "wasm32"))]
                             {
                                 run_remote = toggle(ui, "run on server", false)
-                                    .on_hover_text("build here, solve on a paid GPU on the sims server")
+                                    .on_hover_text(
+                                        "build here, solve on a paid GPU on the sims server",
+                                    )
                                     .clicked();
                             }
                         }
@@ -1720,7 +1743,9 @@ impl App {
                     {
                         let label = self.remote.summary();
                         if toggle(ui, &label, self.remote.open)
-                            .on_hover_text("account, balance, runners and recent runs on the sims server")
+                            .on_hover_text(
+                                "account, balance, runners and recent runs on the sims server",
+                            )
                             .clicked()
                         {
                             self.remote.open = !self.remote.open;
@@ -3379,6 +3404,64 @@ impl App {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    fn history_controls(&mut self, ui: &mut Ui, ctx: &egui::Context) {
+        let working = self
+            .viewing
+            .as_ref()
+            .map(|(_, w)| w.clone())
+            .or_else(|| self.path.clone());
+        if let Some(working) = &working
+            && toggle(ui, "history", self.history.is_some())
+                .on_hover_text("open the design as it was at an earlier commit")
+                .clicked()
+        {
+            self.history = Some(egui_bench::revision::Picker::new(
+                "open a past revision",
+                working,
+            ));
+        }
+        if let Some((label, working)) = self.viewing.clone() {
+            if toggle(ui, "working copy", false)
+                .on_hover_text("go back to the files on disk")
+                .clicked()
+            {
+                self.open(working, ctx);
+            }
+            lamp(ui, &format!("rev {label}"), false, true)
+                .on_hover_text("read from git into memory, nothing is written to disk");
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn history(&mut self, ctx: &egui::Context) {
+        use egui_bench::revision::{self, Picked as Rev};
+        let Some(history) = &mut self.history else {
+            return;
+        };
+        let picked = match history.show(ctx) {
+            Rev::Browsing => return,
+            Rev::Cancelled => None,
+            Rev::Revision(r) => Some(r),
+        };
+        self.history = None;
+        let Some(r) = picked else { return };
+        let working = self
+            .viewing
+            .as_ref()
+            .map(|(_, w)| w.clone())
+            .or_else(|| self.path.clone());
+        let Some(working) = working else { return };
+        match revision::Snapshot::open(&working, &r.sha) {
+            Ok(snapshot) => {
+                self.show_snapshot(Some(std::sync::Arc::new(snapshot)));
+                self.open_here(working.clone(), ctx);
+                self.viewing = Some((r.label(), working));
+            }
+            Err(e) => eprintln!("gcad: revision {}: {e}", r.short),
+        }
+    }
+
     fn browser(&mut self, ctx: &egui::Context) {
         let Some(browser) = &mut self.browser else {
             return;
@@ -3458,11 +3541,17 @@ impl App {
             found.push(file.path().to_path_buf());
             #[cfg(target_arch = "wasm32")]
             {
-                let name = file.path().file_name().map(PathBuf::from).unwrap_or_default();
+                let name = file
+                    .path()
+                    .file_name()
+                    .map(PathBuf::from)
+                    .unwrap_or_default();
                 let path = PathBuf::from("dropped").join(name);
                 let (tx, ctx) = (self.arrived.0.clone(), ctx.clone());
                 wasm_bindgen_futures::spawn_local(async move {
-                    let Ok(bytes) = file.bytes_async().await else { return };
+                    let Ok(bytes) = file.bytes_async().await else {
+                        return;
+                    };
                     match std::str::from_utf8(&bytes) {
                         Ok(text) => crate::host::save(&path, text),
                         Err(_) => {
@@ -3705,7 +3794,10 @@ impl Library {
                         }
                     });
                 footer(ui, |ui| {
-                    if ui.add(Key::new("cancel").outline(VALUE).min_width(100.0)).clicked() {
+                    if ui
+                        .add(Key::new("cancel").outline(VALUE).min_width(100.0))
+                        .clicked()
+                    {
                         open = false;
                     }
                 });
@@ -4107,6 +4199,8 @@ impl eframe::App for App {
             self.viewport(ui);
         });
         self.browser(&ctx);
+        #[cfg(not(target_arch = "wasm32"))]
+        self.history(&ctx);
         self.help(&ctx);
         if self.loading.is_some() || self.building.is_some() || self.clash_job.is_some() {
             ctx.request_repaint_after(Duration::from_millis(50));
@@ -4147,7 +4241,11 @@ pub fn run(
 }
 
 fn trace_state(painted: Painted) -> String {
-    let engine = if painted.hardware { "ray query" } else { "compute" };
+    let engine = if painted.hardware {
+        "ray query"
+    } else {
+        "compute"
+    };
     if painted.traced() {
         format!("{engine}: {} / {} samples", painted.samples, painted.target)
     } else {

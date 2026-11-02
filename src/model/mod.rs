@@ -2,6 +2,7 @@ mod args;
 mod assembly;
 mod blends;
 mod bodies;
+mod clearance;
 mod constrain;
 mod enclosure;
 mod exact;
@@ -12,7 +13,6 @@ mod holes;
 mod import;
 pub mod mate;
 pub mod materials;
-mod clearance;
 mod measure;
 mod member;
 mod path;
@@ -27,8 +27,8 @@ mod solids;
 mod standard;
 mod step_raw;
 pub(crate) mod stored;
-mod thread;
 pub mod texture;
+mod thread;
 mod weld;
 mod wrap;
 
@@ -365,6 +365,10 @@ impl CacheEntries {
         self.parts.insert(key, entry);
         Ok(model)
     }
+}
+
+pub(crate) fn forget_kept() {
+    *KEPT.lock().unwrap_or_else(|e| e.into_inner()) = None;
 }
 
 impl Cache {
@@ -980,7 +984,7 @@ pub(crate) fn load_model(
     if let Some(spec) = path.to_str().filter(|text| standard::is_standard(text)) {
         return standard_model(spec);
     }
-    let lasting = !crate::sim::is_sim(path);
+    let lasting = !crate::sim::is_sim(path) && egui_bench::revision::covering(path).is_none();
     if lasting && let Some(model) = stored::fetch(path, vars) {
         return Ok(model);
     }

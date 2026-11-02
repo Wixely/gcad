@@ -6,6 +6,9 @@ All notable changes to gcad are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `history` in the viewer opens the part or assembly as it was at any earlier commit, read from git into memory, with no checkout. Saving is blocked while viewing a revision. `working copy` goes back.
+
 ## [0.5.3] - 2026-11-01
 
 ### Fixed

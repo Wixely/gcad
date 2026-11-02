@@ -235,7 +235,7 @@ fn finished(run: &Run) -> Result<()> {
         spec.target()?;
         return Ok(());
     }
-    if run.model.solids().is_empty() {
+    if run.model.solids().is_empty() && run.model.meshes().is_empty() {
         bail!("the file builds no solid");
     }
     Ok(())
@@ -624,7 +624,8 @@ fn main() -> Result<()> {
             finished(&run)?;
             let parts = run.model.exploded_parts(if explode { 1.0 } else { 0.0 });
             let parts: Vec<_> = parts.iter().map(|(s, c)| (s, *c)).collect();
-            render::render_coloured(&parts, &output)
+            let meshes = run.model.coloured_meshes();
+            render::render_with_meshes(&parts, &meshes, &output)
         }
         Command::View { file, select, line } => {
             gcad::view::run(file.map(Into::into), select, line, vars)

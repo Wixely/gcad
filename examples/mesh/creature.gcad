@@ -1,0 +1,18 @@
+let s=1
+torso: blob 0,0,20 r=7,5,8
+head: blob 0,-2,33 r=5 blend=2
+snout: blob 0,-6.5,32 r=2.5,2.5,2 blend=1.5
+ear_l: blob 3.5,-1,38 r=1.2,0.8,3 ry=20 blend=0.8
+mirror x of=ear_l
+arm_l: limb 7,0,26 12,-1,19 14,-2,12 r=2,1.6,1.3 blend=1.5
+mirror x of=arm_l
+leg_l: limb 3.5,0,13 3.5,-1,7 3.5,-3,1 r=2.6,2,1.8 blend=1.5
+mirror x of=leg_l
+remesh 0.3
+select head falloff=2
+scale 1.1
+eyes: select sphere=2,-6,35 r=1.2 mirror=x falloff=0.6
+inflate -0.5
+select arm_l falloff=2
+rotate -20 axis=y about=7,0,26
+color #c9a27e

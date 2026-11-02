@@ -210,6 +210,31 @@ OCP: `GCAD_OCP_PYTHON=~/git/cadkit/.venv/bin/python cargo test --release -- --ig
 | place one body on another | supported | `place lid on=>Z` | `bodies::assembly_mate` |
 | interference check | supported | `measure overlap main b` | `bodies::interference` |
 
+## Meshes
+
+A mesh body is triangles, for organic shapes and game assets. It is blocked out from
+blended primitives, turned into a mesh by `remesh`, and sculpted with `select` and the ops
+after it. Each test checks a volume or bounding box worked out by hand.
+
+| operation | status | syntax | tests |
+|---|---|---|---|
+| ellipsoid blob | supported | `head: blob 0,0,30 r=5,4,6 rz=20` | `mesh::blob_sphere`, `mesh::blob_ellipsoid_turned` |
+| limb through joints | supported | `arm: limb 0,0,0 0,0,20 r=3,2` | `mesh::limb_capsule` |
+| smooth blend between primitives | supported | `blob ... blend=2` | `mesh::blend_fills_the_join` |
+| carve a blob out | supported | `blob ... mode=cut` | `mesh::blob_cut` |
+| mirror a blockout part | supported | `mirror x of=ear_l` | `mesh::mirror_blockout_names_the_other_side` |
+| remesh to triangles | supported | `remesh 0.3` | `mesh::blob_sphere` |
+| select a named part | supported | `select head` | `mesh::select_part_moves_only_that_part`, `mesh::select_unknown_part_lists_the_parts` |
+| select a region with falloff | supported | `select sphere=x,y,z r=4 falloff=6` | `mesh::select_falloff_keeps_far_vertices_still` |
+| select both sides | supported | `select ... mirror=x` | `mesh::select_mirror_edits_both_sides` |
+| move, scale, rotate a selection | supported | `move 0,0,3`, `scale 1.2`, `rotate 30 axis=z` | `mesh::select_part_moves_only_that_part`, `mesh::scale_selection_about_its_centre`, `mesh::rotate_selection` |
+| inflate along normals | supported | `inflate 1` | `mesh::inflate_grows_a_sphere` |
+| smooth | supported | `smooth 10` | `mesh::smooth_rounds_a_box_edge` |
+| import a mesh | supported | `import file.obj mesh` | `mesh::mesh_import_obj` |
+| export a mesh with its parts | supported | `gcad export file.gcad out.obj` | `mesh::mesh_export_obj_keeps_parts` |
+| mesh and solid bodies in one file | supported | `body figure` then `blob` | `mesh::mesh_and_solid_bodies_share_a_file`, `mesh::solid_ops_refuse_a_mesh_body` |
+| a creature, blocked out and sculpted | supported | `examples/mesh/creature.gcad` | `mesh::creature_example` |
+
 ## Assemblies
 
 Assemblies are `.gasm` files. They bring in the bodies of `.gcad` part files and join them.

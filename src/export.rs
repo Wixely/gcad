@@ -179,7 +179,67 @@ pub fn parts_list(
     }
 }
 
+fn as_mesh(solid: &Solid, name: &str) -> crate::mesh::Mesh {
+    let (points, triangles) = geometry::welded(&fine_mesh(solid));
+    crate::mesh::Mesh {
+        labels: vec![0; points.len()],
+        positions: points.iter().map(|p| [p.x, p.y, p.z]).collect(),
+        triangles: triangles.iter().map(|t| t.map(|i| i as u32)).collect(),
+        parts: vec![name.to_string()],
+    }
+}
+
+fn export_meshes(model: &crate::model::Model, path: &str) -> Result<()> {
+    let extension = path
+        .rsplit('.')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let mut bodies: Vec<(String, crate::mesh::Mesh, Option<Colour>)> = model
+        .named_parts()
+        .into_iter()
+        .map(|(name, solid, colour)| (name.clone(), as_mesh(solid, &name), colour))
+        .collect();
+    bodies.extend(
+        model
+            .coloured_meshes()
+            .into_iter()
+            .map(|(name, mesh, colour)| (name, (*mesh).clone(), colour)),
+    );
+    let mut all = crate::mesh::Mesh::default();
+    for (_, mesh, _) in &bodies {
+        all.merge(mesh);
+    }
+    match extension.as_str() {
+        "obj" => std::fs::write(path, crate::mesh::write_obj(&all))?,
+        "stl" => {
+            let mut out = vec![0u8; 80];
+            out.extend((all.triangles.len() as u32).to_le_bytes());
+            for &t in &all.triangles {
+                let [a, b, c] = all.corners(t);
+                let n = crate::mesh::normalized(crate::mesh::cross(
+                    crate::mesh::sub(b, a),
+                    crate::mesh::sub(c, a),
+                ));
+                for v in [n, a, b, c] {
+                    for x in v {
+                        out.extend((x as f32).to_le_bytes());
+                    }
+                }
+                out.extend([0, 0]);
+            }
+            std::fs::write(path, out)?
+        }
+        "3mf" => std::fs::write(path, three_mf_meshes(&bodies))?,
+        other => bail!("a file with mesh bodies exports as .obj, .stl or .3mf, not `.{other}`"),
+    }
+    Ok(())
+}
+
 pub fn export_model(model: &crate::model::Model, file: &std::path::Path, path: &str) -> Result<()> {
+    if !model.meshes().is_empty() {
+        return export_meshes(model, path);
+    }
     let name = file
         .file_stem()
         .map(|s| s.to_string_lossy().to_string())
@@ -513,6 +573,14 @@ fn with_colours(step: &str, parts: &[(&Solid, Option<Colour>)]) -> String {
 }
 
 fn three_mf(parts: &[(String, &Solid, Option<Colour>)]) -> Vec<u8> {
+    let meshes: Vec<(String, crate::mesh::Mesh, Option<Colour>)> = parts
+        .iter()
+        .map(|(name, solid, colour)| (name.clone(), as_mesh(solid, name), *colour))
+        .collect();
+    three_mf_meshes(&meshes)
+}
+
+fn three_mf_meshes(parts: &[(String, crate::mesh::Mesh, Option<Colour>)]) -> Vec<u8> {
     let mut model = String::from(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<model unit=\"millimeter\" xml:lang=\"en-US\" xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\">\n<resources>\n",
     );
@@ -531,8 +599,8 @@ fn three_mf(parts: &[(String, &Solid, Option<Colour>)]) -> Vec<u8> {
         }
         model.push_str("</basematerials>\n");
     }
-    for (i, (name, solid, _)) in parts.iter().enumerate() {
-        let (points, triangles) = geometry::welded(&fine_mesh(solid));
+    for (i, (name, mesh, _)) in parts.iter().enumerate() {
+        let (points, triangles) = (&mesh.positions, &mesh.triangles);
         let material = if coloured {
             format!(" pid=\"1\" pindex=\"{i}\"")
         } else {
@@ -544,11 +612,15 @@ fn three_mf(parts: &[(String, &Solid, Option<Colour>)]) -> Vec<u8> {
             i + 2,
             name.replace('"', "&quot;")
         );
-        for p in &points {
-            let _ = writeln!(model, "<vertex x=\"{}\" y=\"{}\" z=\"{}\"/>", p.x, p.y, p.z);
+        for p in points {
+            let _ = writeln!(
+                model,
+                "<vertex x=\"{}\" y=\"{}\" z=\"{}\"/>",
+                p[0], p[1], p[2]
+            );
         }
         model.push_str("</vertices>\n<triangles>\n");
-        for [a, b, c] in &triangles {
+        for [a, b, c] in triangles {
             let _ = writeln!(model, "<triangle v1=\"{a}\" v2=\"{b}\" v3=\"{c}\"/>");
         }
         model.push_str("</triangles>\n</mesh>\n</object>\n");

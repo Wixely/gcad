@@ -1,6 +1,6 @@
 ---
 name: gcad
-description: Model mechanical parts and assemblies with gcad, a parametric CAD where every line of a `.gcad` part file or `.gasm` assembly file is one operation, like G-code, checked by the `gcad` CLI. Any design with more than one part is a `.gasm` assembly. Use when writing or editing `*.gcad`, `*.gasm` or `*.gsim` files, sketching and extruding parts, adding holes, fillets, shells, gears or text, picking faces with selectors, placing parts with mates, joints, couples and patterns, checking interference, posing an assembly, sizing joint motors with a `.gsim` torque simulation, or exporting STEP, STL, 3MF, SVG drawings and a bill of materials.
+description: Model mechanical parts and assemblies with gcad, a parametric CAD where every line of a `.gcad` part file or `.gasm` assembly file is one operation, like G-code, checked by the `gcad` CLI. Any design with more than one part is a `.gasm` assembly. Use when writing or editing `*.gcad`, `*.gasm` or `*.gsim` files, sketching and extruding parts, adding holes, fillets, shells, gears or text, picking faces with selectors, placing parts with mates, joints, couples and patterns, checking interference, posing an assembly, sizing joint motors with a `.gsim` torque simulation, exporting STEP, STL, 3MF, SVG drawings and a bill of materials, or modelling organic mesh shapes such as characters, creatures and game assets from blended blobs and limbs sculpted with selections.
 ---
 
 # gcad
@@ -419,6 +419,22 @@ note "Ø12 silver steel, 131 long|Break all edges 0.5" place=20,20
   `p:feature.side`.
 - PDF text is Latin-1: `Ø`, `⌀`, `×`, `°` and `±` print, other symbols become `?`.
 
+## Meshes
+
+Characters, creatures and other organic game assets are mesh bodies, not solids. Never write
+triangles. Block the shape out with labelled `blob` and `limb` lines that `blend` into each
+other, `mirror x of=` the left-side parts, `remesh`, then sculpt: `select` a part by its label
+(or `sphere=`/`box=` with `falloff=`), then `move`, `scale`, `rotate`, `inflate`, `smooth`.
+
+- Label every blob and limb (`head:`, `arm_l:`). The labels become the mesh's parts, and
+  selecting a part by name is far more reliable than guessing coordinates from a picture.
+- Model side parts on +x as `_l` and `mirror x of=` them; `select ... mirror=x` then edits
+  both sides with one line.
+- Read what each sculpting line reports: `moved 0 vertices` means the selection missed.
+- `gcad render` after the blockout and again after sculpting, and compare the four views with
+  what you meant. Fix the blockout first; sculpting only nudges.
+- Export with `gcad export file.gcad out.obj`: each part is its own `g` group.
+
 ## Output
 
 ```sh
@@ -463,6 +479,8 @@ gcad bom asm.gasm --csv
 - `examples/assemblies/enclosure.gasm`: the enclosure's case and lid hinged together, with screws
   mated into the lid and patterned into every hole; the screws stop the hinge.
 - `examples/assemblies/linkage.gasm`: a four-bar linkage, a closed loop of joints.
+- `examples/mesh/creature.gcad`: a creature blocked out of blobs and limbs, mirrored, remeshed
+  and sculpted by part name.
 - `examples/robot/arm.gasm`: a 34-part robot arm. Every joint is a motor on its axis driving a
   planetary reducer whose ring is cut into the housing; suns and planets are coupled at their
   ratios and the planets are patterned. The gripper is two racks on one pinion. Copy its

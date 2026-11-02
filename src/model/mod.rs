@@ -15,6 +15,7 @@ pub mod mate;
 pub mod materials;
 mod measure;
 mod member;
+mod meshes;
 mod path;
 mod pattern;
 mod rib;
@@ -48,6 +49,7 @@ pub use assembly::{
 };
 pub use bodies::{Material, Mechanics};
 pub use measure::{MassProperties, mass_properties};
+pub use meshes::{MESH_OPERATIONS, MeshBody};
 pub use path::SweepPath;
 pub use sheet::{Sheet, flat_dxf};
 
@@ -124,6 +126,8 @@ pub struct Model {
     pub sheet: Option<sheet::Sheet>,
     pub members: Vec<String>,
     pub sim: Option<Box<crate::sim::Spec>>,
+    pub mesh_body: MeshBody,
+    pub mesh_bodies: Vec<(String, std::sync::Arc<crate::mesh::Mesh>)>,
 }
 
 #[derive(Clone)]
@@ -559,11 +563,40 @@ pub const OPERATIONS: &[&str] = &[
     "reflect",
     "array",
     "axis",
+    "blob",
+    "limb",
+    "remesh",
+    "select",
+    "inflate",
+    "smooth",
 ];
 
 const PROFILE_OPS: &[&str] = &[
     "rect", "circle", "poly", "ngon", "gear", "rack", "offset", "slot", "ellipse", "close",
     "spline", "text",
+];
+
+const MESH_SAFE: &[&str] = &[
+    "let",
+    "blob",
+    "limb",
+    "remesh",
+    "select",
+    "inflate",
+    "smooth",
+    "move",
+    "rotate",
+    "scale",
+    "mirror",
+    "body",
+    "color",
+    "material",
+    "materials",
+    "if",
+    "include",
+    "plane",
+    "axis",
+    "point",
 ];
 
 impl Model {
@@ -668,6 +701,9 @@ impl Model {
     }
 
     fn apply_op(&mut self, line: &Line) -> Result<String> {
+        if self.has_mesh() && !MESH_SAFE.contains(&line.op.as_str()) {
+            self.mesh_op(&line.op)?;
+        }
         match line.op.as_str() {
             "let" => self.op_let(line),
             "plane" => self.op_plane(line),
@@ -747,6 +783,12 @@ impl Model {
                 )
             }
             "import" => self.op_import(line),
+            "blob" => self.op_blob(line),
+            "limb" => self.op_limb(line),
+            "remesh" => self.op_remesh(line),
+            "select" => self.op_select(line),
+            "inflate" => self.op_inflate(line),
+            "smooth" => self.op_smooth(line),
             other => bail!(
                 "unknown operation `{other}`; operations are {}",
                 OPERATIONS.join(", ")

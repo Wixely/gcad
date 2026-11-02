@@ -4008,6 +4008,40 @@ fn series_traces(ui: &mut Ui, series: &crate::sim::Series) {
     }
 }
 
+fn mesh_shown(model: &crate::model::Model, key: SceneKey) -> Option<Shown> {
+    let rgb = |c: Color32| [c.r(), c.g(), c.b()].map(|v| v as f32 / 255.0);
+    let highlights = [Highlight {
+        faces: &[],
+        colour: rgb(TRACE),
+    }];
+    let scene = scene::build(model, &highlights, &[], rgb(TRACE));
+    let bounds = model
+        .meshes()
+        .iter()
+        .filter_map(|(_, mesh)| mesh.bounds())
+        .reduce(|(a, b), (lo, hi)| {
+            (
+                std::array::from_fn(|k| a[k].min(lo[k])),
+                std::array::from_fn(|k| b[k].max(hi[k])),
+            )
+        })?;
+    Some(Shown {
+        key,
+        scene: Arc::new(scene),
+        faces: model.meshes().iter().map(|(_, m)| m.triangles.len()).sum(),
+        bounds,
+        query: None,
+        joints: Vec::new(),
+        rig: Rig::default(),
+        explode: Vec::new(),
+        solids: Arc::default(),
+        assembly: false,
+        built: Duration::ZERO,
+        field: None,
+        sim: None,
+    })
+}
+
 fn field_shown(view: &crate::sim::statics::FieldView, key: SceneKey) -> Shown {
     let bounds: monstertruck::modeling::BoundingBox<monstertruck::modeling::Point3> =
         view.positions.iter().copied().collect();
@@ -4061,8 +4095,11 @@ fn build_shown(snapshot: &Snapshot, key: SceneKey, vars: &[(String, f64)]) -> Op
         Some(target) => target,
         None => &snapshot.model,
     };
-    if model.solids().is_empty() {
+    if model.solids().is_empty() && model.meshes().is_empty() {
         return None;
+    }
+    if model.solids().is_empty() {
+        return mesh_shown(model, key);
     }
     let tolerance = model.tolerance();
     let own: Vec<usize> = model

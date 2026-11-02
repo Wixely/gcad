@@ -836,6 +836,12 @@ impl Model {
         let loaded = self
             .cache
             .part(key, || super::load_model(&path, &vars, depth, &cache))?;
+        if let Some((mesh, _)) = loaded.meshes().first() {
+            bail!(
+                "{} has a mesh body `{mesh}`; assemblies take solids, so export the mesh with `gcad export`",
+                path.display()
+            );
+        }
         let names = loaded.body_names();
         let picked: Vec<String> = match &only {
             Some(body) if !names.contains(body) => {

@@ -192,6 +192,19 @@ impl Model {
 
     pub(crate) fn op_mirror(&mut self, line: &Line) -> Result<String> {
         let args = Args::new(line, &["on"], &["offset", "of"], false)?;
+        if self.has_mesh() {
+            let on = args.text("on")?;
+            let axis = match on.to_ascii_lowercase().as_str() {
+                "x" | "yz" => 0,
+                "y" | "xz" => 1,
+                "z" | "xy" => 2,
+                other => {
+                    bail!("a mesh mirrors across x, y or z (the YZ, XZ or XY plane), got `{other}`")
+                }
+            };
+            let at = args.optional_number("offset", &self.scope)?.unwrap_or(0.0);
+            return self.mesh_mirror(axis, at, args.values.get("of").copied());
+        }
         if let Some(of) = args.values.get("of") {
             let frame = self
                 .plane_from(args.text("on")?)?
@@ -341,6 +354,12 @@ impl Model {
         let args = Args::new(line, &["by", "copy"], &[], false)?;
         let by = point3(args.text("by")?, &self.scope)?;
         let copy = copy_flag(&args)?;
+        if self.has_mesh() {
+            if copy {
+                bail!("`move copy` copies solids; a mesh moves its selection");
+            }
+            return self.mesh_move([by.x, by.y, by.z]);
+        }
         self.place_or_copy(line, Matrix4::from_translation(by.to_vec()), copy)
     }
 
@@ -365,6 +384,14 @@ impl Model {
             (None, Some((through, _))) => through,
             (None, None) => Point3::origin(),
         };
+        if self.has_mesh() {
+            if copy {
+                bail!("`rotate copy` copies solids; a mesh turns its selection");
+            }
+            let about =
+                (args.has("about") || named.is_some()).then_some([center.x, center.y, center.z]);
+            return self.mesh_rotate([direction.x, direction.y, direction.z], angle, about);
+        }
         self.place_or_copy(
             line,
             about(center, Matrix4::from_axis_angle(direction, Deg(angle))),
@@ -384,12 +411,15 @@ impl Model {
         factors
             .iter()
             .try_for_each(|f| positive(*f, "scale factor").map(|_| ()))?;
-        let center = args
+        let given = args
             .values
             .get("about")
             .map(|text| point3(text, &self.scope))
-            .transpose()?
-            .unwrap_or_else(Point3::origin);
+            .transpose()?;
+        if self.has_mesh() {
+            return self.mesh_scale(factors, given.map(|c| [c.x, c.y, c.z]));
+        }
+        let center = given.unwrap_or_else(Point3::origin);
         self.transform_all(about(
             center,
             Matrix4::from_nonuniform_scale(factors[0], factors[1], factors[2]),
@@ -634,9 +664,13 @@ impl Model {
         let args = Args::new(line, &["name"], &[], false)?;
         self.require_empty_sketch("body")?;
         let name = args.text("name")?.to_string();
-        if self.body == name || self.bodies.iter().any(|(n, _)| *n == name) {
+        if self.body == name
+            || self.bodies.iter().any(|(n, _)| *n == name)
+            || self.mesh_bodies.iter().any(|(n, _)| *n == name)
+        {
             bail!("there is already a body called `{name}`");
         }
+        self.finish_mesh_body()?;
         if let Some(solid) = self.solid.take() {
             let previous = if self.body.is_empty() {
                 "main".to_string()
@@ -646,21 +680,28 @@ impl Model {
             self.bodies.push((previous, solid));
         }
         self.body = name;
+        let finished = self.bodies.len() + self.mesh_bodies.len();
         Ok(format!(
-            "{} finished bod{}; new body `{}`",
-            self.bodies.len(),
-            if self.bodies.len() == 1 { "y" } else { "ies" },
+            "{finished} finished bod{}; new body `{}`",
+            if finished == 1 { "y" } else { "ies" },
             self.body
         ))
     }
 
     pub(crate) fn op_import(&mut self, line: &Line) -> Result<String> {
-        let args = Args::new(line, &["file"], &["solid"], false)?;
+        let args = Args::new(line, &["file", "as"], &["solid"], false)?;
         let file = std::path::PathBuf::from(args.text("file")?);
         let path = match &self.dir {
             Some(dir) if file.is_relative() => dir.join(&file),
             _ => file,
         };
+        match args.values.get("as").copied() {
+            Some("mesh") => return self.import_mesh(line, &path),
+            Some(other) => {
+                bail!("`import file` reads a solid; `import file mesh` reads a mesh, not `{other}`")
+            }
+            None => {}
+        }
         let stl = path
             .extension()
             .is_some_and(|e| e.eq_ignore_ascii_case("stl"));

@@ -378,6 +378,62 @@ units each parameter declares; a property given against temperature takes the va
 `1240 kg/m^3` and `0.000068 m/m/K`. Neither writes yield strength for every material; where it
 is missing the tensile strength is used.
 
+## Meshes
+
+A body can be a mesh instead of a solid: triangles, for organic shapes such as
+characters, creatures and game assets. A mesh is never written as triangles. You block
+it out of primitives that blend into each other, turn that into a mesh with `remesh`,
+then sculpt it by selecting a region and changing it, one line per change, the way a
+solid is built feature by feature. A mesh of 100 000 triangles takes the same lines as
+one of 1000.
+
+```
+torso: blob 0,0,20 r=7,5,8
+head: blob 0,-2,33 r=5 blend=2
+ear_l: blob 3.5,-1,38 r=1.2,0.8,3 ry=20 blend=0.8
+mirror x of=ear_l
+arm_l: limb 7,0,26 12,-1,19 14,-2,12 r=2,1.6,1.3 blend=1.5
+mirror x of=arm_l
+remesh 0.3
+select head falloff=2
+scale 1.1
+eyes: select sphere=2,-6,35 r=1.2 mirror=x falloff=0.6
+inflate -0.5
+```
+
+Blocking out, before `remesh`:
+
+| operation | parameters | does |
+|---|---|---|
+| `blob` | `x,y,z` `r=` `blend=` `mode=add\|cut\|intersect` `rx=` `ry=` `rz=` | an ellipsoid centred on the point, of radius `r` or radii `rx,ry,rz` along x, y and z, turned by `rx`, `ry`, `rz` degrees about x, then y, then z. `blend` is how far its surface melts into what is already there, as a smooth fillet of about that size (0, a sharp join, unless given). `mode=cut` carves it out and `mode=intersect` keeps only what it shares |
+| `limb` | `x,y,z x,y,z ...` `r=` `blend=` `mode=` | a tube through two or more joints with rounded ends, its radius `r` at every joint or one radius per joint (`r=2,1.6,1.3`), tapering smoothly between them. Arms, legs, tails, horns, necks |
+| `mirror` | `x\|y\|z` `of=label` `offset=` | adds the mirror image of one labelled blob or limb (or of every one, without `of`) across the plane through `offset` (0) square to the axis. A part named `..._l` comes back `..._r` and the other way round |
+| `remesh` | `cell` | turns the blockout into a closed mesh with triangles about `cell` across, a 120th of its size unless given. Each vertex belongs to the part (the label of the blob or limb) nearest it, so later lines can select `head` or `arm_l`. A sculpting line before any `remesh` remeshes at the default cell first |
+
+Sculpting, after `remesh` or `import`:
+
+| operation | parameters | does |
+|---|---|---|
+| `select` | part names, `all`, a label of an earlier `select`, `sphere=x,y,z r=`, `box=x0,y0,z0,x1,y1,z1`, `falloff=`, `mirror=x\|y\|z` | picks the vertices the next lines change. Several names and shapes add up (`select ear_l,ear_r`). `falloff` fades the change out smoothly to nothing over that distance beyond the selection, measured over the surface for parts and straight for shapes; without it the edge is sharp. `mirror=x` also picks the mirror image across x=0 and changes it the mirrored way, so one line edits both sides. Every vertex outside the selection and its falloff stays exactly where it is. Until the first `select` every line changes the whole mesh |
+| `move` | `x,y,z` | moves the selection |
+| `scale` | `factor` or `x,y,z` `about=x,y,z` | scales the selection about `about`, or about the selection's centre (the centre of a `sphere=`, else the middle of the vertices picked) |
+| `rotate` | `angle` `axis=x\|y\|z\|name` `about=x,y,z` | turns the selection about the axis through `about`, the selection's centre unless given; right-handed, so `rotate 30 axis=z` turns +x toward +y |
+| `inflate` | `by` | pushes the selection out along the surface by `by` (negative pulls it in): fatter limbs, a puffed chest, eye sockets |
+| `smooth` | `passes` | relaxes the selection's surface, 1 pass unless given; 5 to 20 takes out lumps |
+| `import` | `file.obj mesh` or `file.stl mesh` | starts the body from a mesh file; an OBJ's `o` and `g` groups become its parts |
+| `color` | as for solids | |
+
+Each sculpting line reports how many vertices it moved, the most any one moved, and the
+new volume, so a line that missed its target shows up as `moved 0 vertices`. A body is a
+mesh or a solid: solid operations (`extrude`, `fillet`, `hole`, ...) refuse a mesh body,
+and `body name` starts a new body of either kind in the same file. `gcad export` writes a
+file with mesh bodies as `.obj` (each part its own `g` group), `.stl` or `.3mf`; solid
+bodies in it are tessellated alongside. Assemblies take solids only.
+
+Positions, sizes and the selection are in the same millimetres as everything else, so a
+game asset is best modelled at a known scale, 1 unit to 1 cm for instance, and scaled on
+import.
+
 ## Assemblies
 
 A design with more than one part is a `.gasm` file, an assembly: it brings the parts

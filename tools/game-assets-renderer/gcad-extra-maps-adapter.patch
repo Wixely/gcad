@@ -1,0 +1,594 @@
+diff --git a/src/view/asset.rs b/src/view/asset.rs
+index 4755208..14db8ec 100644
+--- a/src/view/asset.rs
++++ b/src/view/asset.rs
+@@ -5,6 +5,9 @@ mod alpha_tests;
+ #[cfg(test)]
+ #[path = "asset_explicit_tests.rs"]
+ mod explicit_tests;
++#[cfg(test)]
++#[path = "asset_extra_maps_tests.rs"]
++mod extra_maps_tests;
+ #[path = "asset_images.rs"]
+ pub mod image_budget;
+ use crate::asset::{
+@@ -20,19 +23,29 @@ use monstertruck::modeling::{Matrix as _, Matrix3, Point3, SquareMatrix, Transfo
+ use std::sync::Arc;
+ 
+ #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+-pub struct Finish([u32; 8]);
++pub struct Finish([u32; 9]);
+ impl Default for Finish {
+     fn default() -> Self {
+-        let mut bits = [0; 8];
++        let mut bits = [0; 9];
+         bits[6] = (-1f32).to_bits();
+         bits[7] = 1f32.to_bits();
++        bits[8] = 1f32.to_bits();
+         Self(bits)
+     }
+ }
+ impl Material for Finish {
+     fn pbr(&self) -> Pbr {
+-        let [roughness, metallic, normal_scale, r, g, b, mode, base_alpha] =
+-            self.0.map(f32::from_bits);
++        let [
++            roughness,
++            metallic,
++            normal_scale,
++            r,
++            g,
++            b,
++            mode,
++            base_alpha,
++            occlusion_strength,
++        ] = self.0.map(f32::from_bits);
+         Pbr {
+             roughness,
+             metallic,
+@@ -46,6 +59,7 @@ impl Material for Finish {
+                 viewer3d::AlphaMode::Opaque
+             },
+             base_alpha,
++            occlusion_strength,
+             ..Default::default()
+         }
+     }
+@@ -62,11 +76,6 @@ pub fn differences(asset: &Asset) -> Vec<String> {
+         "Preview draws both sides; exported materials retain their double-sided setting.".into(),
+     ];
+     for (i, m) in asset.scene.materials.iter().enumerate() {
+-        if m.occlusion_map.is_some() || m.emissive_map.is_some() {
+-            result.push(format!(
+-                "Material {i}: occlusion and emissive maps are not displayed."
+-            ));
+-        }
+         if m.mip_chain.is_none() && m.sampler != Sampler::default() {
+             result.push(format!(
+                 "Material {i}: custom sampler settings are not displayed."
+@@ -94,11 +103,11 @@ fn linear(x: f64) -> f64 {
+     }
+ }
+ 
+-/// Prepare the three maps supported by the preview renderer. Only colour RGB
++/// Prepare the five maps supported by the preview renderer. Only colour RGB
+ /// absorbs its factor; alpha, normal scale and scalar factors remain separate.
+ pub fn material_images(
+     material: &crate::asset::material::Material,
+-) -> Result<[Option<crate::model::texture::Map>; 3]> {
++) -> Result<[Option<crate::model::texture::Map>; 5]> {
+     material.validate()?;
+     let mut colour = material.colour_map.clone();
+     if let Some(map) = &mut colour {
+@@ -114,6 +123,8 @@ pub fn material_images(
+         colour,
+         material.portable_normal()?,
+         material.packed_metal_rough()?,
++        material.occlusion_map.clone(),
++        material.emissive_map.clone(),
+     ])
+ }
+ 
+@@ -121,8 +132,8 @@ pub fn material_images(
+ /// represent absent slots; no level is generated or dropped by this adapter.
+ pub fn mip_images(
+     chain: &crate::asset::atlas::MipChain,
+-) -> Result<[Vec<crate::model::texture::Map>; 3]> {
+-    let mut images: [Vec<_>; 3] = std::array::from_fn(|_| Vec::new());
++) -> Result<[Vec<crate::model::texture::Map>; 5]> {
++    let mut images: [Vec<_>; 5] = std::array::from_fn(|_| Vec::new());
+     for level in chain.levels() {
+         for (slot, map) in material_images(level)?.into_iter().enumerate() {
+             if let Some(map) = map {
+@@ -174,7 +185,7 @@ fn build(asset: &Asset, pose: &[Transform]) -> Result<Frame> {
+     let mut images = Vec::new();
+     for m in &asset.scene.materials {
+         if let Some(chain) = &m.mip_chain {
+-            let mut slots = [None; 3];
++            let mut slots = [None; 5];
+             for (slot, maps) in mip_images(chain)?.into_iter().enumerate() {
+                 if maps.is_empty() {
+                     continue;
+@@ -189,7 +200,7 @@ fn build(asset: &Asset, pose: &[Transform]) -> Result<Frame> {
+                     .collect();
+                 let index = result.images.len();
+                 result.images.push(levels[0].clone());
+-                let encoding = if slot == 0 {
++                let encoding = if slot == 0 || slot == 4 {
+                     viewer3d::ImageEncoding::Srgb
+                 } else {
+                     viewer3d::ImageEncoding::Linear
+@@ -199,10 +210,10 @@ fn build(asset: &Asset, pose: &[Transform]) -> Result<Frame> {
+                 result.explicit_images.insert(index, explicit);
+                 slots[slot] = Some(index);
+             }
+-            images.push((slots[0], slots[1], slots[2]));
++            images.push((slots[0], slots[1], slots[2], slots[3], slots[4]));
+             continue;
+         }
+-        let [colour, normal, metal_rough] = material_images(m)?;
++        let [colour, normal, metal_rough, occlusion, emission] = material_images(m)?;
+         let mut add = |map: Option<crate::model::texture::Map>| {
+             map.map(|map| {
+                 let i = result.images.len();
+@@ -214,7 +225,13 @@ fn build(asset: &Asset, pose: &[Transform]) -> Result<Frame> {
+                 i
+             })
+         };
+-        images.push((add(colour), add(normal), add(metal_rough)));
++        images.push((
++            add(colour),
++            add(normal),
++            add(metal_rough),
++            add(occlusion),
++            add(emission),
++        ));
+     }
+     let mut low = [f32::INFINITY; 3];
+     let mut high = [f32::NEG_INFINITY; 3];
+@@ -245,7 +262,8 @@ fn build(asset: &Asset, pose: &[Transform]) -> Result<Frame> {
+                 opacity: 1.,
+                 ..Default::default()
+             });
+-            let (texture, normal_map, metal_rough_map) = images[primitive.material];
++            let (texture, normal_map, metal_rough_map, occlusion_map, emission_map) =
++                images[primitive.material];
+             let mut surface = Surface {
+                 colour: [
+                     srgb(m.base_colour[0]),
+@@ -266,6 +284,7 @@ fn build(asset: &Asset, pose: &[Transform]) -> Result<Frame> {
+                             AlphaMode::Mask { cutoff } => cutoff as f32,
+                         },
+                         m.base_colour[3] as f32,
++                        m.occlusion_strength as f32,
+                     ]
+                     .map(f32::to_bits),
+                 ),
+@@ -273,6 +292,8 @@ fn build(asset: &Asset, pose: &[Transform]) -> Result<Frame> {
+                 texture,
+                 normal_map,
+                 metal_rough_map,
++                occlusion_map,
++                emission_map,
+                 ..Default::default()
+             };
+             for triangle in &primitive.geometry.triangles {
+@@ -349,6 +370,10 @@ pub fn snapshot(
+         !frame.scene.uses_material_alpha(),
+         "software snapshot does not support material alpha"
+     );
++    ensure!(
++        !frame.scene.uses_extra_maps(),
++        "software snapshot does not support occlusion/emission maps"
++    );
+     let viewer = Viewer::new(frame.scene, Camera::default())
+         .looks(frame.looks)
+         .lighting(Lighting::STUDIO);
+@@ -552,7 +577,8 @@ mod tests {
+         let chain = atlas.rebake_chain(&material, 3).unwrap();
+         let before = chain.levels().to_vec();
+         let prepared = mip_images(&chain).unwrap();
+-        assert!(prepared.iter().all(|slot| slot.len() == 4));
++        assert!(prepared[..3].iter().all(|slot| slot.len() == 4));
++        assert!(prepared[3..].iter().all(Vec::is_empty));
+         for level in 0..4 {
+             assert_eq!(
+                 (prepared[0][level].width, prepared[0][level].height),
+@@ -641,7 +667,7 @@ mod tests {
+             height: 1,
+             rgba: vec![255; 4],
+         });
+-        assert!(differences(&asset).iter().any(|s| s.contains("occlusion")));
++        assert!(!differences(&asset).iter().any(|s| s.contains("occlusion")));
+     }
+     #[test]
+     fn preview_preserves_instances_and_uses_sampled_clip_positions() {
+diff --git a/src/view/asset_explicit_tests.rs b/src/view/asset_explicit_tests.rs
+index 0400165..773fe85 100644
+--- a/src/view/asset_explicit_tests.rs
++++ b/src/view/asset_explicit_tests.rs
+@@ -49,7 +49,7 @@ fn gcad_preview_explicit_textured_skin_matches_analytic_blends() {
+ fn check_textured_animation(skinned: bool) {
+     let mut asset = crate::asset::author::load(
+         &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+-            .join("examples/game-assets/atlas-motion.gasset"),
++            .join("examples/game-assets/atlas-extra-motion.gasset"),
+         &[],
+     )
+     .unwrap();
+@@ -115,7 +115,7 @@ fn check_textured_animation(skinned: bool) {
+     }
+     let rest = frame(&asset, None, 0.).unwrap();
+     assert_eq!(rest.scene.surfaces.len(), 2);
+-    assert_eq!(rest.scene.explicit_images.len(), 3);
++    assert_eq!(rest.scene.explicit_images.len(), 5);
+     for (slot, image) in &rest.scene.explicit_images {
+         let unique: std::collections::HashSet<_> = image.levels()[0].rgba.chunks_exact(4).collect();
+         println!(
+@@ -128,7 +128,7 @@ fn check_textured_animation(skinned: bool) {
+     viewer3d::install(&state);
+     let mut maximum = 0;
+     let mut compared = 0;
+-    let mut texture_changes = [0; 3];
++    let mut texture_changes = [0; 5];
+     let mut motion_changes = 0;
+     let mut previous: Option<egui::ColorImage> = None;
+     for time in [0., 0.25, 0.5, 0.75, 1.] {
+@@ -204,9 +204,18 @@ fn check_textured_animation(skinned: bool) {
+                 assert!((a - b).abs() < 0.000002, "analytic normal mismatch");
+             }
+             assert_eq!(a.uvs, b.uvs);
++            assert_eq!(a.material.0, b.material.0);
++            assert_eq!(a.material.pbr().occlusion_strength, 0.4);
++            assert_eq!(a.material.pbr().emission, [0.3, 0.2, 0.1]);
+             assert_eq!(
+-                (a.texture, a.normal_map, a.metal_rough_map),
+-                (Some(0), Some(1), Some(2))
++                (
++                    a.texture,
++                    a.normal_map,
++                    a.metal_rough_map,
++                    a.occlusion_map,
++                    a.emission_map
++                ),
++                (Some(0), Some(1), Some(2), Some(3), Some(4))
+             );
+         }
+         assert_eq!(
+@@ -229,7 +238,7 @@ fn check_textured_animation(skinned: bool) {
+         reference_scene.centre = actual_scene.centre;
+         reference_scene.radius = actual_scene.radius;
+         let mut controls = Vec::new();
+-        for slot in 0..3 {
++        for slot in 0..5 {
+             let mut control = frame(&asset, Some(0), time).unwrap();
+             let control_scene = Arc::get_mut(&mut control.scene).unwrap();
+             control_scene.centre = actual_scene.centre;
+@@ -237,7 +246,9 @@ fn check_textured_animation(skinned: bool) {
+             let mut levels = control_scene.explicit_images[&slot].levels().to_vec();
+             for image in &mut levels {
+                 for pixel in image.rgba.chunks_exact_mut(4) {
+-                    pixel[..3].copy_from_slice(&[[137; 3], [128, 128, 255], [255, 255, 0]][slot]);
++                    pixel[..3].copy_from_slice(
++                        &[[137; 3], [128, 128, 255], [255, 255, 0], [255; 3], [255; 3]][slot],
++                    );
+                 }
+             }
+             control_scene.images[slot] = levels[0].clone();
+@@ -245,7 +256,7 @@ fn check_textured_animation(skinned: bool) {
+                 slot,
+                 viewer3d::ExplicitImage::new(
+                     levels,
+-                    if slot == 0 {
++                    if slot == 0 || slot == 4 {
+                         viewer3d::ImageEncoding::Srgb
+                     } else {
+                         viewer3d::ImageEncoding::Linear
+@@ -330,8 +341,8 @@ fn gcad_preview_explicit_preserves_authored_levels_and_instances() {
+     let prepared = mip_images(&chain).unwrap();
+     let actual = frame(&asset, None, 0.).unwrap();
+     assert_eq!(actual.scene.surfaces.len(), 2);
+-    assert_eq!(actual.scene.images.len(), 3);
+-    assert_eq!(actual.scene.explicit_images.len(), 3);
++    assert_eq!(actual.scene.images.len(), 5);
++    assert_eq!(actual.scene.explicit_images.len(), 5);
+     let start = std::time::Instant::now();
+     for _ in 0..2000 {
+         std::hint::black_box(&actual.scene)
+@@ -339,7 +350,7 @@ fn gcad_preview_explicit_preserves_authored_levels_and_instances() {
+             .unwrap();
+     }
+     println!(
+-        "Explicit validation timing: 2000 checks of 196608 base bytes in {:?}",
++        "Explicit validation timing: 2000 checks of 327680 base bytes in {:?}",
+         start.elapsed()
+     );
+     // A larger diagnostic exposes byte-scan scaling without timing assertions.
+@@ -372,8 +383,14 @@ fn gcad_preview_explicit_preserves_authored_levels_and_instances() {
+     assert!(large.validate_explicit_images().is_err());
+     for surface in &actual.scene.surfaces {
+         assert_eq!(
+-            (surface.texture, surface.normal_map, surface.metal_rough_map),
+-            (Some(0), Some(1), Some(2))
++            (
++                surface.texture,
++                surface.normal_map,
++                surface.metal_rough_map,
++                surface.occlusion_map,
++                surface.emission_map
++            ),
++            (Some(0), Some(1), Some(2), Some(3), Some(4))
+         );
+     }
+     for (slot, expected) in prepared.iter().enumerate() {
+@@ -381,7 +398,7 @@ fn gcad_preview_explicit_preserves_authored_levels_and_instances() {
+         assert_eq!(image.max_lod(), 2);
+         assert_eq!(
+             image.encoding(),
+-            if slot == 0 {
++            if slot == 0 || slot == 4 {
+                 viewer3d::ImageEncoding::Srgb
+             } else {
+                 viewer3d::ImageEncoding::Linear
+@@ -412,7 +429,7 @@ fn gcad_preview_explicit_preserves_authored_levels_and_instances() {
+     );
+     assert!(!path.exists());
+     println!(
+-        "Authored adapter: two instances share three maps with three exact levels; snapshot refusal leaves no output"
++        "Authored adapter: two instances share five maps with three exact levels; snapshot refusal leaves no output"
+     );
+ }
+ 
+@@ -442,6 +459,8 @@ fn gcad_preview_explicit_authored_gpu_matches_constant_material() {
+         [137, 137, 137, 64],
+         [128, 128, 255, 255],
+         [255, 64, 64, 255],
++        [64; 4],
++        [137, 137, 137, 64],
+     ]
+     .into_iter()
+     .map(|rgba| viewer3d::Image {
+diff --git a/src/view/asset_extra_maps_tests.rs b/src/view/asset_extra_maps_tests.rs
+new file mode 100644
+index 0000000..fe8c2bb
+--- /dev/null
++++ b/src/view/asset_extra_maps_tests.rs
+@@ -0,0 +1,150 @@
++use super::*;
++
++#[test]
++fn gcad_preview_extra_maps_authored_payloads_budget_and_gpu() {
++    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
++        .join("examples/game-assets/atlas-extra-maps.gasset");
++    let state = super::explicit_tests::requested_render_state();
++    viewer3d::install(&state);
++    for explicit in [false, true] {
++        let mut asset = crate::asset::author::load(&path, &[]).unwrap();
++        if !explicit {
++            for m in &mut asset.scene.materials {
++                m.mip_chain = None;
++            }
++        }
++        let before = asset.scene.materials.clone();
++        let actual = frame(&asset, None, 0.).unwrap();
++        assert_eq!(actual.scene.images.len(), 5);
++        assert_eq!(actual.scene.surfaces.len(), 2);
++        for surface in &actual.scene.surfaces {
++            assert_eq!(
++                (surface.occlusion_map, surface.emission_map),
++                (Some(3), Some(4))
++            );
++            assert_eq!(surface.material.pbr().occlusion_strength, 0.4);
++            assert_eq!(surface.material.pbr().emission, [0.3, 0.2, 0.1]);
++        }
++        let material = &asset.scene.materials[0];
++        for (slot, source) in [
++            (3, material.occlusion_map.as_ref().unwrap()),
++            (4, material.emissive_map.as_ref().unwrap()),
++        ] {
++            assert_eq!(actual.scene.images[slot].rgba, source.rgba);
++            let unique: std::collections::HashSet<_> = source.rgba.chunks_exact(4).collect();
++            assert!(unique.len() > 32, "extra map lacks spatial variation");
++            if explicit {
++                let image = &actual.scene.explicit_images[&slot];
++                assert_eq!(
++                    image.encoding(),
++                    if slot == 3 {
++                        viewer3d::ImageEncoding::Linear
++                    } else {
++                        viewer3d::ImageEncoding::Srgb
++                    }
++                );
++                let levels = material.mip_chain.as_ref().unwrap().levels();
++                assert_eq!(image.levels().len(), levels.len());
++                for (image, m) in image.levels().iter().zip(levels) {
++                    let source = if slot == 3 {
++                        m.occlusion_map.as_ref()
++                    } else {
++                        m.emissive_map.as_ref()
++                    }
++                    .unwrap();
++                    assert_eq!(image.rgba, source.rgba);
++                }
++            }
++        }
++        let usage =
++            image_budget::usage(&asset.scene.materials, image_budget::ImageLimits::default())
++                .unwrap();
++        assert_eq!(usage.images, 5);
++        let retained: usize = actual
++            .scene
++            .images
++            .iter()
++            .map(|m| m.rgba.len())
++            .sum::<usize>()
++            + actual
++                .scene
++                .explicit_images
++                .values()
++                .flat_map(|i| i.levels())
++                .map(|m| m.rgba.len())
++                .sum::<usize>();
++        assert_eq!(usage.retained_bytes, retained);
++        let exact = image_budget::ImageLimits {
++            images: 5,
++            cpu_bytes: usage.retained_bytes + usage.upload_scratch_bytes,
++            gpu_bytes: usage.gpu_bytes,
++        };
++        assert!(image_budget::usage(&asset.scene.materials, exact).is_ok());
++        for limits in [
++            image_budget::ImageLimits { images: 4, ..exact },
++            image_budget::ImageLimits {
++                cpu_bytes: exact.cpu_bytes - 1,
++                ..exact
++            },
++            image_budget::ImageLimits {
++                gpu_bytes: exact.gpu_bytes - 1,
++                ..exact
++            },
++        ] {
++            assert!(image_budget::usage(&asset.scene.materials, limits).is_err());
++        }
++        let mut controls = Vec::new();
++        for slot in [3, 4] {
++            let mut control = frame(&asset, None, 0.).unwrap();
++            for s in &mut Arc::get_mut(&mut control.scene).unwrap().surfaces {
++                if slot == 3 {
++                    s.occlusion_map = None;
++                } else {
++                    s.emission_map = None;
++                }
++            }
++            controls.push(control);
++        }
++        let render = |f: &Frame, size| {
++            Viewer::new(f.scene.clone(), Camera::default())
++                .looks(f.looks.clone())
++                .edges(false)
++                .render_gpu(size, size)
++                .unwrap()
++        };
++        let mut changed = [0; 2];
++        for size in [128, 32] {
++            let a = render(&actual, size);
++            for (slot, control) in controls.iter().enumerate() {
++                let b = render(control, size);
++                let changes = a
++                    .pixels
++                    .iter()
++                    .zip(&b.pixels)
++                    .filter(|(a, b)| a != b)
++                    .count();
++                assert!(changes > 0, "extra-map control ineffective at size {size}");
++                changed[slot] += changes;
++            }
++        }
++        let output = std::env::temp_dir().join(format!(
++            "gcad-extra-map-refusal-{}-{explicit}.png",
++            std::process::id()
++        ));
++        assert!(!output.exists());
++        assert!(snapshot(&asset, None, 0., &output).is_err());
++        assert!(!output.exists());
++        assert!(
++            !differences(&asset)
++                .iter()
++                .any(|s| s.contains("occlusion and emissive"))
++        );
++        assert_eq!(asset.scene.materials, before);
++        println!(
++            "Authored extra maps explicit {explicit}: five shared slots, exact payloads, budget CPU {} GPU {}, controls {changed:?}, software refusal; backend {:?}",
++            usage.retained_bytes + usage.upload_scratch_bytes,
++            usage.gpu_bytes,
++            state.adapter.get_info().backend
++        );
++    }
++}
+diff --git a/src/view/asset_images.rs b/src/view/asset_images.rs
+index 914819d..e9577c9 100644
+--- a/src/view/asset_images.rs
++++ b/src/view/asset_images.rs
+@@ -52,7 +52,7 @@ fn full_chain_bytes(mut width: usize, mut height: usize) -> Result<usize> {
+     }
+ }
+ 
+-fn slots(material: &Material) -> [Option<&crate::model::texture::Map>; 3] {
++fn slots(material: &Material) -> [Option<&crate::model::texture::Map>; 5] {
+     [
+         material.colour_map.as_ref(),
+         material.normal_map.as_ref(),
+@@ -60,6 +60,8 @@ fn slots(material: &Material) -> [Option<&crate::model::texture::Map>; 3] {
+             .roughness_map
+             .as_ref()
+             .or(material.metallic_map.as_ref()),
++        material.occlusion_map.as_ref(),
++        material.emissive_map.as_ref(),
+     ]
+ }
+ 
+@@ -146,29 +148,29 @@ mod tests {
+         material.validate().unwrap();
+         // 3x5 -> 1x2 -> 1x1: 60 + 8 + 4. Metallic/roughness share one slot.
+         let expected = ImageUsage {
+-            images: 3,
+-            retained_bytes: 180,
++            images: 5,
++            retained_bytes: 300,
+             upload_scratch_bytes: 72,
+-            gpu_bytes: 216,
++            gpu_bytes: 360,
+         };
+         assert_eq!(
+             usage(&[material.clone()], ImageLimits::default()).unwrap(),
+             expected
+         );
+         let exact = ImageLimits {
+-            images: 3,
+-            cpu_bytes: 252,
+-            gpu_bytes: 216,
++            images: 5,
++            cpu_bytes: 372,
++            gpu_bytes: 360,
+         };
+         assert_eq!(usage(&[material.clone()], exact).unwrap(), expected);
+         for limits in [
+-            ImageLimits { images: 2, ..exact },
++            ImageLimits { images: 4, ..exact },
+             ImageLimits {
+-                cpu_bytes: 251,
++                cpu_bytes: 371,
+                 ..exact
+             },
+             ImageLimits {
+-                gpu_bytes: 215,
++                gpu_bytes: 359,
+                 ..exact
+             },
+         ] {
+@@ -193,14 +195,14 @@ mod tests {
+         assert_eq!(
+             actual,
+             ImageUsage {
+-                images: 3,
++                images: 5,
+                 retained_bytes: bytes + base,
+                 upload_scratch_bytes: 0,
+                 gpu_bytes: bytes
+             }
+         );
+-        assert_eq!(actual.retained_bytes, 454656);
+-        assert_eq!(actual.gpu_bytes, 258048);
++        assert_eq!(actual.retained_bytes, 757760);
++        assert_eq!(actual.gpu_bytes, 430080);
+         assert_eq!(
+             asset
+                 .scene
+@@ -211,7 +213,7 @@ mod tests {
+             2
+         );
+         let exact = ImageLimits {
+-            images: 3,
++            images: 5,
+             cpu_bytes: actual.retained_bytes,
+             gpu_bytes: bytes,
+         };

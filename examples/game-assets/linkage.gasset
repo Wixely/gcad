@@ -1,0 +1,9 @@
+asset 1
+source linkage ../assemblies/linkage.gasm
+tessellate linkage tolerance=0.1
+uv linkage projection=box tile=25
+node first source=linkage
+node second source=linkage translation=100,0,0
+clip lift interpolation=linear
+key lift first time=0 translation=0,0,0
+key lift first time=1 translation=0,0,10

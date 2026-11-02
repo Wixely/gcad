@@ -1,0 +1,17 @@
+asset 1
+project ../..
+# Static LOD transfer/renderer diagnostic; shares the refined material face bindings.
+source plate ../parts/plate.gcad body=main
+tessellate plate tolerance=0.1
+refine plate levels=2 triangle_budget=20416
+uv plate projection=box tile=25
+surface plate base_colour=1,1,1,1 metallic=0.5 roughness=0.75 emissive=0.1,0.2,0.3 alpha=mask cutoff=0.3 double_sided=true normal_y=negative normal_scale=0.7 occlusion_strength=0.4 wrap_u=clamp wrap_v=mirror magnify=nearest minify=linear mipmap=none
+map plate base_colour maps/rgba.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map plate roughness maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map plate metallic maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map plate normal maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map plate occlusion maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map plate emissive maps/rgba.png license=GPL-3.0-or-later origin=gcad-test-pattern
+node plate source=plate
+face_material plate ../../target/game-asset-refined-end.faces.json base_colour=1,0,0,1 roughness=0.2
+face_material plate ../../target/game-asset-refined-bottom.faces.json base_colour=0,0,1,1 roughness=0.6

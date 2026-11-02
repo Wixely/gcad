@@ -1,0 +1,10 @@
+asset 1
+source linkage ../assemblies/linkage.gasm
+tessellate linkage tolerance=0.1
+uv linkage projection=box tile=25
+node first source=linkage
+node second source=linkage translation=100,0,0
+# Explicit animation of an evaluated part, not a mechanical-constraint bake.
+clip part-lift interpolation=linear
+key part-lift first/crank time=0 translation=0,0,4
+key part-lift first/crank time=1 translation=0,0,14

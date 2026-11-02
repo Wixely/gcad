@@ -1,0 +1,12 @@
+asset 1
+source masked ../parts/plate.gcad body=main
+source blended ../parts/plate.gcad body=main
+tessellate masked tolerance=0.1
+tessellate blended tolerance=0.1
+uv masked projection=box tile=25
+uv blended projection=box tile=25
+# Explicit factors are linear RGB/RGBA, unlike inherited CAD sRGB colours.
+surface masked base_colour=0.1,0.2,0.3,0.4 metallic=0.25 roughness=0.75 emissive=0.05,0.1,0.15 alpha=mask cutoff=0.3 double_sided=true
+surface blended base_colour=0.6,0.4,0.2,0.5 alpha=blend double_sided=false
+node masked source=masked
+node blended source=blended translation=100,0,0

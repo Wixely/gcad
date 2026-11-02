@@ -1,0 +1,15 @@
+asset 1
+project ../..
+source block nested/block.gcad
+tessellate block tolerance=0.1
+uv block projection=box tile=8
+atlas block width=128 height=128 padding=8 density=32 filter=linear mips=2
+surface block base_colour=0.6,0.5,0.4,1 metallic=0.2 roughness=0.8 emissive=0.3,0.2,0.1 occlusion_strength=0.4 alpha=opaque
+map block base_colour maps/rgba.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map block normal maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map block roughness maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map block metallic maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map block occlusion maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map block emissive maps/rgba.png license=GPL-3.0-or-later origin=gcad-test-pattern
+node block source=block
+node copy source=block translation=10,0,0

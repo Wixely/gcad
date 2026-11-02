@@ -1,0 +1,13 @@
+asset 1
+project ../..
+source plate ../parts/plate.gcad body=main
+tessellate plate tolerance=0.1
+uv plate projection=box tile=25
+node plate source=plate
+node base
+node tip parent=base translation=0,15,0
+clip bend interpolation=linear
+key bend tip time=0 rotation=0,0,0,1
+key bend tip time=1 rotation=0,0,0.7071067811865476,0.7071067811865476
+# Generate this resource explicitly with asset-bind before check/export.
+skin plate weights=../../target/game-asset-plate.v2.weights.json

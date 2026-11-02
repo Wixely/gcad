@@ -1,0 +1,13 @@
+asset 1
+source plate ../parts/plate.gcad body=main
+tessellate plate tolerance=0.1
+uv plate projection=box tile=25
+node root translation=10,20,30
+node plate source=plate parent=root translation=5,0,0
+node unrelated source=plate translation=200,0,0
+clip travel interpolation=linear
+key travel root time=0 translation=10,20,30
+key travel root time=1 translation=60,45,35
+key travel root time=2 translation=110,70,40
+key travel root time=0 rotation=0,0,0,1
+key travel root time=2 rotation=0,0,0.7071067811865476,0.7071067811865476

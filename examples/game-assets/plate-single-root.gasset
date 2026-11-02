@@ -1,0 +1,9 @@
+asset 1
+project ../..
+# FBX regression: one authored root, nonidentity transform, export-container name collision.
+source plate ../parts/plate.gcad body=main
+tessellate plate tolerance=0.1
+uv plate projection=box tile=25
+surface plate base_colour=1,1,1,1 metallic=0 roughness=0.75
+map plate base_colour maps/rgba.png license=GPL-3.0-or-later origin=gcad-test-pattern
+node gcad_export_root source=plate translation=12,-4,7 rotation=0,0,0.7071067811865476,0.7071067811865476 scale=1.2,0.8,1.1

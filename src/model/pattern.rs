@@ -38,6 +38,14 @@ impl Model {
             .copied()
             .unwrap_or_else(Matrix4::identity);
         self.placements.insert(name.to_string(), transform * placed);
+        // Patterns copy an evaluated body, not its containing subassembly.
+        self.assembly_instances
+            .push(super::assembly::AssemblyInstance {
+                name: name.to_string(),
+                placement: transform * placed,
+                bodies: vec![name.to_string()],
+                children: Vec::new(),
+            });
         if let Some(groups) = self.part_groups.get(part) {
             let moved = groups.moved(transform);
             self.part_groups.insert(name.to_string(), moved);

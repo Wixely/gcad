@@ -259,6 +259,8 @@ struct Focus {
 }
 
 pub struct App {
+    #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+    asset: Option<super::asset::Document>,
     path: Option<PathBuf>,
     vars: Vec<(String, f64)>,
     program: Arc<Program>,
@@ -937,6 +939,8 @@ impl App {
             })
         };
         let mut app = App {
+            #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+            asset: None,
             path: None,
             vars,
             program: Arc::new(Program::default()),
@@ -1037,6 +1041,16 @@ impl App {
             self.watching = None;
         }
         self.events = None;
+        #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+        {
+            self.asset = None;
+            if self.path.as_ref().is_some_and(|p| is_game_asset(p)) {
+                self.asset = Some(super::asset::Document::open(
+                    self.path.clone().unwrap(), self.vars.clone(), ctx.clone(),
+                ));
+                return;
+            }
+        }
         self.reload(ctx);
         self.watch(ctx.clone());
     }
@@ -1377,14 +1391,27 @@ impl App {
             if toggle(ui, "?", self.help_open).clicked() {
                 self.help_open = !self.help_open;
             }
+            #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+            if self.asset.is_some() {
+                ui.label("game asset · live");
+                return;
+            }
             if WEB && toggle(ui, "edit", self.editing).clicked() {
                 self.editing = !self.editing;
             }
-            if toggle(ui, "measure", self.measuring).clicked() {
+            let measure = toggle(ui, "measure", self.measuring);
+            measure.widget_info(|| egui::WidgetInfo::selected(
+                egui::accesskit::Role::CheckBox, ui.is_enabled(), self.measuring, "measure",
+            ));
+            if measure.clicked() {
                 self.measuring = !self.measuring;
                 self.picks.clear();
             }
-            if toggle(ui, "section", self.section.is_some()).clicked() {
+            let section = toggle(ui, "section", self.section.is_some());
+            section.widget_info(|| egui::WidgetInfo::selected(
+                egui::accesskit::Role::CheckBox, ui.is_enabled(), self.section.is_some(), "section",
+            ));
+            if section.clicked() {
                 self.section = match self.section {
                     Some(_) => None,
                     None => Some((1, 0.5, false)),
@@ -3397,10 +3424,25 @@ impl App {
         if !self.help_open {
             return;
         }
+        #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+        let game_asset = self.asset.is_some();
+        #[cfg(not(all(feature = "game-assets", not(target_arch = "wasm32"))))]
+        let game_asset = false;
         let modal = egui::Modal::new(egui::Id::unique("gcad_help"))
             .backdrop_color(Color32::from_black_alpha(150))
             .show(ctx, |ui| {
             ui.set_width(560.0);
+            if game_asset {
+                modal_title(ui, "game asset viewing");
+                Line::new().legend("open a file").show(ui);
+                hint(ui, "use cmd+o or open, or drop a .gasset file into the viewer. open a CAD document to return to CAD controls");
+                ui.add_space(4.0);
+                Line::new().legend("follow the agent").show(ui);
+                hint(ui, "source and texture changes rebuild the preview automatically. invalid edits keep the last valid model visible with an error; fixing the source resumes updates");
+                ui.add_space(4.0);
+                Line::new().legend("preview and inspect").show(ui);
+                hint(ui, "choose a clip, play or scrub its timeline, and inspect materials, UVs, rigs, weights and LODs. use Fit model after geometry or pose changes to reset framing");
+            } else {
             modal_title(ui, "gcad is built for coding agents");
             note(
                 ui,
@@ -3424,6 +3466,7 @@ impl App {
                 hint(ui, "the examples ship with the page, and the address bar opens any file from github");
             } else {
                 hint(ui, "open a file to start working");
+            }
             }
             let label = if WEB { "open the examples" } else { "browse" };
             footer(ui, |ui| {
@@ -3475,6 +3518,8 @@ impl App {
             }
         }
         let rank = |p: &PathBuf| match p.extension().and_then(|e| e.to_str()) {
+            #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+            Some(ext) if ext.eq_ignore_ascii_case("gasset") => 0,
             Some("gasm") => 0,
             Some("gcad") => 1,
             Some("gsim") => 2,
@@ -3536,7 +3581,15 @@ type Picker = Browser;
 
 #[cfg(not(target_arch = "wasm32"))]
 fn browser_at(dir: PathBuf) -> Browser {
-    Browser::new("open a part or assembly", dir).suffixes(&[".gcad", ".gasm", ".gsim"])
+    #[cfg(feature = "game-assets")]
+    { Browser::new("open a gcad document", dir).suffixes(&[".gcad", ".gasm", ".gsim", ".gasset"]) }
+    #[cfg(not(feature = "game-assets"))]
+    { Browser::new("open a part or assembly", dir).suffixes(&[".gcad", ".gasm", ".gsim"]) }
+}
+
+#[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+fn is_game_asset(path: &std::path::Path) -> bool {
+    path.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("gasset"))
 }
 
 fn moving_lines(
@@ -4059,6 +4112,15 @@ impl eframe::App for App {
         {
             self.frames.pop_front();
         }
+        #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+        if self.asset.is_some() {
+            self.keys(&ctx);
+            egui::Panel::top("header").show(ui, |ui| self.header(ui, &ctx));
+            self.asset.as_mut().unwrap().ui(ui);
+            self.browser(&ctx);
+            self.help(&ctx);
+            return;
+        }
         self.poll(&ctx);
         self.keys(&ctx);
         self.refresh_scene(&ctx);
@@ -4121,6 +4183,19 @@ pub fn run(
     line: Option<usize>,
     vars: Vec<(String, f64)>,
 ) -> eframe::Result<()> {
+    run_document(path, query, line, vars, None)
+}
+
+#[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+pub fn run_asset(path: PathBuf, vars: Vec<(String, f64)>, clip: Option<String>, time: f64) -> eframe::Result<()> {
+    run_document(Some(path), String::new(), None, vars, Some((clip, time)))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn run_document(
+    path: Option<PathBuf>, query: String, line: Option<usize>, vars: Vec<(String, f64)>,
+    _asset_pose: Option<(Option<String>, f64)>,
+) -> eframe::Result<()> {
     let title = match &path {
         Some(path) => format!("gcad - {}", path.display()),
         None => "gcad".to_string(),
@@ -4142,7 +4217,15 @@ pub fn run(
     eframe::run_native(
         &title,
         options,
-        Box::new(move |cc| Ok(Box::new(App::new(cc, path, query, line, vars)))),
+        Box::new(move |cc| {
+            #[allow(unused_mut)]
+            let mut app = App::new(cc, path, query, line, vars);
+            #[cfg(feature = "game-assets")]
+            if let Some((clip, time)) = _asset_pose {
+                if let Some(asset) = &mut app.asset { asset.initial_pose(clip, time); }
+            }
+            Ok(Box::new(app))
+        }),
     )
 }
 
@@ -4202,6 +4285,68 @@ mod tests {
     use monstertruck::modeling::*;
     use std::sync::{Arc, Mutex};
 
+    #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+    #[test]
+    fn game_asset_opens_and_switches_in_existing_app() {
+        use egui_kittest::kittest::Queryable as _;
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let asset = crate::host::canonicalize(&root.join("examples/game-assets/plate.gasset")).unwrap();
+        let part = crate::host::canonicalize(&root.join("examples/parts/plate.gcad")).unwrap();
+        assert!(super::is_game_asset(std::path::Path::new("MODEL.GASSET")));
+        let ctx = Arc::new(Mutex::new(None));
+        let capture = ctx.clone();
+        let mut harness = egui_kittest::Harness::builder()
+            .with_size(egui::vec2(640., 480.))
+            .build_eframe(|cc| {
+                *capture.lock().unwrap() = Some(cc.egui_ctx.clone());
+                super::App::new(cc, Some(asset.clone()), String::new(), None, vec![])
+            });
+        let ctx = ctx.lock().unwrap().clone().unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while !harness.state().asset.as_ref().unwrap().ready() {
+            assert!(std::time::Instant::now() < deadline, "asset did not load in existing App");
+            std::thread::sleep(std::time::Duration::from_millis(25));
+            harness.step();
+        }
+        assert_eq!(harness.state().path.as_deref(), Some(asset.as_path()));
+        assert!(harness.query_by_label("Fit model").is_some());
+        assert!(harness.query_by_label("measure").is_none());
+        assert!(harness.query_by_label("section").is_none());
+        harness.state_mut().help_open = true;
+        harness.step();
+        harness.step(); // Modal layout becomes accessible after its sizing frame.
+        assert!(harness.query_by_label("GAME ASSET VIEWING").is_some());
+        assert!(harness.query_by_label("GCAD IS BUILT FOR CODING AGENTS").is_none());
+        harness.state_mut().help_open = false;
+        harness.state_mut().open(part.clone(), &ctx);
+        assert!(harness.state().asset.is_none());
+        assert_eq!(harness.state().path.as_deref(), Some(part.as_path()));
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while harness.state().shown.is_none() {
+            assert!(std::time::Instant::now() < deadline, "CAD scene did not rebuild after switching modes");
+            std::thread::sleep(std::time::Duration::from_millis(25));
+            harness.step();
+        }
+        assert!(harness.state().program.error.is_none());
+        assert!(!harness.state().program.lines.is_empty());
+        assert!(harness.state().watching.is_some());
+        harness.step();
+        assert!(harness.query_by_label("Fit model").is_none());
+        assert!(harness.query_by_label("measure").is_some());
+        assert!(harness.query_by_label("section").is_some());
+        harness.state_mut().help_open = true;
+        harness.step();
+        harness.step();
+        assert!(harness.query_by_label("GAME ASSET VIEWING").is_none());
+        assert!(harness.query_by_label("GCAD IS BUILT FOR CODING AGENTS").is_some());
+        harness.state_mut().help_open = false;
+        harness.state_mut().open(asset, &ctx);
+        assert!(harness.state().asset.is_some());
+        assert!(harness.state().watching.is_none());
+        assert!(harness.state().loading.is_none());
+        harness.step();
+    }
+
     #[test]
     fn run_writes_a_fresh_result() {
         let dir = std::env::temp_dir().join("gcad-tests/viewer_run");
@@ -4223,9 +4368,16 @@ mod tests {
             .unwrap_or_else(|e| e.into_inner());
         let watched = Arc::new(Mutex::new(super::SimProgress::default()));
         let into = watched.clone();
-        let listening = crate::progress::listen(move |report| {
+        // Observe this simulation (and carried worker contexts), not concurrent
+        // CAD/asset tests using the process-wide progress publisher.
+        let listening = crate::progress::listen_here(move |report| {
             into.lock().unwrap().take(report);
         });
+        std::thread::spawn(|| {
+            let _stage = crate::progress::stage("unrelated CAD evaluation", None, "");
+        })
+        .join()
+        .unwrap();
         super::simulate_file(&spec, &[]).expect("runs");
         drop(listening);
         assert_eq!(crate::sim::stale(&spec, &[]), None);
@@ -4237,6 +4389,7 @@ mod tests {
                 .all(|r| r.report.finished && r.inside.is_none())
         );
         let names: Vec<String> = watched.rows.iter().map(|r| r.report.name()).collect();
+        assert!(!names.contains(&"unrelated CAD evaluation".to_string()));
         assert_eq!(
             names.first().map(String::as_str),
             Some("building the model")

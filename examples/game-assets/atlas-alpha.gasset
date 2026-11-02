@@ -1,0 +1,23 @@
+asset 1
+project ../..
+source opaque nested/block.gcad
+source masked nested/block.gcad
+source blended nested/block.gcad
+tessellate opaque tolerance=0.1
+tessellate masked tolerance=0.1
+tessellate blended tolerance=0.1
+uv opaque projection=box tile=8
+uv masked projection=box tile=8
+uv blended projection=box tile=8
+atlas opaque width=128 height=128 padding=8 density=32 filter=linear mips=2
+atlas masked width=128 height=128 padding=8 density=32 filter=linear mips=2
+atlas blended width=128 height=128 padding=8 density=32 filter=linear mips=2
+surface opaque base_colour=1,1,1,0.75 alpha=opaque
+surface masked base_colour=1,1,1,0.75 alpha=mask cutoff=0.5
+surface blended base_colour=1,1,1,0.75 alpha=blend
+map opaque base_colour maps/rgba.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map masked base_colour maps/rgba.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map blended base_colour maps/rgba.png license=GPL-3.0-or-later origin=gcad-test-pattern
+node opaque source=opaque translation=-5,0,0
+node masked source=masked
+node blended source=blended translation=5,0,0

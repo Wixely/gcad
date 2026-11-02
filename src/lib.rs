@@ -1,3 +1,5 @@
+#[cfg(feature = "game-assets")]
+pub mod asset;
 pub mod bom;
 pub mod drafting;
 pub mod drawing;

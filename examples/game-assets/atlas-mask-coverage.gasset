@@ -1,0 +1,11 @@
+asset 1
+project ../..
+source block nested/block.gcad
+tessellate block tolerance=0.1
+uv block projection=box tile=8
+atlas block width=128 height=128 padding=8 density=32 filter=linear mips=2 coverage=mask
+surface block base_colour=1,1,1,0.75 alpha=mask cutoff=0.5
+map block base_colour maps/rgba.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map block normal maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+node block source=block
+node copy source=block translation=10,0,0

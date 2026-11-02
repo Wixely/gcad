@@ -1,0 +1,7 @@
+asset 1
+source cad nested/top.gasm
+tessellate cad tolerance=0.1
+uv cad projection=box tile=10
+node first source=cad
+node second source=cad translation=100,0,0 scale=-1.25,0.75,1.5
+motion move first joint=left.hinge from=0 to=30 duration=1 rate=24 max_error=0.01

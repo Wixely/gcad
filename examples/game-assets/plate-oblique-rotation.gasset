@@ -1,0 +1,15 @@
+asset 1
+project ../..
+source plate ../parts/plate.gcad body=main
+tessellate plate tolerance=0.1
+uv plate projection=box tile=25
+node plate source=plate
+node base
+node tip parent=base translation=0,15,0
+clip oblique interpolation=linear
+key oblique tip time=0 rotation=0,0,0,1
+key oblique tip time=1 rotation=0.5,0.5,0.5,0.5
+skin plate weights=../../target/game-asset-plate.v2.weights.json
+face_weights plate ../../target/game-asset-plate-end.faces.json joints=base,tip weights=0.25,0.75 boundary=reject-shared
+face_material plate ../../target/game-asset-plate-end.faces.json base_colour=1,0,0,1 roughness=0.2
+face_material plate ../../target/game-asset-plate-bottom.faces.json base_colour=0,0,1,1 roughness=0.6

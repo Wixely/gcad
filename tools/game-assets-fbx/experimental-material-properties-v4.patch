@@ -1,0 +1,195 @@
+diff --git a/code/AssetLib/FBX/FBXExporter.cpp b/code/AssetLib/FBX/FBXExporter.cpp
+index 353140eb5666ef6adc2093cefdb3adcf82525bb2..49e7de2a69c84317c1c743c302f0930bfdab4b67 100644
+--- a/code/AssetLib/FBX/FBXExporter.cpp
++++ b/code/AssetLib/FBX/FBXExporter.cpp
+@@ -54,6 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #include <assimp/Logger.hpp>
+ #include <assimp/StreamWriter.h> // StreamWriterLE
+ #include <assimp/Exceptional.h> // DeadlyExportError
++#include <assimp/GltfMaterial.h>
+ #include <assimp/material.h> // aiTextureType
+ #include <assimp/scene.h>
+ #include <assimp/mesh.h>
+@@ -594,15 +595,24 @@ static size_t count_textures(const aiScene* scene) {
+     return count;
+ }
+ 
+-static size_t count_deformers(const aiScene* scene) {
++static size_t count_deformers(const aiScene* scene, bool mergeSkins) {
+     size_t count = 0;
+     for (size_t i = 0; i < scene->mNumMeshes; ++i) {
+         const size_t n = scene->mMeshes[i]->mNumBones;
+         if (n) {
+             // 1 main deformer, 1 subdeformer per bone
+-            count += n + 1;
++            count += n + (mergeSkins ? 0 : 1);
+         }
+     }
++    if (mergeSkins) {
++        std::function<void(const aiNode*)> visit = [&](const aiNode* node) {
++            bool skinned = false;
++            for(unsigned i=0;i<node->mNumMeshes;++i)skinned |= scene->mMeshes[node->mMeshes[i]]->HasBones();
++            if(skinned)++count;
++            for(unsigned i=0;i<node->mNumChildren;++i)visit(node->mChildren[i]);
++        };
++        visit(scene->mRootNode);
++    }
+     return count;
+ }
+ 
+@@ -981,7 +991,7 @@ void FBXExporter::WriteDefinitions () {
+     }
+ 
+     // Deformer
+-    count = int32_t(count_deformers(mScene))+bsDeformerCount;
++    count = int32_t(count_deformers(mScene, mProperties->GetPropertyBool("GCAD_FBX_MERGE_SKINS", false)))+bsDeformerCount;
+     if (count) {
+         n = FBX::Node("ObjectType", "Deformer");
+         n.AddChild("Count", count);
+@@ -1516,6 +1526,78 @@ void FBXExporter::WriteObjects () {
+ 
+         FBX::Node p("Properties70");
+ 
++        // Isolated gcad GLB-route experiment, explicitly opted in by the caller.
++        // Legacy shading stays intact. Consumers must understand these properties.
++        int gcadVersion = 0;
++        if (m->Get("gcad.extension.version", 0, 0, gcadVersion) == AI_SUCCESS && gcadVersion == 3) {
++            p.AddP70int("gcad|PbrVersion", 3);
++            const aiMaterialProperty* provenance = nullptr;
++            for(unsigned property=0;property<m->mNumProperties;++property) {
++                const auto* candidate=m->mProperties[property];
++                if(candidate->mKey==aiString("gcad.texture_source_inputs.json") && candidate->mSemantic==0 && candidate->mIndex==0) {
++                    if(provenance)throw DeadlyExportError("duplicate gcad provenance property");
++                    provenance=candidate;
++                }
++            }
++            if(!provenance || provenance->mType!=aiPTI_Buffer || provenance->mDataLength==0 || provenance->mDataLength>1024*1024)
++                throw DeadlyExportError("gcad v3 requires bounded provenance JSON bytes");
++            p.AddP70int("gcad|TextureSourceInputsVersion",1);
++            p.AddP70string("gcad|TextureSourceInputsJson",std::string(provenance->mData,provenance->mDataLength));
++            ai_real roughness = 1, metallic = 0;
++            m->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
++            m->Get(AI_MATKEY_METALLIC_FACTOR, metallic);
++            p.AddP70numberA("gcad|Roughness", roughness);
++            p.AddP70numberA("gcad|Metallic", metallic);
++            p.AddP70numberA("gcad|Occlusion", 1.0);
++            // glTF metallic-roughness packed G/B; occlusion samples R.
++            p.AddP70int("gcad|RoughnessChannel", 1);
++            p.AddP70int("gcad|MetallicChannel", 2);
++            p.AddP70int("gcad|OcclusionChannel", 0);
++            ai_real normalScale=1, occlusionStrength=1, alphaCutoff=.5, opacity=1;
++            int doubleSided=0;
++            aiString alphaMode("OPAQUE");
++            aiColor4D baseColour(1,1,1,1);
++            aiColor3D emission(0,0,0);
++            m->Get(AI_MATKEY_GLTF_TEXTURE_SCALE(aiTextureType_NORMALS,0),normalScale);
++            m->Get(AI_MATKEY_GLTF_TEXTURE_STRENGTH(aiTextureType_LIGHTMAP,0),occlusionStrength);
++            m->Get(AI_MATKEY_GLTF_ALPHACUTOFF,alphaCutoff);
++            m->Get(AI_MATKEY_GLTF_ALPHAMODE,alphaMode);
++            m->Get(AI_MATKEY_OPACITY,opacity);
++            m->Get(AI_MATKEY_TWOSIDED,doubleSided);
++            m->Get(AI_MATKEY_BASE_COLOR,baseColour);
++            m->Get(AI_MATKEY_COLOR_EMISSIVE,emission);
++            p.AddP70numberA("gcad|NormalScale",normalScale);
++            p.AddP70numberA("gcad|OcclusionStrength",occlusionStrength);
++            p.AddP70numberA("gcad|AlphaCutoff",alphaCutoff);
++            p.AddP70string("gcad|AlphaMode",alphaMode.C_Str());
++            p.AddP70numberA("gcad|BaseAlpha",opacity);
++            p.AddP70int("gcad|DoubleSided",doubleSided);
++            p.AddP70colorA("gcad|BaseColour",baseColour.r,baseColour.g,baseColour.b);
++            p.AddP70colorA("gcad|Emission",emission.r,emission.g,emission.b);
++            const aiTextureType slots[]={aiTextureType_BASE_COLOR,aiTextureType_DIFFUSE_ROUGHNESS,aiTextureType_METALNESS,aiTextureType_NORMALS,aiTextureType_LIGHTMAP,aiTextureType_EMISSIVE};
++            const char* names[]={"BaseColour","Roughness","Metallic","Normal","Occlusion","Emission"};
++            for(unsigned slot=0;slot<6;++slot) {
++                if(!m->GetTextureCount(slots[slot]))continue;
++                auto prefix=std::string("gcad|")+names[slot];
++                int u=0,v=0,mag=-1,min=-1,uv=0;
++                m->Get(AI_MATKEY_MAPPINGMODE_U(slots[slot],0),u);
++                m->Get(AI_MATKEY_MAPPINGMODE_V(slots[slot],0),v);
++                m->Get(AI_MATKEY_GLTF_MAPPINGFILTER_MAG(slots[slot],0),mag);
++                m->Get(AI_MATKEY_GLTF_MAPPINGFILTER_MIN(slots[slot],0),min);
++                m->Get(AI_MATKEY_UVWSRC(slots[slot],0),uv);
++                auto wrap=[](int mode) {
++                    if(mode==aiTextureMapMode_Wrap)return 10497;
++                    if(mode==aiTextureMapMode_Clamp)return 33071;
++                    if(mode==aiTextureMapMode_Mirror)return 33648;
++                    throw DeadlyExportError("gcad extension cannot represent this wrap mode");
++                };
++                p.AddP70int(prefix+"|WrapU",wrap(u));
++                p.AddP70int(prefix+"|WrapV",wrap(v));
++                p.AddP70int(prefix+"|MagFilter",mag);
++                p.AddP70int(prefix+"|MinFilter",min);
++                p.AddP70int(prefix+"|UvSet",uv);
++            }
++        }
+         // materials exported using the FBX SDK have two sets of fields.
+         // there are the properties specified in the PropertyTemplate,
+         // which are those supported by the modernFBX SDK,
+@@ -1791,8 +1873,18 @@ void FBXExporter::WriteObjects () {
+             const int64_t image_uid = elem->second;
+ 
+             // get the name of the material property to connect to
+-            auto elem2 = prop_name_by_tt.find(tt);
+-            if (elem2 == prop_name_by_tt.end()) {
++            auto gcad_props = prop_name_by_tt;
++            int gcadVersion = 0;
++            if (mat->Get("gcad.extension.version", 0, 0, gcadVersion) == AI_SUCCESS && gcadVersion == 3) {
++                gcad_props[aiTextureType_DIFFUSE_ROUGHNESS] = "gcad|Roughness";
++                gcad_props[aiTextureType_METALNESS] = "gcad|Metallic";
++                gcad_props[aiTextureType_LIGHTMAP] = "gcad|Occlusion";
++                gcad_props[aiTextureType_BASE_COLOR] = "gcad|BaseColour";
++                gcad_props[aiTextureType_NORMALS] = "gcad|Normal";
++                gcad_props[aiTextureType_EMISSIVE] = "gcad|Emission";
++            }
++            auto elem2 = gcad_props.find(tt);
++            if (elem2 == gcad_props.end()) {
+                 // don't know how to handle this type of texture,
+                 // so skip it.
+                 std::stringstream err;
+@@ -2101,6 +2193,8 @@ void FBXExporter::WriteObjects () {
+         }
+     }
+ 
++    const bool gcadMergeSkins = mProperties->GetPropertyBool("GCAD_FBX_MERGE_SKINS", false);
++    std::map<const aiNode*, int64_t> gcadSkinByNode;
+     // now, for each aiMesh, we need to export a deformer,
+     // and for each aiBone a subdeformer,
+     // which should have all the skinning info.
+@@ -2113,19 +2207,24 @@ void FBXExporter::WriteObjects () {
+         }
+ 
+         const aiNode *mesh_node = get_node_for_mesh((uint32_t)mi, mScene->mRootNode);
+-        // make a deformer for this mesh
+-        int64_t deformer_uid = generate_uid();
+-        FBX::Node dnode("Deformer");
+-        dnode.AddProperties(deformer_uid, FBX::SEPARATOR + "Deformer", "Skin");
+-        dnode.AddChild("Version", int32_t(101));
+-        // "acuracy"... this is not a typo....
+-        dnode.AddChild("Link_DeformAcuracy", double(50));
+-        dnode.AddChild("SkinningType", "Linear"); // TODO: other modes?
+-        dnode.Dump(outstream, binary, indent);
+-
+-        // connect it
+-        connections.emplace_back("C", "OO", deformer_uid, mesh_uids[mesh_node]);
+-
++        if (!mesh_node)throw DeadlyExportError("gcad skin has no mesh node");
++        // One Skin for the merged Geometry. Keep each primitive's clusters and
++        // original index offsets/binds, including repeated bone identities.
++        int64_t deformer_uid = 0;
++        auto existing = gcadSkinByNode.find(mesh_node);
++        if (gcadMergeSkins && existing != gcadSkinByNode.end()) {
++            deformer_uid = existing->second;
++        } else {
++            deformer_uid = generate_uid();
++            FBX::Node dnode("Deformer");
++            dnode.AddProperties(deformer_uid, FBX::SEPARATOR + "Deformer", "Skin");
++            dnode.AddChild("Version", int32_t(101));
++            dnode.AddChild("Link_DeformAcuracy", double(50));
++            dnode.AddChild("SkinningType", "Linear");
++            dnode.Dump(outstream, binary, indent);
++            connections.emplace_back("C", "OO", deformer_uid, mesh_uids[mesh_node]);
++            if(gcadMergeSkins)gcadSkinByNode.emplace(mesh_node,deformer_uid);
++        }
+         // TODO, FIXME: this won't work if anything is not in the bind pose.
+         // for now if such a situation is detected, we throw an exception.
+         std::set<const aiBone*> not_in_bind_pose;

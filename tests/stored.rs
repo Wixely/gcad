@@ -1,7 +1,9 @@
 mod common;
 
 use common::scratch;
-use std::path::{Path, PathBuf};
+#[cfg(unix)]
+use std::path::Path;
+use std::path::PathBuf;
 
 static ONE_STORE: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
@@ -12,6 +14,7 @@ fn store() -> PathBuf {
     store
 }
 
+#[cfg(unix)]
 fn stored(store: &Path) -> Vec<(PathBuf, u64)> {
     use std::os::unix::fs::MetadataExt;
     let mut found: Vec<_> = std::fs::read_dir(store)
@@ -28,6 +31,7 @@ fn stored(store: &Path) -> Vec<(PathBuf, u64)> {
     found
 }
 
+#[cfg(unix)]
 fn write(dir: &Path, name: &str, text: &str) {
     std::thread::sleep(std::time::Duration::from_millis(20));
     std::fs::write(dir.join(name), text).expect("writes");

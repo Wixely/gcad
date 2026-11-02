@@ -1,0 +1,12 @@
+asset 1
+source plate ../parts/plate.gcad body=main
+tessellate plate tolerance=0.1
+uv plate projection=box tile=25
+node plate source=plate parent=pivot translation=50,0,0
+node pivot translation=0,100,0
+clip swing interpolation=linear
+key swing pivot time=0 rotation=0,0,0,1
+key swing pivot time=2 rotation=0,0,0.7071067811865476,0.7071067811865476
+clip slide interpolation=linear
+key slide plate time=0 translation=50,0,0
+key slide plate time=2 translation=150,0,0

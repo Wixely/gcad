@@ -2,6 +2,16 @@
 
 # gcad
 
+The fork's [game asset development plan](docs/game-assets-plan.md) covers portable
+textures, rigging, animation, FBX export, rig-aware optimisation and shaders while
+preserving the existing CAD workflows. The broader plan remains in progress.
+
+The [viewer and GLB/FBX export MVP](docs/game-assets-mvp.md) runs inside the existing
+application with live preview and an export panel for game-asset documents.
+
+The opt-in implementation is documented in the [experimental game asset guide](docs/game-assets.md),
+including build commands, authoring syntax and current validation limits.
+
 Parametric CAD written like G-code: one operation per line, built for agents to write
 and check.
 It is pure Rust on the [monstertruck](https://github.com/v0l/monstertruck) B-rep

@@ -1,0 +1,8 @@
+asset 1
+source linkage ../assemblies/linkage.gasm
+tessellate linkage tolerance=0.1
+uv linkage projection=box tile=25
+node first source=linkage
+node second source=linkage translation=100,0,0
+# Joint angles are degrees; one second, 24 evenly spaced intervals.
+motion drive first joint=drive from=0 to=30 duration=1 rate=24 max_error=0.01

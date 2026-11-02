@@ -1,0 +1,112 @@
+diff --git a/code/AssetLib/FBX/FBXExporter.cpp b/code/AssetLib/FBX/FBXExporter.cpp
+index 353140eb5666ef6adc2093cefdb3adcf82525bb2..0391fb67f0b73e0be8e8ed8d18630ffd38b0bfdc 100644
+--- a/code/AssetLib/FBX/FBXExporter.cpp
++++ b/code/AssetLib/FBX/FBXExporter.cpp
+@@ -54,6 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #include <assimp/Logger.hpp>
+ #include <assimp/StreamWriter.h> // StreamWriterLE
+ #include <assimp/Exceptional.h> // DeadlyExportError
++#include <assimp/GltfMaterial.h>
+ #include <assimp/material.h> // aiTextureType
+ #include <assimp/scene.h>
+ #include <assimp/mesh.h>
+@@ -1516,6 +1517,78 @@ void FBXExporter::WriteObjects () {
+ 
+         FBX::Node p("Properties70");
+ 
++        // Isolated gcad GLB-route experiment, explicitly opted in by the caller.
++        // Legacy shading stays intact. Consumers must understand these properties.
++        int gcadVersion = 0;
++        if (m->Get("gcad.extension.version", 0, 0, gcadVersion) == AI_SUCCESS && gcadVersion == 3) {
++            p.AddP70int("gcad|PbrVersion", 3);
++            const aiMaterialProperty* provenance = nullptr;
++            for(unsigned property=0;property<m->mNumProperties;++property) {
++                const auto* candidate=m->mProperties[property];
++                if(candidate->mKey==aiString("gcad.texture_source_inputs.json") && candidate->mSemantic==0 && candidate->mIndex==0) {
++                    if(provenance)throw DeadlyExportError("duplicate gcad provenance property");
++                    provenance=candidate;
++                }
++            }
++            if(!provenance || provenance->mType!=aiPTI_Buffer || provenance->mDataLength==0 || provenance->mDataLength>1024*1024)
++                throw DeadlyExportError("gcad v3 requires bounded provenance JSON bytes");
++            p.AddP70int("gcad|TextureSourceInputsVersion",1);
++            p.AddP70string("gcad|TextureSourceInputsJson",std::string(provenance->mData,provenance->mDataLength));
++            ai_real roughness = 1, metallic = 0;
++            m->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
++            m->Get(AI_MATKEY_METALLIC_FACTOR, metallic);
++            p.AddP70numberA("gcad|Roughness", roughness);
++            p.AddP70numberA("gcad|Metallic", metallic);
++            p.AddP70numberA("gcad|Occlusion", 1.0);
++            // glTF metallic-roughness packed G/B; occlusion samples R.
++            p.AddP70int("gcad|RoughnessChannel", 1);
++            p.AddP70int("gcad|MetallicChannel", 2);
++            p.AddP70int("gcad|OcclusionChannel", 0);
++            ai_real normalScale=1, occlusionStrength=1, alphaCutoff=.5, opacity=1;
++            int doubleSided=0;
++            aiString alphaMode("OPAQUE");
++            aiColor4D baseColour(1,1,1,1);
++            aiColor3D emission(0,0,0);
++            m->Get(AI_MATKEY_GLTF_TEXTURE_SCALE(aiTextureType_NORMALS,0),normalScale);
++            m->Get(AI_MATKEY_GLTF_TEXTURE_STRENGTH(aiTextureType_LIGHTMAP,0),occlusionStrength);
++            m->Get(AI_MATKEY_GLTF_ALPHACUTOFF,alphaCutoff);
++            m->Get(AI_MATKEY_GLTF_ALPHAMODE,alphaMode);
++            m->Get(AI_MATKEY_OPACITY,opacity);
++            m->Get(AI_MATKEY_TWOSIDED,doubleSided);
++            m->Get(AI_MATKEY_BASE_COLOR,baseColour);
++            m->Get(AI_MATKEY_COLOR_EMISSIVE,emission);
++            p.AddP70numberA("gcad|NormalScale",normalScale);
++            p.AddP70numberA("gcad|OcclusionStrength",occlusionStrength);
++            p.AddP70numberA("gcad|AlphaCutoff",alphaCutoff);
++            p.AddP70string("gcad|AlphaMode",alphaMode.C_Str());
++            p.AddP70numberA("gcad|BaseAlpha",opacity);
++            p.AddP70int("gcad|DoubleSided",doubleSided);
++            p.AddP70colorA("gcad|BaseColour",baseColour.r,baseColour.g,baseColour.b);
++            p.AddP70colorA("gcad|Emission",emission.r,emission.g,emission.b);
++            const aiTextureType slots[]={aiTextureType_BASE_COLOR,aiTextureType_DIFFUSE_ROUGHNESS,aiTextureType_METALNESS,aiTextureType_NORMALS,aiTextureType_LIGHTMAP,aiTextureType_EMISSIVE};
++            const char* names[]={"BaseColour","Roughness","Metallic","Normal","Occlusion","Emission"};
++            for(unsigned slot=0;slot<6;++slot) {
++                if(!m->GetTextureCount(slots[slot]))continue;
++                auto prefix=std::string("gcad|")+names[slot];
++                int u=0,v=0,mag=-1,min=-1,uv=0;
++                m->Get(AI_MATKEY_MAPPINGMODE_U(slots[slot],0),u);
++                m->Get(AI_MATKEY_MAPPINGMODE_V(slots[slot],0),v);
++                m->Get(AI_MATKEY_GLTF_MAPPINGFILTER_MAG(slots[slot],0),mag);
++                m->Get(AI_MATKEY_GLTF_MAPPINGFILTER_MIN(slots[slot],0),min);
++                m->Get(AI_MATKEY_UVWSRC(slots[slot],0),uv);
++                auto wrap=[](int mode) {
++                    if(mode==aiTextureMapMode_Wrap)return 10497;
++                    if(mode==aiTextureMapMode_Clamp)return 33071;
++                    if(mode==aiTextureMapMode_Mirror)return 33648;
++                    throw DeadlyExportError("gcad extension cannot represent this wrap mode");
++                };
++                p.AddP70int(prefix+"|WrapU",wrap(u));
++                p.AddP70int(prefix+"|WrapV",wrap(v));
++                p.AddP70int(prefix+"|MagFilter",mag);
++                p.AddP70int(prefix+"|MinFilter",min);
++                p.AddP70int(prefix+"|UvSet",uv);
++            }
++        }
+         // materials exported using the FBX SDK have two sets of fields.
+         // there are the properties specified in the PropertyTemplate,
+         // which are those supported by the modernFBX SDK,
+@@ -1791,8 +1864,18 @@ void FBXExporter::WriteObjects () {
+             const int64_t image_uid = elem->second;
+ 
+             // get the name of the material property to connect to
+-            auto elem2 = prop_name_by_tt.find(tt);
+-            if (elem2 == prop_name_by_tt.end()) {
++            auto gcad_props = prop_name_by_tt;
++            int gcadVersion = 0;
++            if (mat->Get("gcad.extension.version", 0, 0, gcadVersion) == AI_SUCCESS && gcadVersion == 3) {
++                gcad_props[aiTextureType_DIFFUSE_ROUGHNESS] = "gcad|Roughness";
++                gcad_props[aiTextureType_METALNESS] = "gcad|Metallic";
++                gcad_props[aiTextureType_LIGHTMAP] = "gcad|Occlusion";
++                gcad_props[aiTextureType_BASE_COLOR] = "gcad|BaseColour";
++                gcad_props[aiTextureType_NORMALS] = "gcad|Normal";
++                gcad_props[aiTextureType_EMISSIVE] = "gcad|Emission";
++            }
++            auto elem2 = gcad_props.find(tt);
++            if (elem2 == gcad_props.end()) {
+                 // don't know how to handle this type of texture,
+                 // so skip it.
+                 std::stringstream err;

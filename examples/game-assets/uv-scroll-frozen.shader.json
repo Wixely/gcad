@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "template": "uv-scroll-pbr",
+  "scale": [1.5, 0.75],
+  "offset": [0.125, -0.25],
+  "speed": [0.125, 0.25],
+  "fallback": { "mode": "freeze", "seconds": 2.0 }
+}

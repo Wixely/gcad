@@ -1,0 +1,108 @@
+{
+    "version":  "2.0.0",
+    "tasks":  [
+                  {
+                      "label":  "Build atlas GPU examples (Debug)",
+                      "type":  "process",
+                      "command":  "cargo",
+                      "args":  [
+                                   "build",
+                                   "--locked",
+                                   "--features",
+                                   "game-assets",
+                                   "--example",
+                                   "game_asset_renderer_fixture",
+                                   "--example",
+                                   "game_asset_mip_gpu"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  "$rustc"
+                  },
+                  {
+                      "label":  "Build game asset CLI (Debug)",
+                      "type":  "process",
+                      "command":  "cargo",
+                      "args":  [
+                                   "build",
+                                   "--locked",
+                                   "--features",
+                                   "game-assets",
+                                   "--bin",
+                                   "gcad"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  "$rustc"
+                  },
+                  {
+                      "label":  "Build static GLB fixture (Debug)",
+                      "type":  "process",
+                      "command":  "cargo",
+                      "args":  [
+                                   "build",
+                                   "--locked",
+                                   "--features",
+                                   "game-assets",
+                                   "--example",
+                                   "game_asset_glb"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  "$rustc"
+                  },
+                  {
+                      "label":  "Build crease reference (Debug)",
+                      "type":  "process",
+                      "command":  "cargo",
+                      "args":  [
+                                   "build",
+                                   "--locked",
+                                   "--features",
+                                   "game-assets",
+                                   "--example",
+                                   "game_asset_normals_reference"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  "$rustc"
+                  },
+                  {
+                      "label":  "Build FBX feasibility probe (Debug)",
+                      "type":  "process",
+                      "command":  "cmake",
+                      "args":  [
+                                   "--build",
+                                   "${workspaceFolder}/target/game-assets-tools/build",
+                                   "--config",
+                                   "Debug"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  "$msCompile",
+                      "dependsOn":  "Configure FBX feasibility probe"
+                  },
+                  {
+                      "label":  "Configure FBX feasibility probe",
+                      "type":  "process",
+                      "command":  "cmake",
+                      "args":  [
+                                   "-S",
+                                   "${workspaceFolder}/tools/game-assets-fbx",
+                                   "-B",
+                                   "${workspaceFolder}/target/game-assets-tools/build",
+                                   "-DASSIMP_SOURCE=${workspaceFolder}/target/game-assets-tools/assimp",
+                                   "-DUFBX_SOURCE=${workspaceFolder}/target/game-assets-tools/ufbx"
+                               ],
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}"
+                                  },
+                      "problemMatcher":  "$msCompile"
+                  }
+              ]
+}

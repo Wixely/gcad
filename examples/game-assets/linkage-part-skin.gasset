@@ -1,0 +1,14 @@
+asset 1
+project ../..
+source linkage ../assemblies/linkage.gasm
+tessellate linkage tolerance=0.1
+uv linkage projection=box tile=25
+node first source=linkage
+node second source=linkage translation=100,0,0
+node bone
+clip lift interpolation=linear
+key lift bone time=0 translation=0,0,0
+key lift bone time=1 translation=0,0,10
+# Explicit rigid skin of one generated part; constraints are not baked.
+# Generate with asset-bind FILE first/crank OUTPUT --joints bone.
+skin first/crank weights=../../target/game-asset-linkage-part.weights.json

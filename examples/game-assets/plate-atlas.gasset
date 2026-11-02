@@ -1,0 +1,6 @@
+asset 1
+source plate ../parts/plate.gcad body=main
+tessellate plate tolerance=0.1
+uv plate projection=box tile=25
+atlas plate width=256 height=256 padding=2 density=16 filter=linear
+node plate source=plate

@@ -1,6 +1,9 @@
 use std::io;
 use std::path::{Component, Path, PathBuf};
 
+#[cfg(any(target_arch = "wasm32", test))]
+mod virtual_reads;
+
 #[cfg(not(target_arch = "wasm32"))]
 pub use std::time::Instant;
 #[cfg(target_arch = "wasm32")]
@@ -29,7 +32,7 @@ mod files {
 
     type Stamp = Option<(std::time::SystemTime, u64)>;
 
-    #[derive(Clone, Default)]
+    #[derive(Clone, Default, PartialEq)]
     struct Seen {
         stamp: Stamp,
         content: Option<[u8; 32]>,
@@ -37,11 +40,20 @@ mod files {
     }
 
     #[derive(Clone, Default)]
-    pub struct Reads(std::collections::BTreeMap<PathBuf, Seen>);
+    pub struct Reads(std::collections::BTreeMap<PathBuf, Vec<Seen>>);
 
     impl Reads {
         pub fn unchanged(&self) -> bool {
-            self.0.iter().all(|(file, seen)| stamp(file) == seen.stamp)
+            self.0.iter().all(|(file, observations)| {
+                let current = stamp(file);
+                let hash = observations.iter().find_map(|seen| seen.content);
+                let first = &observations[0];
+                observations.iter().all(|seen| {
+                    current == seen.stamp
+                        && seen.file == first.file
+                        && seen.content.is_none_or(|content| Some(content) == hash)
+                })
+            })
         }
 
         pub fn files(&self) -> impl Iterator<Item = &Path> {
@@ -51,22 +63,41 @@ mod files {
         pub fn contents(&self) -> Vec<(PathBuf, Option<[u8; 32]>, bool)> {
             self.0
                 .iter()
-                .map(|(path, seen)| (path.clone(), seen.content, seen.file))
+                .flat_map(|(path, observations)| {
+                    observations
+                        .iter()
+                        .map(|seen| (path.clone(), seen.content, seen.file))
+                })
                 .collect()
         }
 
         pub fn merge(&mut self, other: Reads) {
-            for (file, seen) in other.0 {
-                let entry = self.0.entry(file).or_default();
-                entry.stamp = seen.stamp;
-                entry.content = seen.content.or(entry.content);
-                entry.file = seen.file;
+            for (file, observations) in other.0 {
+                for seen in observations {
+                    self.insert(file.clone(), seen);
+                }
+            }
+        }
+
+        fn insert(&mut self, path: PathBuf, seen: Seen) {
+            let observations = self.0.entry(path).or_default();
+            if !observations.contains(&seen) {
+                observations.push(seen);
             }
         }
     }
 
     thread_local! {
         static RECORDING: std::cell::RefCell<Vec<Reads>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
+
+    /// Include inputs consumed by cached evaluation or another worker.
+    pub fn observe_reads(reads: Reads) {
+        RECORDING.with(|stack| {
+            if let Some(outer) = stack.borrow_mut().last_mut() {
+                outer.merge(reads);
+            }
+        });
     }
 
     pub fn recording<R>(work: impl FnOnce() -> R) -> (R, Reads) {
@@ -91,13 +122,15 @@ mod files {
     fn note(path: &Path, was: Stamp, file: bool, content: Option<&[u8]>) {
         RECORDING.with(|stack| {
             if let Some(top) = stack.borrow_mut().last_mut() {
-                let seen = top.0.entry(path.to_path_buf()).or_default();
-                seen.stamp = was;
-                seen.file = file;
-                if let Some(bytes) = content {
-                    use sha2::Digest;
-                    seen.content = Some(sha2::Sha256::digest(bytes).into());
-                }
+                use sha2::Digest;
+                top.insert(
+                    path.to_path_buf(),
+                    Seen {
+                        stamp: was,
+                        content: content.map(|bytes| sha2::Sha256::digest(bytes).into()),
+                        file,
+                    },
+                );
             }
         });
     }
@@ -206,38 +239,22 @@ mod files {
     }
 
     pub fn read(path: &Path) -> io::Result<Vec<u8>> {
-        hold(&FILES)
-            .get(&key(path))
+        let path = key(path);
+        let bytes = hold(&FILES).get(&path).cloned();
+        super::virtual_reads::note(&path, bytes.is_some(), bytes.as_deref());
+        bytes
             .map(|b| b.to_vec())
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such file"))
     }
 
     pub fn is_file(path: &Path) -> bool {
-        hold(&FILES).contains_key(&key(path))
+        let path = key(path);
+        let found = hold(&FILES).contains_key(&path);
+        super::virtual_reads::note(&path, found, None);
+        found
     }
 
-    #[derive(Clone, Default)]
-    pub struct Reads;
-
-    impl Reads {
-        pub fn unchanged(&self) -> bool {
-            false
-        }
-
-        pub fn files(&self) -> impl Iterator<Item = &Path> {
-            std::iter::empty()
-        }
-
-        pub fn contents(&self) -> Vec<(PathBuf, Option<[u8; 32]>, bool)> {
-            Vec::new()
-        }
-
-        pub fn merge(&mut self, _other: Reads) {}
-    }
-
-    pub fn recording<R>(work: impl FnOnce() -> R) -> (R, Reads) {
-        (work(), Reads)
-    }
+    pub use super::virtual_reads::{Reads, observe_reads, recording};
 
     pub fn is_dir(path: &Path) -> bool {
         let dir = key(path);

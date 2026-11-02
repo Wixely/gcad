@@ -1,0 +1,14 @@
+asset 1
+project ../..
+source block nested/block.gcad
+tessellate block tolerance=0.1
+uv block projection=box tile=1
+atlas block width=64 height=64 padding=2 density=4 filter=linear
+surface block base_colour=1,1,1,1 metallic=1 roughness=1 emissive=1,1,1 alpha=blend wrap_u=repeat wrap_v=repeat magnify=linear minify=linear mipmap=none
+map block base_colour maps/minify-stripes.png license=GPL-3.0-or-later origin=gcad-minify-pattern
+map block emissive maps/minify-stripes.png license=GPL-3.0-or-later origin=gcad-minify-pattern
+map block roughness maps/minify-stripes.png license=GPL-3.0-or-later origin=gcad-minify-pattern
+map block metallic maps/minify-stripes.png license=GPL-3.0-or-later origin=gcad-minify-pattern
+map block occlusion maps/minify-stripes.png license=GPL-3.0-or-later origin=gcad-minify-pattern
+map block normal maps/minify-normal.png license=GPL-3.0-or-later origin=gcad-minify-pattern
+node block source=block

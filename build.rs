@@ -30,6 +30,16 @@ fn build_version() {
 
 fn main() {
     build_version();
+    // The expanded feature-enabled CLI can exceed the MSVC 1 MiB main-thread
+    // reserve before parsing arguments in unoptimized builds. Reserve address
+    // space (not committed memory) so the normal Debug launch remains usable.
+    if std::env::var_os("CARGO_FEATURE_GAME_ASSETS").is_some()
+        && std::env::var("PROFILE").as_deref() == Ok("debug")
+        && std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows")
+        && std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc")
+    {
+        println!("cargo:rustc-link-arg-bin=gcad=/STACK:8388608");
+    }
     println!("cargo:rerun-if-changed=packaging/windows/icon.ico");
     #[cfg(windows)]
     {

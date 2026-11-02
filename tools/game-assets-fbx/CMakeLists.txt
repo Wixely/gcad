@@ -1,0 +1,63 @@
+cmake_minimum_required(VERSION 3.24)
+project(gcad_fbx_probe LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(NOT ASSIMP_SOURCE OR NOT UFBX_SOURCE)
+  message(FATAL_ERROR "Set ASSIMP_SOURCE and UFBX_SOURCE to the pinned source checkouts")
+endif()
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ALL_EXPORTERS_BY_DEFAULT OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_FBX_EXPORTER ON CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_GLTF_IMPORTER ON CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "" FORCE)
+set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
+add_subdirectory("${ASSIMP_SOURCE}" assimp)
+add_library(probe_ufbx STATIC "${UFBX_SOURCE}/ufbx.c")
+target_include_directories(probe_ufbx PUBLIC "${UFBX_SOURCE}")
+add_executable(gcad_fbx_probe probe.cpp)
+target_link_libraries(gcad_fbx_probe PRIVATE assimp probe_ufbx)
+target_include_directories(gcad_fbx_probe PRIVATE "${ASSIMP_SOURCE}/contrib/rapidjson/include")
+target_include_directories(gcad_fbx_probe PRIVATE "${ASSIMP_SOURCE}/contrib/stb")
+add_executable(gcad_glb_probe glb_probe.cpp)
+target_link_libraries(gcad_glb_probe PRIVATE assimp)
+target_include_directories(gcad_glb_probe PRIVATE "${ASSIMP_SOURCE}/contrib/stb")
+target_include_directories(gcad_glb_probe PRIVATE "${ASSIMP_SOURCE}/contrib/rapidjson/include")
+
+# Report the actual linked source identity, including its complete tracked diff.
+execute_process(COMMAND git -C "${ASSIMP_SOURCE}" rev-parse HEAD
+  OUTPUT_VARIABLE GCAD_ASSIMP_REV OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND git -C "${ASSIMP_SOURCE}" diff --no-ext-diff --binary --full-index HEAD --
+  OUTPUT_VARIABLE GCAD_ASSIMP_DIFF COMMAND_ERROR_IS_FATAL ANY)
+string(SHA256 GCAD_ASSIMP_DIFF_SHA256 "${GCAD_ASSIMP_DIFF}")
+add_executable(gcad_fbx_helper helper.cpp helper_conversion.cpp helper_materials.cpp helper_skin.cpp)
+add_library(gcad_fbx_textures STATIC helper_textures.cpp helper_names.cpp)
+target_link_libraries(gcad_fbx_textures PUBLIC assimp)
+target_link_libraries(gcad_fbx_probe PRIVATE gcad_fbx_textures)
+target_include_directories(gcad_fbx_textures PRIVATE "${ASSIMP_SOURCE}/contrib/stb")
+target_link_libraries(gcad_fbx_helper PRIVATE gcad_fbx_textures probe_ufbx)
+target_include_directories(gcad_fbx_helper PRIVATE "${ASSIMP_SOURCE}/contrib/rapidjson/include" "${ASSIMP_SOURCE}/contrib/stb")
+target_compile_definitions(gcad_fbx_helper PRIVATE
+  GCAD_ASSIMP_REV="${GCAD_ASSIMP_REV}"
+  GCAD_ASSIMP_DIFF_SHA256="${GCAD_ASSIMP_DIFF_SHA256}")
+add_custom_target(gcad_fbx_helper_identity_check
+  COMMAND "${CMAKE_COMMAND}" "-DASSIMP_SOURCE=${ASSIMP_SOURCE}"
+    "-DEXPECTED_REVISION=${GCAD_ASSIMP_REV}" "-DEXPECTED_DIFF=${GCAD_ASSIMP_DIFF_SHA256}"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/verify_helper_identity.cmake"
+  VERBATIM)
+add_dependencies(gcad_fbx_helper gcad_fbx_helper_identity_check)
+option(GCAD_HELPER_PROTOCOL_TESTS "Build helper process failure fixture" OFF)
+if(GCAD_HELPER_PROTOCOL_TESTS)
+  add_executable(gcad_fbx_protocol_fixture protocol_fixture.cpp)
+  add_executable(gcad_fbx_textures_test helper_textures_test.cpp)
+  target_link_libraries(gcad_fbx_textures_test PRIVATE gcad_fbx_textures probe_ufbx)
+  target_include_directories(gcad_fbx_textures_test PRIVATE "${ASSIMP_SOURCE}/contrib/rapidjson/include")
+  enable_testing()
+  foreach(texture rgba numeric)
+    add_test(NAME helper_texture_${texture} COMMAND gcad_fbx_textures_test
+      "${CMAKE_CURRENT_SOURCE_DIR}/../../examples/game-assets/maps/${texture}.png")
+  endforeach()
+endif()

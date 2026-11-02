@@ -1,0 +1,7 @@
+part a single.gasm
+part b block.gcad
+move b 8,0,0
+axis pivot 0,0,0 0,0,1
+joint hinge a b turn about=pivot min=0 max=30
+interference none
+interference none joint=hinge steps=13

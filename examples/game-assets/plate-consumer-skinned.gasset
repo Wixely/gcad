@@ -1,0 +1,28 @@
+asset 1
+project ../..
+source high ../parts/plate.gcad body=main
+tessellate high tolerance=0.1
+uv high projection=box tile=25
+refine high levels=1 triangle_budget=100000
+source low ../parts/plate.gcad body=main
+tessellate low tolerance=0.5
+uv low projection=box tile=25
+node model translation=10,20,30
+node detail_high source=high parent=model
+node detail_low source=low parent=model
+node collision source=low parent=model
+node grip parent=model translation=0,10,5
+node base parent=model
+node tip parent=base translation=0,15,0
+clip bend interpolation=linear
+key bend tip time=0 rotation=0,0,0,1
+key bend tip time=1 rotation=0,0,0.3826834323650898,0.9238795325112867
+# Generate these explicit resources with asset-bind before export.
+skin detail_high weights=../../target/consumer-skinned-high.weights.json
+skin detail_low weights=../../target/consumer-skinned-low.weights.json
+consumer unity version=1
+socket handle node=grip
+collider collision shape=box
+lod_group detail root=model
+lod_level detail height=0.6 nodes=detail_high
+lod_level detail height=0.15 nodes=detail_low

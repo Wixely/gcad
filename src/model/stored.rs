@@ -1,4 +1,4 @@
-use super::assembly::{Couple, Joint, Mate, Source};
+use super::assembly::{AssemblyInstance, Couple, Joint, Mate, Source};
 use super::bodies::Material;
 use super::{Model, PartGroups};
 use crate::packed::PackedSolid;
@@ -27,6 +27,7 @@ struct Stored {
     materials: Vec<(String, Material)>,
     sources: Vec<StoredSource>,
     placements: Vec<(String, [[f64; 4]; 4])>,
+    assembly_instances: Vec<AssemblyInstance>,
     axes: Vec<(String, [f64; 3], [f64; 3])>,
     filled: Vec<(String, usize)>,
     stand_ins: Vec<(String, String)>,
@@ -67,7 +68,7 @@ fn key(path: &Path, vars: &[(String, f64)]) -> Option<String> {
         .ok()
         .map(|meta| (meta.len(), meta.modified().ok()));
     Some(format!(
-        "{}|{exe:?}|{}|{vars:?}",
+        "part-hierarchy-1|{}|{exe:?}|{}|{vars:?}",
         env!("GCAD_BUILD_VERSION"),
         path.display()
     ))
@@ -297,6 +298,7 @@ fn storable(model: &Model, key: String, reads: Vec<Read>) -> Option<Stored> {
             .iter()
             .map(|(k, m)| (k.clone(), (*m).into()))
             .collect(),
+        assembly_instances: model.assembly_instances.clone(),
         axes: model
             .axes
             .iter()
@@ -356,6 +358,7 @@ fn restored(stored: Stored) -> Option<Model> {
             .into_iter()
             .map(|(k, m)| (k, m.into()))
             .collect(),
+        assembly_instances: stored.assembly_instances,
         axes: stored
             .axes
             .into_iter()
@@ -413,4 +416,39 @@ fn restored_groups(groups: Vec<StoredGroup>) -> Groups {
             })
             .collect(),
     )
+}
+
+#[cfg(test)]
+mod hierarchy_tests {
+    use super::*;
+
+    #[test]
+    fn assembly_instance_metadata_survives_stored_roundtrip() {
+        let instance = AssemblyInstance {
+            name: "outer".into(),
+            placement: Matrix4::from_translation(Vector3::new(1., 2., 3.)),
+            bodies: vec!["renamed".into()],
+            children: vec![AssemblyInstance {
+                name: "original".into(),
+                placement: Matrix4::from_angle_z(Deg(35.)),
+                bodies: vec!["renamed".into()],
+                children: Vec::new(),
+            }],
+        };
+        let model = Model {
+            assembly: true,
+            assembly_instances: vec![instance],
+            ..Model::default()
+        };
+        let stored = storable(
+            &model,
+            "test".into(),
+            vec![(PathBuf::from("fixture.gasm"), None, true)],
+        )
+        .unwrap();
+        let bytes = bitcode::serialize(&stored).unwrap();
+        let restored = restored(bitcode::deserialize(&bytes).unwrap()).unwrap();
+        assert_eq!(restored.assembly_instances, model.assembly_instances);
+        assert!(restored.assembly);
+    }
 }

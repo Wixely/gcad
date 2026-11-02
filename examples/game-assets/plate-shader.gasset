@@ -1,0 +1,8 @@
+asset 1
+project ../..
+source plate ../parts/plate.gcad body=main
+tessellate plate tolerance=0.1
+uv plate projection=box tile=25
+map plate base_colour maps/rgba.png license=GPL-3.0-or-later origin=gcad-test-pattern
+shader plate uv-scroll.shader.json
+node plate source=plate

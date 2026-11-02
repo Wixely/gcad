@@ -40,6 +40,257 @@ fn parse_set(text: &str) -> std::result::Result<(String, f64), String> {
 
 #[derive(Subcommand)]
 enum Command {
+    #[cfg(feature = "game-assets")]
+    /// Clean abandoned, marked FBX stages; skip stages held by gcad or a helper
+    AssetFbxRecover { directory: std::path::PathBuf },
+    #[cfg(feature = "game-assets")]
+    /// Experimental GLB-to-FBX/PNG package conversion using the reviewed native helper
+    AssetFbxExperimental {
+        /// Canonical gcad-exported GLB with provenance
+        input: std::path::PathBuf,
+        /// New package directory (must not exist)
+        output: std::path::PathBuf,
+        #[arg(long)]
+        helper: std::path::PathBuf,
+        /// Deadline in seconds for each helper process
+        #[arg(long, default_value_t = 120)]
+        timeout_seconds: u64,
+    },
+    #[cfg(feature = "game-assets")]
+    /// Inspect an explicitly configured native FBX helper (does not export)
+    AssetFbxHelper {
+        #[arg(long)]
+        helper: std::path::PathBuf,
+    },
+    #[cfg(feature = "game-assets")]
+    /// Replace saved faces' skin weights in a new derived GLB
+    AssetFaceWeights {
+        file: String,
+        node: String,
+        selection: String,
+        output: String,
+        /// Existing skin joint and positive weight, JOINT=VALUE (repeat up to four)
+        #[arg(long, required = true, value_parser = parse_set)]
+        influence: Vec<(String, f64)>,
+        /// Split selected boundary tuples, or reject shared selected/unselected vertices
+        #[arg(long, value_parser = ["reject-shared", "split"])]
+        boundary: String,
+    },
+    #[cfg(feature = "game-assets")]
+    /// Transform saved faces' UVs and preserve skin weights in a new derived GLB
+    AssetFaceUv {
+        file: String,
+        node: String,
+        selection: String,
+        output: String,
+        #[arg(long, default_value = "1,1", allow_hyphen_values = true)]
+        scale: String,
+        #[arg(long, default_value_t = 0., allow_hyphen_values = true)]
+        rotation: f64,
+        #[arg(long, default_value = "0,0", allow_hyphen_values = true)]
+        offset: String,
+    },
+    #[cfg(feature = "game-assets")]
+    /// Assign surface settings to saved source faces and write a new derived GLB
+    AssetFaceMaterial {
+        file: String,
+        node: String,
+        selection: String,
+        output: String,
+        /// Surface KEY=VALUE override; repeat for additional settings
+        #[arg(long, required = true)]
+        surface: Vec<String>,
+    },
+    #[cfg(feature = "game-assets")]
+    /// Validate a saved face selector and return prepared node triangle indices
+    AssetFaceResolve {
+        file: String,
+        node: String,
+        selection: String,
+    },
+    #[cfg(feature = "game-assets")]
+    /// Capture a source-bound face selector into a new JSON record
+    AssetFaceBind {
+        file: String,
+        source: String,
+        selector: String,
+        output: String,
+        /// Select one body from a wildcard assembly source
+        #[arg(long)]
+        body: Option<String>,
+    },
+    #[cfg(feature = "game-assets")]
+    /// Check a saved face selection against current CAD inputs without updating it
+    AssetFaceCheck {
+        file: String,
+        source: String,
+        selection: String,
+        #[arg(long)]
+        body: Option<String>,
+    },
+    #[cfg(feature = "game-assets")]
+    /// Quantise skin weights to UNORM16 in a new GLB with explicit sampled limits
+    AssetQuantizeWeights {
+        file: String,
+        output: String,
+        /// Maximum sampled position error in millimetres
+        #[arg(long)]
+        max_error: f64,
+        /// Maximum sampled normal/tangent angle error in degrees
+        #[arg(long)]
+        max_angle: f64,
+        #[arg(long, default_value_t = 17)]
+        samples: usize,
+    },
+    #[cfg(feature = "game-assets")]
+    /// Remove unused skin palette entries into a new GLB, preserving every scene node
+    AssetPruneJoints {
+        file: String,
+        output: String,
+        /// Additional scene nodes whose skin-palette entries must be retained
+        #[arg(long, value_delimiter = ',')]
+        keep: Vec<String>,
+    },
+    #[cfg(feature = "game-assets")]
+    /// Dry-run GLB encoding and report export capabilities as JSON
+    AssetCapabilities { file: String },
+    #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+    /// Preview an authored asset, or render a software diagnostic PNG
+    AssetPreview {
+        file: String,
+        #[arg(long)]
+        clip: Option<String>,
+        #[arg(long, default_value_t = 0.0)]
+        time: f64,
+        #[arg(long)]
+        snapshot: Option<String>,
+    },
+    #[cfg(feature = "game-assets")]
+    /// Emit JSON geometry counts and sampled skin-deformation diagnostics
+    AssetReport {
+        file: String,
+        /// Also validate CPU shading directions; singular blended transforms fail
+        #[arg(long)]
+        shading: bool,
+        /// Regular samples per clip, supplemented by keys and STEP left limits
+        #[arg(long, default_value_t = 17)]
+        samples: usize,
+    },
+    #[cfg(feature = "game-assets")]
+    /// Reduce a selected clip against sampled world-space error limits; create a new GLB
+    AssetReduce {
+        file: String,
+        output: String,
+        #[arg(long)]
+        clip: String,
+        #[arg(long)]
+        max_error: f64,
+        #[arg(long)]
+        max_angle: f64,
+        #[arg(long, default_value_t = 4)]
+        subdivisions: usize,
+        #[arg(long, default_value_t = 1000)]
+        max_trials: usize,
+    },
+    #[cfg(feature = "game-assets")]
+    /// Export an in-place clip and explicit root-motion metadata in a new GLB
+    AssetRootMotion {
+        file: String,
+        node: String,
+        output: String,
+        #[arg(long)]
+        clip: String,
+        #[arg(long)]
+        in_place: String,
+        /// Extract explicit CAD axes, e.g. xy or xyz (Z is vertical)
+        #[arg(long, required_unless_present = "rigid", conflicts_with = "rigid")]
+        axes: Option<String>,
+        /// Extract all translation and quaternion rotation with turning loop composition
+        #[arg(long)]
+        rigid: bool,
+    },
+    #[cfg(feature = "game-assets")]
+    /// Derive a sampled, node-specific LOD into a new GLB
+    AssetLod {
+        file: String,
+        node: String,
+        output: String,
+        #[arg(long, default_value_t = 0)]
+        primitive: usize,
+        #[arg(long)]
+        triangles: usize,
+        #[arg(long)]
+        max_error: f64,
+        #[arg(long)]
+        max_uv_error: f64,
+        #[arg(long)]
+        max_surface_error: Option<f64>,
+        #[arg(long)]
+        max_surface_p95: Option<f64>,
+        #[arg(long)]
+        max_silhouette_difference: Option<f64>,
+        #[arg(long)]
+        max_angle: f64,
+        #[arg(long, default_value_t = 17)]
+        samples: usize,
+        #[arg(long, default_value_t = 1000)]
+        max_trials: usize,
+        #[arg(long, value_delimiter = ',')]
+        lock: Vec<usize>,
+        /// Bake original rest normals onto this LOD at SIZE x SIZE resolution
+        #[arg(long, requires = "bake_distance")]
+        bake_normals: Option<u32>,
+        /// Maximum projection distance in target mesh-local millimetres
+        #[arg(long, requires = "bake_normals")]
+        bake_distance: Option<f64>,
+        #[arg(long, default_value_t = 2)]
+        bake_padding: u8,
+    },
+    #[cfg(feature = "game-assets")]
+    /// Bake source rest-pose normals into a target primitive and create a new GLB
+    AssetBakeNormals {
+        file: String,
+        node: String,
+        source: String,
+        source_node: String,
+        output: String,
+        #[arg(long, default_value_t = 0)]
+        primitive: usize,
+        #[arg(long, default_value_t = 0)]
+        source_primitive: usize,
+        #[arg(long)]
+        width: u32,
+        #[arg(long)]
+        height: u32,
+        /// Maximum projection distance in target mesh-local millimetres
+        #[arg(long)]
+        max_distance: f64,
+        #[arg(long, default_value_t = 0.0)]
+        min_normal_dot: f64,
+        #[arg(long, default_value_t = 0.0)]
+        max_missed_fraction: f64,
+        #[arg(long, default_value_t = 2)]
+        padding: u8,
+    },
+    #[cfg(feature = "game-assets")]
+    /// Explicitly create a new skin weight file; never overwrites an existing file
+    AssetBind {
+        file: String,
+        node: String,
+        output: String,
+        /// One rigid joint, two with --blend, or ordered joints with --chain
+        #[arg(long, value_delimiter = ',', required = true)]
+        joints: Vec<String>,
+        /// Mesh-local linear blend interval in mm: x,START,END (or y/z)
+        #[arg(long, conflicts_with = "chain")]
+        blend: Option<String>,
+        /// Mesh-local piecewise blend knots in mm: AXIS,KNOT0,KNOT1,...
+        #[arg(long)]
+        chain: Option<String>,
+        /// Explicit peer skin nodes to repair later; normal check/export remain strict
+        #[arg(long = "defer-skin", value_delimiter = ',')]
+        deferred_skins: Vec<String>,
+    },
     /// Run every line and report what each one did
     Check {
         file: String,
@@ -459,6 +710,733 @@ fn main() -> Result<()> {
         line: None,
     });
     match command {
+        #[cfg(feature = "game-assets")]
+        Command::AssetFbxRecover { directory } => {
+            let removed = gcad::asset::fbx_package::recover(&directory)?;
+            println!("{}", serde_json::json!({"removed":removed}));
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetFbxExperimental { input, output, helper, timeout_seconds } => {
+            let output = if output.is_absolute() { output } else { std::env::current_dir()?.join(output) };
+            let published = gcad::asset::fbx_helper::convert_experimental(
+                &helper, &input, &output, std::time::Duration::from_secs(timeout_seconds),
+                &std::sync::atomic::AtomicBool::new(false),
+            )?;
+            println!("{}", serde_json::json!({"experimental":true,"package":published}));
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetFbxHelper { helper } => {
+            let info = gcad::asset::fbx_helper::inspect(
+                &helper, std::time::Duration::from_secs(10),
+                &std::sync::atomic::AtomicBool::new(false),
+            )?;
+            println!("{}", serde_json::to_string_pretty(&info)?);
+            Ok(())
+        }
+        #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+        Command::AssetPreview {
+            file,
+            clip,
+            time,
+            snapshot,
+        } => {
+            anyhow::ensure!(
+                file.to_ascii_lowercase().ends_with(".gasset"),
+                "asset-preview requires a .gasset file"
+            );
+            anyhow::ensure!(
+                time.is_finite() && time >= 0.,
+                "preview time must be finite and nonnegative"
+            );
+            let asset = gcad::asset::author::load(std::path::Path::new(&file), &vars)?;
+            let clip = clip
+                .map(|name| {
+                    asset
+                        .scene
+                        .clips
+                        .iter()
+                        .position(|c| c.name == name)
+                        .ok_or_else(|| anyhow!("unknown clip `{name}`"))
+                })
+                .transpose()?;
+            if let Some(path) = snapshot {
+                for difference in gcad::view::asset::differences(&asset) {
+                    eprintln!("{difference}");
+                }
+                gcad::view::asset::snapshot(&asset, clip, time, std::path::Path::new(&path))
+            } else {
+                let clip = clip.map(|i| asset.scene.clips[i].name.clone());
+                gcad::view::run_asset(std::path::PathBuf::from(file), vars, clip, time)
+                    .map_err(|e| anyhow!("gcad viewer failed: {e}"))
+            }
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetBakeNormals {
+            file,
+            node,
+            source,
+            source_node,
+            output,
+            primitive,
+            source_primitive,
+            width,
+            height,
+            max_distance,
+            min_normal_dot,
+            max_missed_fraction,
+            padding,
+        } => {
+            use std::io::Write;
+            anyhow::ensure!(
+                file.to_ascii_lowercase().ends_with(".gasset")
+                    && source.to_ascii_lowercase().ends_with(".gasset")
+                    && output.to_ascii_lowercase().ends_with(".glb"),
+                "asset-bake-normals requires two .gasset inputs and a new .glb output"
+            );
+            let evaluation_started = std::time::Instant::now();
+            let mut target = gcad::asset::author::load(std::path::Path::new(&file), &vars)?;
+            let source = gcad::asset::author::load(std::path::Path::new(&source), &vars)?;
+            let evaluation = evaluation_started.elapsed();
+            let processing_started = std::time::Instant::now();
+            let target_node = target
+                .scene
+                .nodes
+                .iter()
+                .position(|n| n.name == node)
+                .ok_or_else(|| anyhow::anyhow!("normal bake target node not found"))?;
+            let source_node = source
+                .scene
+                .nodes
+                .iter()
+                .position(|n| n.name == source_node)
+                .ok_or_else(|| anyhow::anyhow!("normal bake source node not found"))?;
+            let report = gcad::asset::projection::apply_to_scene(
+                &mut target.scene,
+                target_node,
+                primitive,
+                &source.scene,
+                source_node,
+                source_primitive,
+                gcad::asset::projection::Options {
+                    width,
+                    height,
+                    max_distance_mm: max_distance,
+                    min_normal_dot,
+                    max_missed_fraction,
+                },
+                padding,
+            )?;
+            let bytes = target.encode_glb()?;
+            let processing = processing_started.elapsed();
+            let writing_started = std::time::Instant::now();
+            let mut destination = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&output)?;
+            destination.write_all(&bytes)?;
+            let timing = serde_json::json!({
+                "evaluation": evaluation.as_secs_f64(),
+                "derive_and_encode": processing.as_secs_f64(),
+                "write": writing_started.elapsed().as_secs_f64(),
+                "scope": "Wall-clock evaluation, derivation/validation/GLB encoding, and output open/write. Excludes diagnostic JSON serialization/output and engine work. Write is not an fsync durability measurement. Cache-dependent."
+            });
+            let mut diagnostic = serde_json::to_value(&report)?;
+            diagnostic["processing_seconds"] = timing;
+            println!("{}", serde_json::to_string_pretty(&diagnostic)?);
+            eprintln!("wrote {output}");
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetLod {
+            file,
+            node,
+            output,
+            primitive,
+            triangles,
+            max_error,
+            max_uv_error,
+            max_surface_error,
+            max_surface_p95,
+            max_silhouette_difference,
+            max_angle,
+            samples,
+            max_trials,
+            lock,
+            bake_normals,
+            bake_distance,
+            bake_padding,
+        } => {
+            use std::io::Write;
+            anyhow::ensure!(
+                file.to_ascii_lowercase().ends_with(".gasset")
+                    && output.to_ascii_lowercase().ends_with(".glb"),
+                "asset-lod requires .gasset input and a new .glb output"
+            );
+            let limits = gcad::asset::lod::Acceptance {
+                max_surface_mm: max_surface_error,
+                max_surface_p95_mm: max_surface_p95,
+                max_silhouette_difference,
+            };
+            limits.validate()?;
+            let evaluation_started = std::time::Instant::now();
+            let asset = gcad::asset::author::load(std::path::Path::new(&file), &vars)?;
+            let evaluation = evaluation_started.elapsed();
+            let processing_started = std::time::Instant::now();
+            let node = asset
+                .scene
+                .nodes
+                .iter()
+                .position(|n| n.name == node)
+                .ok_or_else(|| anyhow::anyhow!("unknown LOD node"))?;
+            let (mut scene, skins, mut report) = gcad::asset::lod::derive_node(
+                &asset.scene,
+                &asset.skins,
+                node,
+                primitive,
+                &lock,
+                samples,
+                &gcad::asset::lod::Options {
+                    target_triangles: triangles,
+                    max_error_mm: max_error,
+                    max_uv_error,
+                    max_angle_degrees: max_angle,
+                    max_trials,
+                },
+            )?;
+            report.accept(limits)?;
+            if let Some(size) = bake_normals {
+                report.normal_bake = Some(gcad::asset::projection::apply_to_scene(
+                    &mut scene,
+                    node,
+                    primitive,
+                    &asset.scene,
+                    node,
+                    primitive,
+                    gcad::asset::projection::Options {
+                        width: size,
+                        height: size,
+                        max_distance_mm: bake_distance.unwrap(),
+                        min_normal_dot: 0.,
+                        max_missed_fraction: 0.,
+                    },
+                    bake_padding,
+                )?);
+            }
+            let bytes = gcad::asset::glb::encode_skinned_scene(&scene, &skins)?;
+            let processing = processing_started.elapsed();
+            let writing_started = std::time::Instant::now();
+            let mut destination = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&output)?;
+            destination.write_all(&bytes)?;
+            let timing = serde_json::json!({
+                "evaluation": evaluation.as_secs_f64(),
+                "derive_and_encode": processing.as_secs_f64(),
+                "write": writing_started.elapsed().as_secs_f64(),
+                "scope": "Wall-clock evaluation, derivation/validation/GLB encoding, and output open/write. Excludes diagnostic JSON serialization/output and engine work. Write is not an fsync durability measurement. Cache-dependent."
+            });
+            let mut diagnostic = serde_json::to_value(&report)?;
+            diagnostic["processing_seconds"] = timing;
+            println!("{}", serde_json::to_string_pretty(&diagnostic)?);
+            eprintln!("wrote {output}");
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetRootMotion {
+            file,
+            node,
+            output,
+            clip,
+            in_place,
+            axes,
+            rigid,
+        } => {
+            use std::io::Write;
+            anyhow::ensure!(
+                file.to_ascii_lowercase().ends_with(".gasset")
+                    && output.to_ascii_lowercase().ends_with(".glb"),
+                "asset-root-motion requires .gasset input and a new .glb output"
+            );
+            let mut selected = [false; 3];
+            if let Some(axes) = axes {
+                anyhow::ensure!(
+                    !axes.is_empty(),
+                    "root-motion axes must be a nonempty subset of xyz"
+                );
+                for axis in axes.chars() {
+                    let index = match axis {
+                        'x' => 0,
+                        'y' => 1,
+                        'z' => 2,
+                        _ => anyhow::bail!("root-motion axes must be a subset of xyz"),
+                    };
+                    anyhow::ensure!(!selected[index], "duplicate root-motion axis");
+                    selected[index] = true;
+                }
+            }
+            let evaluation_started = std::time::Instant::now();
+            let asset = gcad::asset::author::load(std::path::Path::new(&file), &vars)?;
+            let evaluation = evaluation_started.elapsed();
+            let processing_started = std::time::Instant::now();
+            let node = asset
+                .scene
+                .nodes
+                .iter()
+                .position(|n| n.name == node)
+                .ok_or_else(|| anyhow::anyhow!("root-motion node not found"))?;
+            let clip = asset
+                .scene
+                .clips
+                .iter()
+                .position(|c| c.name == clip)
+                .ok_or_else(|| anyhow::anyhow!("root-motion clip not found"))?;
+            let (bytes, report) = if rigid {
+                let (bytes, motion) = gcad::asset::glb::encode_rigid_root_motion(
+                    &asset.scene,
+                    &asset.skins,
+                    clip,
+                    node,
+                    &in_place,
+                )?;
+                (bytes, motion.to_json()?)
+            } else {
+                let (bytes, motion) = gcad::asset::glb::encode_root_motion(
+                    &asset.scene,
+                    &asset.skins,
+                    clip,
+                    node,
+                    selected,
+                    &in_place,
+                )?;
+                (bytes, motion.to_json()?)
+            };
+            let processing = processing_started.elapsed();
+            let writing_started = std::time::Instant::now();
+            let mut destination = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&output)?;
+            destination.write_all(&bytes)?;
+            let timing = serde_json::json!({
+                "evaluation": evaluation.as_secs_f64(),
+                "derive_and_encode": processing.as_secs_f64(),
+                "write": writing_started.elapsed().as_secs_f64(),
+                "scope": "Wall-clock evaluation, derivation/validation/GLB encoding, and output open/write. Includes trajectory JSON serialization; excludes diagnostic output and engine work. Write is not an fsync durability measurement. Cache-dependent."
+            });
+            println!("{report}");
+            eprintln!("{}", serde_json::json!({"processing_seconds": timing}));
+            eprintln!("wrote {output}");
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetReduce {
+            file,
+            output,
+            clip,
+            max_error,
+            max_angle,
+            subdivisions,
+            max_trials,
+        } => {
+            use std::io::Write;
+            anyhow::ensure!(
+                file.to_ascii_lowercase().ends_with(".gasset")
+                    && output.to_ascii_lowercase().ends_with(".glb"),
+                "asset-reduce requires .gasset input and a new .glb output"
+            );
+            let evaluation_started = std::time::Instant::now();
+            let mut asset = gcad::asset::author::load(std::path::Path::new(&file), &vars)?;
+            let evaluation = evaluation_started.elapsed();
+            let processing_started = std::time::Instant::now();
+            let index = asset
+                .scene
+                .clips
+                .iter()
+                .position(|c| c.name == clip)
+                .ok_or_else(|| anyhow::anyhow!("unknown clip `{clip}`"))?;
+            let (reduced, report) = gcad::asset::reduce::reduce(
+                &asset.scene,
+                &asset.skins,
+                &asset.scene.clips[index],
+                &gcad::asset::reduce::Options {
+                    max_error_mm: max_error,
+                    max_angle_degrees: max_angle,
+                    subdivisions,
+                    max_trials,
+                },
+            )?;
+            asset.scene.clips[index] = reduced;
+            let bytes = asset.encode_glb()?;
+            let processing = processing_started.elapsed();
+            let writing_started = std::time::Instant::now();
+            let mut destination = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&output)?;
+            destination.write_all(&bytes)?;
+            let timing = serde_json::json!({
+                "evaluation": evaluation.as_secs_f64(),
+                "derive_and_encode": processing.as_secs_f64(),
+                "write": writing_started.elapsed().as_secs_f64(),
+                "scope": "Wall-clock evaluation, derivation/validation/GLB encoding, and output open/write. Excludes diagnostic JSON serialization/output and engine work. Write is not an fsync durability measurement. Cache-dependent."
+            });
+            let mut diagnostic = serde_json::to_value(&report)?;
+            diagnostic["processing_seconds"] = timing;
+            println!("{}", serde_json::to_string_pretty(&diagnostic)?);
+            eprintln!("wrote {output}");
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetQuantizeWeights { file, output, max_error, max_angle, samples } => {
+            use std::io::Write;
+            anyhow::ensure!(file.to_ascii_lowercase().ends_with(".gasset")
+                && output.to_ascii_lowercase().ends_with(".glb"),
+                "asset-quantize-weights requires .gasset input and a new .glb output");
+            let started = std::time::Instant::now();
+            let asset = gcad::asset::author::load(std::path::Path::new(&file), &vars)?;
+            let evaluated = started.elapsed();
+            let (bytes, report) = gcad::asset::quantize::encode(&asset.scene, &asset.skins,
+                &gcad::asset::quantize::Options { samples_per_clip: samples,
+                    max_error_mm: max_error, max_angle_degrees: max_angle })?;
+            let processing = started.elapsed().saturating_sub(evaluated);
+            let writing = std::time::Instant::now();
+            let mut destination = std::fs::OpenOptions::new().write(true).create_new(true).open(&output)?;
+            destination.write_all(&bytes)?;
+            let elapsed_write = writing.elapsed();
+            println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                "version": 1, "encoding": "UNORM16", "validation": report,
+                "limits": {"max_error_mm": max_error, "max_angle_degrees": max_angle},
+                "encoded_bytes": bytes.len(),
+                "scope": "Sampled weight-only error; excludes other float32 encoding and engine errors. Not a continuous bound.",
+                "processing_seconds": {"evaluation": evaluated.as_secs_f64(),
+                    "derive_and_encode": processing.as_secs_f64(), "write": elapsed_write.as_secs_f64(),
+                    "scope": "Wall-clock evaluation, quantisation/validation/GLB encoding and buffered open/write; excludes report output, fsync durability and engine work."}
+            }))?);
+            eprintln!("wrote {output}");
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetPruneJoints { file, output, keep } => {
+            use std::io::Write;
+            anyhow::ensure!(file.to_ascii_lowercase().ends_with(".gasset")
+                && output.to_ascii_lowercase().ends_with(".glb"),
+                "asset-prune-joints requires .gasset input and a new .glb output");
+            let started = std::time::Instant::now();
+            let asset = gcad::asset::author::load(std::path::Path::new(&file), &vars)?;
+            anyhow::ensure!(!asset.skins.is_empty(), "asset has no skins to prune");
+            let keep = keep.iter().map(|name| asset.scene.nodes.iter().position(|node| &node.name == name)
+                .ok_or_else(|| anyhow!("protected node `{name}` does not exist"))).collect::<Result<Vec<_>>>()?;
+            let evaluated = started.elapsed();
+            let mut skins = Vec::new();
+            let mut remaps = Vec::new();
+            for skin in &asset.skins {
+                let (derived, report) = skin.prune_palette(&asset.scene, &keep)?;
+                skins.push(derived);
+                remaps.push(report);
+            }
+            let bytes = gcad::asset::glb::encode_skinned_scene(&asset.scene, &skins)?;
+            let processing = started.elapsed().saturating_sub(evaluated);
+            let writing = std::time::Instant::now();
+            let mut destination = std::fs::OpenOptions::new().write(true).create_new(true).open(&output)?;
+            destination.write_all(&bytes)?;
+            let elapsed_write = writing.elapsed();
+            println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                "version": 1, "scene_nodes_preserved": true, "skins": remaps,
+                "encoded_bytes": bytes.len(),
+                "processing_seconds": {"evaluation": evaluated.as_secs_f64(),
+                    "derive_and_encode": processing.as_secs_f64(), "write": elapsed_write.as_secs_f64(),
+                    "scope": "Wall-clock evaluation, palette derivation/GLB encoding and buffered open/write; excludes report output and engine work."}
+            }))?);
+            eprintln!("wrote {output}");
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetFaceBind { file, source, selector, output, body } => {
+            use std::io::Write;
+            anyhow::ensure!(file.to_ascii_lowercase().ends_with(".gasset")
+                && output.to_ascii_lowercase().ends_with(".json"),
+                "asset-face-bind requires .gasset input and a new .json output");
+            let source = gcad::asset::face_author::load(std::path::Path::new(&file), &vars, &source, body.as_deref())?;
+            let record = source.capture(&selector)?;
+            let bytes = record.to_json()?;
+            let mut destination = std::fs::OpenOptions::new().write(true).create_new(true).open(&output)?;
+            destination.write_all(&bytes)?;
+            println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                "version": 1, "selected_faces": record.selected_face_count(), "record_bytes": bytes.len(),
+                "scope": "Source-bound raw tessellation; no render-mesh preparation or automatic rebinding."
+            }))?);
+            eprintln!("wrote {output}");
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetFaceCheck { file, source, selection, body } => {
+            anyhow::ensure!(file.to_ascii_lowercase().ends_with(".gasset"), "asset-face-check requires .gasset input");
+            let record = gcad::asset::faces::SelectionFile::from_json(&gcad::host::read(std::path::Path::new(&selection))?)?;
+            let source = gcad::asset::face_author::load(std::path::Path::new(&file), &vars, &source, body.as_deref())?;
+            let resolved = source.resolve(&record)?;
+            println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                "version": 1, "current": true, "selected_faces": record.selected_face_count(),
+                "selected_triangles": resolved.triangles.len(), "total_triangles": resolved.mesh.triangles.len(),
+                "scope": "Current raw CAD tessellation in source-body local millimetres; excludes render-mesh preparation."
+            }))?);
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetFaceWeights { file, node, selection, output, influence, boundary } => {
+            anyhow::ensure!(file.to_ascii_lowercase().ends_with(".gasset") && output.to_ascii_lowercase().ends_with(".glb"), "asset-face-weights requires .gasset input and new .glb output");
+            let record = gcad::asset::faces::SelectionFile::from_json(&gcad::host::read(std::path::Path::new(&selection))?)?;
+            let asset = gcad::asset::author::load_with_faces(std::path::Path::new(&file), &vars)?;
+            let index = asset.scene.nodes.iter().position(|n| n.name == node).ok_or_else(|| anyhow!("face target node does not exist"))?;
+            let policy = match boundary.as_str() {
+                "split" => gcad::asset::face_weights::Boundary::Split,
+                "reject-shared" => gcad::asset::face_weights::Boundary::RejectShared,
+                _ => bail!("unknown face weight boundary policy"),
+            };
+            let influences: Vec<_> = influence.iter().map(|(n,w)| (n.as_str(),*w)).collect();
+            let edited = gcad::asset::face_weights::edit_scene(&asset,index,&record,&influences,policy)?;
+            let bytes = edited.encode_glb()?;
+            use std::io::Write;
+            let mut destination = std::fs::OpenOptions::new().write(true).create_new(true).open(&output)?;
+            destination.write_all(&bytes)?;
+            println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                "version": 1, "node": node, "selected_triangles": edited.selected_triangles,
+                "assigned_vertices": edited.assigned_vertices.iter().flatten().filter(|v| **v).count(),
+                "split_vertices": edited.split_vertices, "boundary": boundary, "encoded_bytes": bytes.len(),
+                "scope": "Selected corner weights replaced; unselected weights preserved. Separate tuples can diverge during deformation, including existing shading seams."
+            }))?);
+            eprintln!("wrote {output}");
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetFaceUv { file, node, selection, output, scale, rotation, offset } => {
+            anyhow::ensure!(file.to_ascii_lowercase().ends_with(".gasset") && output.to_ascii_lowercase().ends_with(".glb"), "asset-face-uv requires .gasset input and new .glb output");
+            let pair = |text: &str| -> Result<[f64;2]> {
+                let values = text.split(',').map(str::parse::<f64>).collect::<std::result::Result<Vec<_>,_>>()?;
+                values.try_into().map_err(|_| anyhow!("UV scale/offset requires two comma-separated values"))
+            };
+            let transform = gcad::asset::uv_edit::Transform { scale: pair(&scale)?, rotation_degrees: rotation, offset: pair(&offset)? };
+            transform.validate()?;
+            let record = gcad::asset::faces::SelectionFile::from_json(&gcad::host::read(std::path::Path::new(&selection))?)?;
+            let asset = gcad::asset::author::load_with_faces(std::path::Path::new(&file), &vars)?;
+            let index = asset.scene.nodes.iter().position(|n| n.name == node).ok_or_else(|| anyhow!("face target node does not exist"))?;
+            let edited = gcad::asset::uv_edit::edit_scene(&asset, index, &record, transform)?;
+            let bytes = edited.encode_glb()?;
+            use std::io::Write;
+            let mut destination = std::fs::OpenOptions::new().write(true).create_new(true).open(&output)?;
+            destination.write_all(&bytes)?;
+            println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                "version": 1, "node": node, "selected_triangles": edited.selected_triangles,
+                "encoded_bytes": bytes.len(), "scale": transform.scale, "rotation_degrees": rotation, "offset": transform.offset,
+                "scope": "Selected UV sampling coordinates transformed; materials and texture pixels unchanged; skin weights remapped exactly."
+            }))?);
+            eprintln!("wrote {output}");
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetFaceMaterial { file, node, selection, output, surface } => {
+            anyhow::ensure!(file.to_ascii_lowercase().ends_with(".gasset") && output.to_ascii_lowercase().ends_with(".glb"), "asset-face-material requires .gasset input and new .glb output");
+            let mut named = std::collections::BTreeMap::new();
+            for setting in surface {
+                let (key, value) = setting.split_once('=').ok_or_else(|| anyhow!("surface setting requires KEY=VALUE"))?;
+                anyhow::ensure!(named.insert(key.to_string(), value.to_string()).is_none(), "duplicate surface setting");
+            }
+            let settings = gcad::asset::author::SurfaceSettings::parse(&named)?;
+            let record = gcad::asset::faces::SelectionFile::from_json(&gcad::host::read(std::path::Path::new(&selection))?)?;
+            let asset = gcad::asset::author::load_with_faces(std::path::Path::new(&file), &vars)?;
+            let index = asset.scene.nodes.iter().position(|n| n.name == node).ok_or_else(|| anyhow!("face target node does not exist"))?;
+            let derived = gcad::asset::face_material::assign(&asset, index, &record, &settings)?;
+            let bytes = derived.encode_glb()?;
+            use std::io::Write;
+            let mut destination = std::fs::OpenOptions::new().write(true).create_new(true).open(&output)?;
+            destination.write_all(&bytes)?;
+            println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                "version": 1, "node": node, "selected_triangles": derived.selected_triangles,
+                "primitives": derived.source_triangles.len(), "encoded_bytes": bytes.len(),
+                "scope": "Derived material primitives; source asset, selection, vertex attributes and weight values preserved."
+            }))?);
+            eprintln!("wrote {output}");
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetFaceResolve { file, node, selection } => {
+            anyhow::ensure!(file.to_ascii_lowercase().ends_with(".gasset"), "asset-face-resolve requires .gasset input");
+            let record = gcad::asset::faces::SelectionFile::from_json(&gcad::host::read(std::path::Path::new(&selection))?)?;
+            let asset = gcad::asset::author::load_with_faces(std::path::Path::new(&file), &vars)?;
+            let index = asset.scene.nodes.iter().position(|n| n.name == node).ok_or_else(|| anyhow!("face target node does not exist"))?;
+            let selections = asset.resolve_face_primitives(index, &record)?;
+            let primitives = &asset.scene.meshes[asset.scene.nodes[index].mesh.unwrap()].primitives;
+            if selections.len() > 1 {
+                let results: Vec<_> = selections.iter().zip(primitives).enumerate().map(|(i,(triangles, primitive))| serde_json::json!({
+                    "primitive": i, "triangles": triangles, "selected_triangles": triangles.len(), "total_triangles": primitive.geometry.triangles.len()
+                })).collect();
+                println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                    "version": 2, "current": true, "node": node, "selected_faces": record.selected_face_count(),
+                    "selected_triangles": selections.iter().map(Vec::len).sum::<usize>(), "primitives": results,
+                    "scope": "Prepared node-local mesh from this evaluation; triangle indices are local to each primitive and transient."
+                }))?);
+                return Ok(());
+            }
+            let triangles = &selections[0];
+            let mesh = &primitives[0].geometry;
+            println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                "version": 1, "current": true, "node": node, "primitive": 0,
+                "selected_faces": record.selected_face_count(), "selected_triangles": triangles.len(),
+                "total_triangles": mesh.triangles.len(), "triangles": triangles,
+                "scope": "Prepared node-local mesh from this evaluation; indices are transient. Source record remains unchanged."
+            }))?);
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetCapabilities { file } => {
+            anyhow::ensure!(file.to_ascii_lowercase().ends_with(".gasset"),
+                "asset-capabilities requires a .gasset file");
+            let started = std::time::Instant::now();
+            let asset = gcad::asset::author::load(std::path::Path::new(&file), &vars)?;
+            let evaluated = started.elapsed();
+            let encoding = std::time::Instant::now();
+            let report = gcad::asset::capabilities::inspect(&asset.scene, &asset.skins);
+            let inspected = encoding.elapsed();
+            let mut output = serde_json::to_value(&report)?;
+            output["processing_seconds"] = serde_json::json!({
+                "evaluation": evaluated.as_secs_f64(),
+                "encode_and_inspect": inspected.as_secs_f64(),
+                "scope": "Wall-clock evaluation and in-memory GLB encoding/inspection; excludes report serialization, output I/O and engine work. Cache-dependent."
+            });
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            anyhow::ensure!(report.exportable, "asset cannot be encoded as GLB; see capability report");
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetReport {
+            file,
+            samples,
+            shading,
+        } => {
+            anyhow::ensure!(
+                file.to_ascii_lowercase().ends_with(".gasset"),
+                "asset-report requires a .gasset file"
+            );
+            anyhow::ensure!(
+                (2..=10001).contains(&samples),
+                "samples must be between 2 and 10001"
+            );
+            let start = std::time::Instant::now();
+            let asset = gcad::asset::author::load(std::path::Path::new(&file), &vars)?;
+            let loaded = start.elapsed();
+            let report = gcad::asset::report::inspect_with_shading(
+                &asset.scene,
+                &asset.skins,
+                samples,
+                shading,
+            )?;
+            let inspected = start.elapsed().saturating_sub(loaded);
+            let mut output = serde_json::to_value(&report)?;
+            output["processing_seconds"] = serde_json::json!({
+                "evaluation": loaded.as_secs_f64(),
+                "diagnostics": inspected.as_secs_f64(),
+                "scope": "Wall-clock evaluation and sampled diagnostics; excludes report serialization, output I/O and engine work. Cache-dependent."
+            });
+            println!("{}", serde_json::to_string_pretty(&output)?);
+            eprintln!(
+                "evaluation: {:.3}s; report: {:.3}s",
+                loaded.as_secs_f64(),
+                inspected.as_secs_f64()
+            );
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::AssetBind {
+            file,
+            node,
+            output,
+            joints,
+            blend,
+            chain,
+            deferred_skins,
+        } => {
+            use gcad::asset::skin::{Assignment, Skin};
+            use std::io::Write;
+            anyhow::ensure!(
+                file.to_ascii_lowercase().ends_with(".gasset"),
+                "asset-bind requires a .gasset file"
+            );
+            let asset =
+                gcad::asset::author::load_for_binding_deferred(std::path::Path::new(&file), &vars, &node, &deferred_skins)?;
+            let node_index = asset
+                .scene
+                .nodes
+                .iter()
+                .position(|n| n.name == node)
+                .ok_or_else(|| anyhow!("unknown mesh node"))?;
+            let joint_indices = joints
+                .iter()
+                .map(|name| {
+                    asset
+                        .scene
+                        .nodes
+                        .iter()
+                        .position(|n| &n.name == name)
+                        .ok_or_else(|| anyhow!("unknown joint `{name}`"))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let assignment = if let Some(blend) = blend {
+                let parts: Vec<_> = blend.split(',').collect();
+                anyhow::ensure!(parts.len() == 3, "blend expects AXIS,START,END");
+                let axis = match parts[0] {
+                    "x" => 0,
+                    "y" => 1,
+                    "z" => 2,
+                    _ => bail!("blend axis must be x, y or z"),
+                };
+                Assignment::Linear {
+                    axis,
+                    start_mm: parts[1].parse()?,
+                    end_mm: parts[2].parse()?,
+                }
+            } else {
+                Assignment::Rigid
+            };
+            let skin = if let Some(chain) = chain {
+                let parts: Vec<_> = chain.split(',').collect();
+                anyhow::ensure!(parts.len() >= 3, "chain expects AXIS,KNOT0,KNOT1,...");
+                let axis = match parts[0] {
+                    "x" => 0, "y" => 1, "z" => 2,
+                    _ => bail!("chain axis must be x, y or z"),
+                };
+                let knots = parts[1..].iter().map(|v| v.parse::<f64>()).collect::<std::result::Result<Vec<_>, _>>()?;
+                Skin::assign_chain(&asset.scene, node_index, joint_indices, axis, &knots)?
+            } else {
+                Skin::assign(&asset.scene, node_index, joint_indices, assignment)?
+            };
+            let bytes = asset.weight_file(&skin)?.to_json()?;
+            let mut destination = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&output)?;
+            destination.write_all(&bytes)?;
+            println!(
+                "wrote {output}; reference it with `skin {node} weights=PATH` relative to the asset file"
+            );
+            Ok(())
+        }
+        #[cfg(feature = "game-assets")]
+        Command::Check { file, time } if file.to_ascii_lowercase().ends_with(".gasset") => {
+            let start = std::time::Instant::now();
+            let asset = gcad::asset::author::load(std::path::Path::new(&file), &vars)?;
+            println!(
+                "asset valid: {} meshes, {} nodes, {} skins",
+                asset.scene.meshes.len(),
+                asset.scene.nodes.len(),
+                asset.skins.len()
+            );
+            if time {
+                println!("elapsed: {:.3}s", start.elapsed().as_secs_f64());
+            }
+            Ok(())
+        }
         Command::Check { file, time: _ }
             if gcad::drafting::is_drawing(std::path::Path::new(&file)) =>
         {
@@ -480,6 +1458,19 @@ fn main() -> Result<()> {
             output,
             section,
         } => {
+            #[cfg(feature = "game-assets")]
+            if file.to_ascii_lowercase().ends_with(".gasset") {
+                anyhow::ensure!(section.is_none(), "asset export does not support --section");
+                anyhow::ensure!(
+                    output.to_ascii_lowercase().ends_with(".glb"),
+                    "asset export currently supports .glb only"
+                );
+                let asset = gcad::asset::author::load(std::path::Path::new(&file), &vars)?;
+                let bytes = asset.encode_glb()?;
+                std::fs::write(&output, bytes)?;
+                println!("wrote {output}");
+                return Ok(());
+            }
             if gcad::drafting::is_drawing(std::path::Path::new(&file)) {
                 let drawing = gcad::drafting::run(std::path::Path::new(&file), &vars)?;
                 if let Some((line, error)) = drawing.failed() {

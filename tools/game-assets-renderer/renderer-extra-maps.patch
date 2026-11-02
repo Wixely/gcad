@@ -1,0 +1,599 @@
+diff --git a/src/viewer3d/explicit_image.rs b/src/viewer3d/explicit_image.rs
+index 70040b6..e4e1010 100644
+--- a/src/viewer3d/explicit_image.rs
++++ b/src/viewer3d/explicit_image.rs
+@@ -25,10 +25,16 @@ pub struct UploadedImage {
+ /// renderer shares one sampler, so use the shortest chain's safe LOD bound.
+ /// Slots are base colour, tangent normal and packed metallic/roughness.
+ pub fn explicit_material_lod(maps: [Option<&ExplicitImage>; 3]) -> Result<u32, &'static str> {
++    explicit_material_lod_with_extras([maps[0], maps[1], maps[2], None, None])
++}
++
++/// Colour, normal, metallic/roughness, occlusion, emission. All present chains
++/// share the shortest safe LOD; colour and emission are sRGB, others linear.
++pub fn explicit_material_lod_with_extras(maps: [Option<&ExplicitImage>; 5]) -> Result<u32, &'static str> {
+     let mut max_lod = None;
+     for (slot, image) in maps.into_iter().enumerate() {
+         if let Some(image) = image {
+-            let expected = if slot == 0 {
++            let expected = if slot == 0 || slot == 4 {
+                 ImageEncoding::Srgb
+             } else {
+                 ImageEncoding::Linear
+diff --git a/src/viewer3d/extra_maps_tests.rs b/src/viewer3d/extra_maps_tests.rs
+new file mode 100644
+index 0000000..51b137c
+--- /dev/null
++++ b/src/viewer3d/extra_maps_tests.rs
+@@ -0,0 +1,300 @@
++use super::*;
++
++#[derive(Clone, Copy, Default, PartialEq, Eq, Hash)]
++struct ExtraMaterial([u32; 4]);
++impl Material for ExtraMaterial {
++    fn pbr(&self) -> Pbr {
++        Pbr {
++            emission: std::array::from_fn(|i| f32::from_bits(self.0[i])),
++            occlusion_strength: f32::from_bits(self.0[3]),
++            ..Default::default()
++        }
++    }
++}
++fn material(emission: [f32; 3], strength: f32) -> ExtraMaterial {
++    ExtraMaterial([
++        emission[0].to_bits(),
++        emission[1].to_bits(),
++        emission[2].to_bits(),
++        strength.to_bits(),
++    ])
++}
++fn scene(
++    emission: [f32; 3],
++    strength: f32,
++    maps: Option<(u8, [u8; 3], bool)>,
++) -> Scene<ExtraMaterial> {
++    let mut s = Scene::default();
++    s.radius = 1.5;
++    s.surfaces.push(Surface {
++        positions: vec![
++            [-1., -1., 0.],
++            [1., -1., 0.],
++            [1., 1., 0.],
++            [-1., -1., 0.],
++            [1., 1., 0.],
++            [-1., 1., 0.],
++        ],
++        normals: vec![[0., 0., 1.]; 6],
++        uvs: vec![[0., 0.], [1., 0.], [1., 1.], [0., 0.], [1., 1.], [0., 1.]],
++        colour: [0.4, 0.5, 0.6],
++        material: material(emission, strength),
++        ..Default::default()
++    });
++    if let Some((ao, emit, explicit)) = maps {
++        s.surfaces[0].occlusion_map = Some(0);
++        s.surfaces[0].emission_map = Some(1);
++        for (slot, rgba) in [[ao, 17, 231, 0], [emit[0], emit[1], emit[2], 0]]
++            .into_iter()
++            .enumerate()
++        {
++            let image = Image {
++                width: 1,
++                height: 1,
++                rgba: rgba.to_vec(),
++            };
++            s.images.push(image.clone());
++            if explicit {
++                s.explicit_images.insert(
++                    slot,
++                    ExplicitImage::new(
++                        vec![image],
++                        if slot == 0 {
++                            ImageEncoding::Linear
++                        } else {
++                            ImageEncoding::Srgb
++                        },
++                    )
++                    .unwrap(),
++                );
++            }
++        }
++    }
++    s
++}
++fn viewer(s: Scene<ExtraMaterial>, ambient: f32) -> Viewer<ExtraMaterial> {
++    let mut style = Style::default();
++    style.lighting.ambient *= ambient;
++    Viewer::new(
++        Arc::new(s),
++        Camera {
++            yaw: 0.,
++            pitch: std::f32::consts::FRAC_PI_2,
++            ..Default::default()
++        },
++    )
++    .style(style)
++    .edges(false)
++}
++
++#[test]
++fn gcad_extra_maps_contract_and_refusal() {
++    for strength in [f32::NAN, -0.1, 1.1] {
++        assert!(
++            scene([0.; 3], strength, None)
++                .validate_explicit_images()
++                .is_err()
++        );
++    }
++    let mut s = scene([0.2; 3], 1., Some((128, [128; 3], true)));
++    assert!(s.validate_explicit_images().is_ok());
++    s.explicit_images.remove(&1);
++    assert!(s.validate_explicit_images().is_err());
++    s.explicit_images.clear();
++    s.surfaces[0].emission_map = Some(2);
++    assert!(s.validate_explicit_images().is_err());
++    let image = || Image {
++        width: 1,
++        height: 1,
++        rgba: vec![128; 4],
++    };
++    let linear = ExplicitImage::new(vec![image()], ImageEncoding::Linear).unwrap();
++    let srgb = ExplicitImage::new(vec![image()], ImageEncoding::Srgb).unwrap();
++    assert!(
++        explicit_image::explicit_material_lod_with_extras([None, None, None, Some(&srgb), None])
++            .is_err()
++    );
++    assert!(
++        explicit_image::explicit_material_lod_with_extras([None, None, None, None, Some(&linear)])
++            .is_err()
++    );
++    let long = ExplicitImage::new(
++        vec![
++            Image {
++                width: 2,
++                height: 2,
++                rgba: vec![255; 16],
++            },
++            image(),
++        ],
++        ImageEncoding::Srgb,
++    )
++    .unwrap();
++    assert_eq!(
++        explicit_image::explicit_material_lod_with_extras([
++            Some(&long),
++            None,
++            None,
++            Some(&linear),
++            None
++        ]),
++        Ok(0)
++    );
++    for explicit in [false, true] {
++        let v = viewer(scene([0.2; 3], 1., Some((128, [128; 3], explicit))), 1.)
++            .mode(RenderMode::Traversal);
++        assert!(
++            v.explicit_image_error()
++                .unwrap()
++                .contains("occlusion/emission")
++        );
++        assert!(v.render_gpu(16, 16).is_none());
++        assert!(
++            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| v.render_soft(16, 16)))
++                .is_err()
++        );
++    }
++}
++
++#[test]
++fn gcad_extra_maps_gpu_matches_uniform_references() {
++    let (backends, expected) = match std::env::var("GCAD_RENDER_BACKEND").as_deref() {
++        Ok("dx12") => (wgpu::Backends::DX12, wgpu::Backend::Dx12),
++        Ok("vulkan") => (wgpu::Backends::VULKAN, wgpu::Backend::Vulkan),
++        other => panic!("explicit backend required: {other:?}"),
++    };
++    let egui_wgpu::WgpuSetup::CreateNew(mut setup) = egui_kittest::wgpu::default_wgpu_setup()
++    else {
++        panic!("new setup required")
++    };
++    setup.instance_descriptor.backends = backends;
++    let state = egui_kittest::wgpu::create_render_state(
++        egui_wgpu::WgpuSetup::CreateNew(setup),
++        egui_wgpu::RendererOptions::PREDICTABLE,
++    );
++    assert_eq!(state.adapter.get_info().backend, expected);
++    install(&state);
++    let factor = [0.3, 0.15, 0.1];
++    let texel = [128, 64, 192];
++    // Independent scalar sRGB transfer and ambient scale, no map in reference.
++    let decode = |v: u8| {
++        let c = v as f32 / 255.;
++        if c <= 0.04045 {
++            c / 12.92
++        } else {
++            ((c + 0.055) / 1.055).powf(2.4)
++        }
++    };
++    let emit = std::array::from_fn(|i| factor[i] * decode(texel[i]));
++    for explicit in [false, true] {
++        let mut compared = 0;
++        let mut maximum = 0;
++        let mut controls = [0; 2];
++        for ao in [0, 128, 255] {
++            for strength in [0., 0.5, 1.] {
++                let actual = viewer(scene(factor, strength, Some((ao, texel, explicit))), 1.)
++                    .render_gpu(64, 64)
++                    .unwrap();
++                let reference = viewer(
++                    scene(emit, 1., None),
++                    1. - strength + strength * (ao as f32 / 255.),
++                )
++                .render_gpu(64, 64)
++                .unwrap();
++                for (a, b) in actual.pixels.iter().zip(&reference.pixels) {
++                    for (a, b) in a.to_array().into_iter().zip(b.to_array()) {
++                        maximum = maximum.max(a.abs_diff(b));
++                    }
++                }
++                compared += actual.pixels.len();
++                for (slot, map) in [(255, texel), (ao, [255; 3])].into_iter().enumerate() {
++                    let control =
++                        viewer(scene(factor, strength, Some((map.0, map.1, explicit))), 1.)
++                            .render_gpu(64, 64)
++                            .unwrap();
++                    controls[slot] += actual
++                        .pixels
++                        .iter()
++                        .zip(&control.pixels)
++                        .filter(|(a, b)| a != b)
++                        .count();
++                }
++            }
++        }
++        assert!(maximum <= 2, "extra maps reference error {maximum}");
++        assert!(controls.iter().all(|&n| n > 100));
++        println!(
++            "Extra maps {expected:?}, explicit {explicit}: {compared} pixels, maximum error {maximum}, controls {controls:?}"
++        );
++    }
++    // A short occlusion chain must bound the emission sampler as well. Poisoned
++    // emission lower levels make failure observable, not just a metadata check.
++    let render_chain = |short: bool| {
++        let mut s = scene(factor, 1., Some((128, texel, true)));
++        for slot in 0..2 {
++            let rgba = if slot == 0 {
++                [128, 17, 231, 0]
++            } else {
++                [128, 64, 192, 0]
++            };
++            let base = Image {
++                width: 128,
++                height: 128,
++                rgba: rgba.repeat(128 * 128),
++            };
++            let mut levels = vec![base.clone()];
++            if !(slot == 0 && short) {
++                let lower = if slot == 0 { rgba } else { [255, 0, 0, 0] };
++                levels.push(Image {
++                    width: 64,
++                    height: 64,
++                    rgba: lower.repeat(64 * 64),
++                });
++            }
++            s.images[slot] = base;
++            s.explicit_images.insert(
++                slot,
++                ExplicitImage::new(
++                    levels,
++                    if slot == 0 {
++                        ImageEncoding::Linear
++                    } else {
++                        ImageEncoding::Srgb
++                    },
++                )
++                .unwrap(),
++            );
++        }
++        viewer(s, 1.).render_gpu(16, 16).unwrap()
++    };
++    let bounded = render_chain(true);
++    let unbounded = render_chain(false);
++    let reference = viewer(scene(emit, 1., None), 128. / 255.)
++        .render_gpu(16, 16)
++        .unwrap();
++    let error = bounded
++        .pixels
++        .iter()
++        .zip(&reference.pixels)
++        .flat_map(|(a, b)| {
++            a.to_array()
++                .into_iter()
++                .zip(b.to_array())
++                .map(|(a, b)| a.abs_diff(b))
++        })
++        .max()
++        .unwrap();
++    let changed = bounded
++        .pixels
++        .iter()
++        .zip(&unbounded.pixels)
++        .filter(|(a, b)| a != b)
++        .count();
++    assert!(
++        error <= 2 && changed > 10,
++        "extra-map LOD bound ineffective: error {error}, changed {changed}"
++    );
++    println!(
++        "Extra maps {expected:?} shortest occlusion LOD: error {error}, lower emission control {changed}"
++    );
++}
+diff --git a/src/viewer3d/gpu.rs b/src/viewer3d/gpu.rs
+index 9a430c6..592f06f 100644
+--- a/src/viewer3d/gpu.rs
++++ b/src/viewer3d/gpu.rs
+@@ -53,6 +53,7 @@ struct DrawUniform {
+     emission: [f32; 4],
+     coat: [f32; 4],
+     alpha: [f32; 4],
++    extra_maps: [f32; 4],
+ }
+ 
+ #[repr(C)]
+@@ -73,6 +74,8 @@ struct Batch {
+     texture: Option<usize>,
+     normal_map: Option<usize>,
+     metal_rough_map: Option<usize>,
++    occlusion_map: Option<usize>,
++    emission_map: Option<usize>,
+     bind: wgpu::BindGroup,
+     explicit_colour: bool,
+     explicit_material: bool,
+@@ -318,6 +321,8 @@ impl Pipelines {
+                 },
+                 texture_entry(2, true),
+                 texture_entry(3, true),
++                texture_entry(4, true),
++                texture_entry(5, true),
+             ],
+         });
+         let sky_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+@@ -598,15 +603,17 @@ fn image_view(device: &wgpu::Device, queue: &wgpu::Queue, image: &Image) -> wgpu
+ fn material_group(
+     state: &State,
+     views: &[wgpu::TextureView],
+-    maps: [Option<usize>; 3],
++    maps: [Option<usize>; 5],
+     explicit_lod: Option<u32>,
+ ) -> wgpu::BindGroup {
+     let view = |m: Option<usize>, blank| m.and_then(|i| views.get(i)).unwrap_or(blank);
+-    let [colour, normal, metal_rough] = maps;
++    let [colour, normal, metal_rough, occlusion, emission] = maps;
+     let entries = [
+         (0, view(colour, &state.white)),
+         (2, view(normal, &state.flat)),
+         (3, view(metal_rough, &state.white)),
++        (4, view(occlusion, &state.white)),
++        (5, view(emission, &state.white)),
+     ];
+     let mut bound: Vec<wgpu::BindGroupEntry> = entries
+         .iter()
+@@ -701,7 +708,7 @@ fn upload<M: Material>(state: &State, scene: &Scene<M>) -> Uploaded {
+             continue;
+         }
+         let (group, material, maps) = g.key;
+-        let [texture, normal_map, metal_rough_map] = maps;
++        let [texture, normal_map, metal_rough_map, occlusion_map, emission_map] = maps;
+         batches.push(Batch {
+             group,
+             shading: material.shading(),
+@@ -709,10 +716,12 @@ fn upload<M: Material>(state: &State, scene: &Scene<M>) -> Uploaded {
+             texture,
+             normal_map,
+             metal_rough_map,
++            occlusion_map,
++            emission_map,
+             bind: material_group(state, &views, maps, {
+                 let explicit = maps.map(|i| i.and_then(|i| scene.explicit_images.get(&i)));
+                 explicit.iter().any(Option::is_some).then(||
+-                    super::explicit_image::explicit_material_lod(explicit).expect("validated material"))
++                    super::explicit_image::explicit_material_lod_with_extras(explicit).expect("validated material"))
+             }),
+             explicit_colour: texture.is_some_and(|i| scene.explicit_images.contains_key(&i)),
+             explicit_material: maps.iter().flatten().any(|i| scene.explicit_images.contains_key(i)),
+@@ -1131,6 +1140,8 @@ fn draw<M: Material>(
+                 _ => [0.0; 4],
+             },
+             emission: four(p.emission, p.normal_scale),
++            extra_maps: [flag(batch.occlusion_map.is_some()), p.occlusion_strength,
++                if batch.emission_map.is_none() { 0.0 } else if batch.explicit_material { 2.0 } else { 1.0 }, 0.0],
+             coat: [p.clearcoat, p.clearcoat_roughness, flag(batch.metal_rough_map.is_some()), flag(batch.explicit_material)],
+             alpha: match p.alpha {
+                 super::AlphaMode::Opaque => [0.0, 1.0, 0.0, 0.0],
+@@ -1163,6 +1174,7 @@ fn draw<M: Material>(
+             params: [opacity, 0.0, pixels, 0.0],
+             colour: [colour[0], colour[1], colour[2], 1.0],
+             emission: [0.0; 4],
++            extra_maps: [0.0; 4],
+             coat: [0.0; 4],
+             alpha: [0.0; 4],
+         });
+diff --git a/src/viewer3d/mod.rs b/src/viewer3d/mod.rs
+index 1b79d2e..98cff00 100644
+--- a/src/viewer3d/mod.rs
++++ b/src/viewer3d/mod.rs
+@@ -3,6 +3,8 @@ mod controls;
+ mod explicit_scene_tests;
+ #[cfg(test)]
+ mod alpha_scene_tests;
++#[cfg(test)]
++mod extra_maps_tests;
+ mod explicit_image;
+ pub use explicit_image::{ExplicitImage, ImageEncoding, UploadedImage};
+ mod environment;
+@@ -70,6 +72,7 @@ pub struct Pbr {
+     pub metallic: f32,
+     pub specular: f32,
+     pub emission: V3,
++    pub occlusion_strength: f32,
+     pub transmission: f32,
+     pub ior: f32,
+     pub clearcoat: f32,
+@@ -86,6 +89,7 @@ impl Default for Pbr {
+             metallic: 0.0,
+             specular: 0.5,
+             emission: [0.0; 3],
++            occlusion_strength: 1.0,
+             transmission: 0.0,
+             ior: 1.5,
+             clearcoat: 0.0,
+@@ -135,6 +139,8 @@ pub struct Surface<M = ()> {
+     pub texture: Option<usize>,
+     pub normal_map: Option<usize>,
+     pub metal_rough_map: Option<usize>,
++    pub occlusion_map: Option<usize>,
++    pub emission_map: Option<usize>,
+     pub material: M,
+     pub group: usize,
+ }
+@@ -183,6 +189,10 @@ impl<M> Default for Scene<M> {
+ }
+ 
+ impl<M> Scene<M> {
++    pub fn uses_extra_maps(&self) -> bool {
++        self.surfaces.iter().any(|s| s.occlusion_map.is_some() || s.emission_map.is_some())
++    }
++
+     pub fn uses_material_alpha(&self) -> bool where M: Material {
+         self.surfaces.iter().any(|s| s.material.pbr().alpha != AlphaMode::Opaque)
+     }
+@@ -190,6 +200,12 @@ impl<M> Scene<M> {
+     pub fn validate_explicit_images(&self) -> Result<(), &'static str> where M: Material {
+         for surface in &self.surfaces {
+             let p = surface.material.pbr();
++            if !p.occlusion_strength.is_finite() || !(0.0..=1.0).contains(&p.occlusion_strength) {
++                return Err("occlusion strength must be finite and in 0..1");
++            }
++            if [surface.occlusion_map, surface.emission_map].into_iter().flatten().any(|i| i >= self.images.len()) {
++                return Err("occlusion/emission image index is missing");
++            }
+             if !p.base_alpha.is_finite() || !(0.0..=1.0).contains(&p.base_alpha) {
+                 return Err("material alpha factor must be finite and in 0..1");
+             }
+@@ -207,13 +223,13 @@ impl<M> Scene<M> {
+             }
+         }
+         for surface in &self.surfaces {
+-            let maps = [surface.texture, surface.normal_map, surface.metal_rough_map];
++            let maps = [surface.texture, surface.normal_map, surface.metal_rough_map, surface.occlusion_map, surface.emission_map];
+             let explicit = maps.map(|i| i.and_then(|i| self.explicit_images.get(&i)));
+             if explicit.iter().any(Option::is_some) {
+                 if maps.iter().zip(&explicit).any(|(map, image)| map.is_some() && image.is_none()) {
+                     return Err("material mixes explicit and legacy images");
+                 }
+-                explicit_image::explicit_material_lod(explicit)?;
++                explicit_image::explicit_material_lod_with_extras(explicit)?;
+             }
+         }
+         Ok(())
+@@ -570,11 +586,11 @@ pub fn palette(index: usize) -> V3 {
+     c.map(to_linear)
+ }
+ 
+-pub(super) type BatchKey<M> = (usize, M, [Option<usize>; 3]);
++pub(super) type BatchKey<M> = (usize, M, [Option<usize>; 5]);
+ 
+ pub(super) fn batch_key<M: Material>(scene: &Scene<M>, s: &Surface<M>) -> BatchKey<M> {
+     let image = |i: Option<usize>| i.filter(|i| *i < scene.images.len());
+-    (s.group, s.material, [image(s.texture), image(s.normal_map), image(s.metal_rough_map)])
++    (s.group, s.material, [image(s.texture), image(s.normal_map), image(s.metal_rough_map), image(s.occlusion_map), image(s.emission_map)])
+ }
+ 
+ pub(super) fn batches<M: Material>(scene: &Scene<M>) -> (Vec<Option<usize>>, usize) {
+@@ -1056,6 +1072,12 @@ impl<M: Material> Viewer<M> {
+     /// Query before render_gpu to distinguish unsupported modes from no GPU.
+     pub fn explicit_image_error(&self) -> Option<&'static str> {
+         if let Err(error) = self.scene.validate_explicit_images() { return Some(error); }
++        if self.scene.uses_extra_maps() {
++            if self.mode == RenderMode::Traversal || (self.mode == RenderMode::Shaded && self.trace.is_some()) {
++                return Some("occlusion/emission maps do not support tracing preview");
++            }
++            if !gpu::installed() { return Some("occlusion/emission maps require GPU raster preview"); }
++        }
+         if self.scene.uses_material_alpha() {
+             if self.mode == RenderMode::Traversal || (self.mode == RenderMode::Shaded && self.trace.is_some()) {
+                 return Some("material alpha does not support tracing preview");
+@@ -1089,6 +1111,7 @@ impl<M: Material> Viewer<M> {
+     pub fn render_soft(&self, width: usize, height: usize) -> ColorImage {
+         assert!(!self.scene.uses_material_alpha(), "material alpha requires GPU raster preview");
+         assert!(self.scene.explicit_images.is_empty(), "explicit mip images require GPU raster preview");
++        assert!(!self.scene.uses_extra_maps(), "occlusion/emission maps require GPU raster preview");
+         soft::render(self, width, height)
+     }
+ }
+diff --git a/src/viewer3d/shader.wgsl b/src/viewer3d/shader.wgsl
+index 3dd26fd..e2c530d 100644
+--- a/src/viewer3d/shader.wgsl
++++ b/src/viewer3d/shader.wgsl
+@@ -27,6 +27,7 @@ struct Draw {
+     emission: vec4<f32>,
+     coat: vec4<f32>,
+     alpha: vec4<f32>,
++    extra_maps: vec4<f32>,
+ }
+ 
+ @group(0) @binding(0) var<uniform> frame: Frame;
+@@ -35,6 +36,8 @@ struct Draw {
+ @group(2) @binding(1) var samp: sampler;
+ @group(2) @binding(2) var normal_tex: texture_2d<f32>;
+ @group(2) @binding(3) var metal_rough_tex: texture_2d<f32>;
++@group(2) @binding(4) var occlusion_tex: texture_2d<f32>;
++@group(2) @binding(5) var emission_tex: texture_2d<f32>;
+ 
+ fn to_linear(c: vec3<f32>) -> vec3<f32> {
+     return select(pow((c + 0.055) / 1.055, vec3<f32>(2.4)), c / 12.92, c < vec3<f32>(0.04045));
+@@ -113,20 +116,20 @@ fn facing(n: vec3<f32>, v: vec3<f32>) -> vec3<f32> {
+     return select(n, -n, dot(n, v) < 0.0);
+ }
+ 
+-fn lit(albedo: vec3<f32>, normal: vec3<f32>, base: vec3<f32>, pos: vec3<f32>, rough: f32, metal: f32) -> vec3<f32> {
++fn lit(albedo: vec3<f32>, normal: vec3<f32>, base: vec3<f32>, pos: vec3<f32>, rough: f32, metal: f32, occlusion: f32, emission: vec3<f32>) -> vec3<f32> {
+     let key = frame.key.xyz;
+     let fill = frame.fill.xyz;
+     let v = normalize(frame.eye.xyz - pos);
+     let n = facing(normalize(normal), v);
+     let b = facing(normalize(base), v);
+-    let d = environment(n) + frame.key_radiance.rgb * max(dot(n, key), 0.0)
++    let d = environment(n) * occlusion + frame.key_radiance.rgb * max(dot(n, key), 0.0)
+         + frame.fill_radiance.rgb * max(dot(n, fill), 0.0);
+     let h = normalize(key + v);
+     let sp = draw.surface.z * 0.24 * pow(max(dot(n, h), 1.0e-6), sharpness(rough));
+     let shine = vec3<f32>(1.0) + (albedo * 1.6 - vec3<f32>(1.0)) * metal;
+     let coat = draw.coat.x * 0.12 * pow(max(dot(b, h), 1.0e-6), sharpness(draw.coat.y));
+     let reflected = (sp * shine + vec3<f32>(coat)) * frame.key_radiance.rgb;
+-    return to_srgb((albedo * d + reflected + draw.emission.rgb) * frame.key.w);
++    return to_srgb((albedo * d + reflected + emission) * frame.key.w);
+ }
+ 
+ fn mapped_normal(in: SurfaceOut, sample: vec3<f32>) -> vec3<f32> {
+@@ -148,6 +151,13 @@ fn surface_fragment(in: SurfaceOut, @builtin(front_facing) front: bool) -> @loca
+     let sampled = texel.rgb;
+     let bump = textureSample(normal_tex, samp, uv).rgb;
+     let metal_rough = textureSample(metal_rough_tex, samp, uv).rgb;
++    let ao_sample = textureSample(occlusion_tex, samp, uv).r;
++    let emission_sample = textureSample(emission_tex, samp, uv).rgb;
++    let occlusion = select(1.0, mix(1.0, ao_sample, draw.extra_maps.y), draw.extra_maps.x > 0.5);
++    var emission = draw.emission.rgb;
++    if draw.extra_maps.z > 0.5 {
++        emission *= select(to_linear(emission_sample), emission_sample, draw.extra_maps.z > 1.5);
++    }
+     let edge = wire(in.bary);
+     let facet = cross(dpdx(in.pos), dpdy(in.pos));
+     if clipped(in.pos) {
+@@ -214,7 +224,7 @@ fn surface_fragment(in: SurfaceOut, @builtin(front_facing) front: bool) -> @loca
+     } else if mode == FACETS {
+         normal = facet;
+     }
+-    var colour = lit(albedo, normal, in.nor, in.pos, rough, metal);
++    var colour = lit(albedo, normal, in.nor, in.pos, rough, metal, occlusion, emission);
+     if mode == TRIANGLES {
+         colour = mix(colour, vec3<f32>(0.06, 0.07, 0.08), edge * 0.85);
+     }

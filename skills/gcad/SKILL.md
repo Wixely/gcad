@@ -1,9 +1,19 @@
 ---
 name: gcad
-description: Model mechanical parts and assemblies with gcad, a parametric CAD where every line of a `.gcad` part file or `.gasm` assembly file is one operation, like G-code, checked by the `gcad` CLI. Any design with more than one part is a `.gasm` assembly. Use when writing or editing `*.gcad`, `*.gasm` or `*.gsim` files, sketching and extruding parts, adding holes, fillets, shells, gears or text, picking faces with selectors, placing parts with mates, joints, couples and patterns, checking interference, posing an assembly, sizing joint motors with a `.gsim` torque simulation, or exporting STEP, STL, 3MF, SVG drawings and a bill of materials.
+description: Create game assets with live preview and GLB or FBX/PNG export, and model mechanical parts and assemblies with gcad, a parametric CAD where every line of a `.gcad` part file or `.gasm` assembly file is one operation, like G-code, checked by the `gcad` CLI. Any design with more than one part is a `.gasm` assembly. Use when writing or editing `*.gcad`, `*.gasm` or `*.gsim` files, sketching and extruding parts, adding holes, fillets, shells, gears or text, picking faces with selectors, placing parts with mates, joints, couples and patterns, checking interference, posing an assembly, sizing joint motors with a `.gsim` torque simulation, or exporting STEP, STL, 3MF, SVG drawings and a bill of materials.
 ---
 
 # gcad
+
+## Game assets and runtime selection
+
+For game assets, `.gasset` files, GLB/FBX export or live game-asset preview, read
+[the game-asset workflow](references/game-assets.md) first. It selects the feature
+build and describes the agent-driven model, preview and export loop. The CAD
+instructions below continue to apply to source parts and mechanical assemblies.
+If [local runtime configuration](references/local-runtime.md) exists in this
+installed skill, use it to resolve the configured build before relying on PATH.
+
 
 A part is a text file of operations, one per line, run top to bottom against modal state the
 way G-code runs against a machine: a workplane, a sketch, the solid, named faces. There are no

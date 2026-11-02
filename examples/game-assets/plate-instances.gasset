@@ -1,0 +1,7 @@
+asset 1
+source plate ../parts/plate.gcad body=main
+tessellate plate tolerance=0.1
+uv plate projection=box tile=25 rotation=90
+node mirror source=plate parent=assembly translation=50,0,0 scale=-2,3,4
+node copy source=plate parent=assembly translation=-50,0,0
+node assembly translation=0,100,0 rotation=0,0,0.7071067811865476,0.7071067811865476

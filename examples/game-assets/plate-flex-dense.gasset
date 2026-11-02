@@ -1,0 +1,21 @@
+asset 1
+project ../..
+source plate ../parts/plate.gcad body=main
+tessellate plate tolerance=0.1
+refine plate levels=2 triangle_budget=20416
+uv plate projection=box tile=25
+node plate source=plate
+node base
+node tip parent=base translation=0,0,1.5
+clip bend interpolation=linear
+key bend tip time=0 rotation=0,0,0,1
+key bend tip time=0.125 rotation=0.0980171403295606,0,0,0.9951847266721969
+key bend tip time=0.25 rotation=0.19509032201612825,0,0,0.9807852804032304
+key bend tip time=0.375 rotation=0.29028467725446233,0,0,0.9569403357322088
+key bend tip time=0.5 rotation=0.3826834323650898,0,0,0.9238795325112867
+key bend tip time=0.625 rotation=0.47139673682599764,0,0,0.881921264348355
+key bend tip time=0.75 rotation=0.5555702330196022,0,0,0.8314696123025452
+key bend tip time=0.875 rotation=0.6343932841636455,0,0,0.773010453362737
+key bend tip time=1 rotation=0.7071067811865476,0,0,0.7071067811865476
+# Same rest rig and source as plate-flex; explicitly generate weights there first.
+skin plate weights=../../target/game-asset-plate-flex.weights.json

@@ -1,0 +1,14 @@
+asset 1
+project ../..
+source plate ../parts/plate.gcad body=main
+tessellate plate tolerance=0.1
+uv plate projection=box tile=25
+surface plate base_colour=1,1,1,1 metallic=0.5 roughness=0.75 emissive=0.1,0.2,0.3 alpha=opaque double_sided=true normal_y=negative normal_scale=0.7 occlusion_strength=0.4 wrap_u=repeat wrap_v=repeat magnify=nearest minify=linear mipmap=none
+map plate base_colour maps/rgba.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map plate roughness maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map plate metallic maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map plate normal maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map plate occlusion maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map plate emissive maps/rgba.png license=GPL-3.0-or-later origin=gcad-test-pattern
+shader plate uv-scroll-frozen.shader.json
+node plate source=plate

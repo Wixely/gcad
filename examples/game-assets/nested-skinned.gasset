@@ -1,0 +1,12 @@
+asset 1
+project ../..
+source cad nested/top.gasm
+tessellate cad tolerance=0.1
+uv cad projection=box tile=10
+node first source=cad
+node second source=cad translation=100,0,0 scale=-1.25,0.75,1.5
+node bone parent=first translation=2,3,4
+clip lift interpolation=linear
+key lift bone time=0 translation=2,3,4
+key lift bone time=1 translation=2,3,14
+skin first/left.a weights=../../target/game-asset-nested.weights.json

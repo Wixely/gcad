@@ -1,0 +1,34 @@
+asset 1
+project ../..
+source plate ../parts/plate.gcad body=main
+tessellate plate tolerance=0.1
+uv plate projection=box tile=25
+surface plate base_colour=1,1,1,1 metallic=0.5 roughness=0.75 emissive=0.1,0.2,0.3 alpha=mask cutoff=0.3 double_sided=true normal_y=negative normal_scale=0.7 occlusion_strength=0.4 wrap_u=clamp wrap_v=mirror magnify=nearest minify=linear mipmap=none
+map plate base_colour maps/rgba.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map plate roughness maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map plate metallic maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map plate normal maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map plate occlusion maps/numeric.png license=GPL-3.0-or-later origin=gcad-test-pattern
+map plate emissive maps/rgba.png license=GPL-3.0-or-later origin=gcad-test-pattern
+node plate source=plate
+node base
+node tip parent=base translation=0,15,0
+clip bend interpolation=linear
+key bend tip time=0 rotation=0,0,0,1
+key bend tip time=1 rotation=0,0,0.7071067811865476,0.7071067811865476
+skin plate weights=../../target/game-asset-plate-scene-contract.weights.json
+face_weights plate ../../target/game-asset-plate-end.faces.json joints=base,tip weights=0.25,0.75 boundary=reject-shared
+face_material plate ../../target/game-asset-plate-end.faces.json base_colour=1,0,0,1 roughness=0.2
+face_material plate ../../target/game-asset-plate-bottom.faces.json base_colour=0,0,1,1 roughness=0.6
+
+# Separate clips exercise independent timing and rest-pose fallback.
+clip travel interpolation=linear
+key travel base time=0 translation=0,0,0
+key travel base time=0.65 translation=12,-4,7
+key travel base time=2.3 translation=25,8,-3
+clip stretch interpolation=linear
+key stretch tip time=0 scale=1,1,1
+key stretch tip time=0.4 scale=1.2,0.8,1.1
+key stretch tip time=1.75 scale=0.7,1.4,0.9
+
+face_uv plate ../../target/game-asset-plate-end.faces.json scale=-2,3 rotation=30 offset=0.2,-0.1

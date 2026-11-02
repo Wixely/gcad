@@ -1,0 +1,483 @@
+diff --git a/code/AssetLib/FBX/FBXExporter.cpp b/code/AssetLib/FBX/FBXExporter.cpp
+index 353140eb5666ef6adc2093cefdb3adcf82525bb2..fb1487a1af9f5caa547a8c92a4ecfe562d361dd1 100644
+--- a/code/AssetLib/FBX/FBXExporter.cpp
++++ b/code/AssetLib/FBX/FBXExporter.cpp
+@@ -54,6 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #include <assimp/Logger.hpp>
+ #include <assimp/StreamWriter.h> // StreamWriterLE
+ #include <assimp/Exceptional.h> // DeadlyExportError
++#include <assimp/GltfMaterial.h>
+ #include <assimp/material.h> // aiTextureType
+ #include <assimp/scene.h>
+ #include <assimp/mesh.h>
+@@ -594,15 +595,24 @@ static size_t count_textures(const aiScene* scene) {
+     return count;
+ }
+ 
+-static size_t count_deformers(const aiScene* scene) {
++static size_t count_deformers(const aiScene* scene, bool mergeSkins) {
+     size_t count = 0;
+     for (size_t i = 0; i < scene->mNumMeshes; ++i) {
+         const size_t n = scene->mMeshes[i]->mNumBones;
+         if (n) {
+             // 1 main deformer, 1 subdeformer per bone
+-            count += n + 1;
++            count += n + (mergeSkins ? 0 : 1);
+         }
+     }
++    if (mergeSkins) {
++        std::function<void(const aiNode*)> visit = [&](const aiNode* node) {
++            bool skinned = false;
++            for(unsigned i=0;i<node->mNumMeshes;++i)skinned |= scene->mMeshes[node->mMeshes[i]]->HasBones();
++            if(skinned)++count;
++            for(unsigned i=0;i<node->mNumChildren;++i)visit(node->mChildren[i]);
++        };
++        visit(scene->mRootNode);
++    }
+     return count;
+ }
+ 
+@@ -981,7 +991,7 @@ void FBXExporter::WriteDefinitions () {
+     }
+ 
+     // Deformer
+-    count = int32_t(count_deformers(mScene))+bsDeformerCount;
++    count = int32_t(count_deformers(mScene, mProperties->GetPropertyBool("GCAD_FBX_MERGE_SKINS", false)))+bsDeformerCount;
+     if (count) {
+         n = FBX::Node("ObjectType", "Deformer");
+         n.AddChild("Count", count);
+@@ -1199,6 +1209,8 @@ void FBXExporter::WriteObjects () {
+         // index of original vertex in vertex data vector
+         std::vector<int32_t> vertex_indices;
+ 
++        const bool gcadFrames = mProperties->GetPropertyBool("GCAD_FBX_MERGE_SKINS", false);
++        std::vector<double> tangent_data, binormal_data;
+         std::vector<double> normal_data;
+         std::vector<double> color_data;
+ 
+@@ -1279,6 +1291,19 @@ void FBXExporter::WriteObjects () {
+             }
+           }
+ 
++          if (gcadFrames && m->HasTangentsAndBitangents()) {
++            for (size_t fi = 0; fi < m->mNumFaces; ++fi) {
++              const aiFace &f = m->mFaces[fi];
++              for (size_t pvi = 0; pvi < f.mNumIndices; ++pvi) {
++                const auto vi = f.mIndices[pvi];
++                const auto &t = m->mTangents[vi];
++                const auto &b = m->mBitangents[vi];
++                tangent_data.insert(tangent_data.end(), {t.x, t.y, t.z});
++                binormal_data.insert(binormal_data.end(), {b.x, b.y, b.z});
++              }
++            }
++          }
++
+           const int32_t colorChannelIndex = 0;
+           if (m->HasVertexColors(colorChannelIndex)) {
+             color_data.reserve(4 * polygon_data.size());
+@@ -1343,6 +1368,24 @@ void FBXExporter::WriteObjects () {
+         }
+ 
+ 
++        if (!tangent_data.empty()) {
++          if (tangent_data.size() != 3 * polygon_data.size() ||
++              binormal_data.size() != tangent_data.size()) {
++            throw DeadlyExportError("GCAD FBX: merged primitives have incomplete tangent frames");
++          }
++          const auto writeFrame = [&](const char *type, const char *values, const std::vector<double> &data) {
++            FBX::Node frame(type, int32_t(0));
++            frame.AddChild("Version", int32_t(101));
++            frame.AddChild("Name", "");
++            frame.AddChild("MappingInformationType", "ByPolygonVertex");
++            frame.AddChild("ReferenceInformationType", "Direct");
++            frame.AddChild(values, data);
++            frame.Dump(outstream, binary, indent);
++          };
++          writeFrame("LayerElementTangent", "Tangents", tangent_data);
++          writeFrame("LayerElementBinormal", "Binormals", binormal_data);
++        }
++
+         FBX::Node::WritePropertyNode("Vertices", flattened_vertices, outstream, binary, indent);
+         FBX::Node::WritePropertyNode("PolygonVertexIndex", polygon_data, outstream, binary, indent);
+         FBX::Node::WritePropertyNode("GeometryVersion", int32_t(124), outstream, binary, indent);
+@@ -1450,6 +1493,14 @@ void FBXExporter::WriteObjects () {
+         }
+ 
+         le = FBX::Node("LayerElement");
++        if (!tangent_data.empty()) {
++          for (const char *type : {"LayerElementTangent", "LayerElementBinormal"}) {
++            FBX::Node frameLayer("LayerElement");
++            frameLayer.AddChild("Type", type);
++            frameLayer.AddChild("TypedIndex", int32_t(0));
++            layer.AddChild(frameLayer);
++          }
++        }
+         le.AddChild("Type", "LayerElementMaterial");
+         le.AddChild("TypedIndex", int32_t(0));
+         layer.AddChild(le);
+@@ -1516,6 +1567,78 @@ void FBXExporter::WriteObjects () {
+ 
+         FBX::Node p("Properties70");
+ 
++        // Isolated gcad GLB-route experiment, explicitly opted in by the caller.
++        // Legacy shading stays intact. Consumers must understand these properties.
++        int gcadVersion = 0;
++        if (m->Get("gcad.extension.version", 0, 0, gcadVersion) == AI_SUCCESS && gcadVersion == 3) {
++            p.AddP70int("gcad|PbrVersion", 3);
++            const aiMaterialProperty* provenance = nullptr;
++            for(unsigned property=0;property<m->mNumProperties;++property) {
++                const auto* candidate=m->mProperties[property];
++                if(candidate->mKey==aiString("gcad.texture_source_inputs.json") && candidate->mSemantic==0 && candidate->mIndex==0) {
++                    if(provenance)throw DeadlyExportError("duplicate gcad provenance property");
++                    provenance=candidate;
++                }
++            }
++            if(!provenance || provenance->mType!=aiPTI_Buffer || provenance->mDataLength==0 || provenance->mDataLength>1024*1024)
++                throw DeadlyExportError("gcad v3 requires bounded provenance JSON bytes");
++            p.AddP70int("gcad|TextureSourceInputsVersion",1);
++            p.AddP70string("gcad|TextureSourceInputsJson",std::string(provenance->mData,provenance->mDataLength));
++            ai_real roughness = 1, metallic = 0;
++            m->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
++            m->Get(AI_MATKEY_METALLIC_FACTOR, metallic);
++            p.AddP70numberA("gcad|Roughness", roughness);
++            p.AddP70numberA("gcad|Metallic", metallic);
++            p.AddP70numberA("gcad|Occlusion", 1.0);
++            // glTF metallic-roughness packed G/B; occlusion samples R.
++            p.AddP70int("gcad|RoughnessChannel", 1);
++            p.AddP70int("gcad|MetallicChannel", 2);
++            p.AddP70int("gcad|OcclusionChannel", 0);
++            ai_real normalScale=1, occlusionStrength=1, alphaCutoff=.5, opacity=1;
++            int doubleSided=0;
++            aiString alphaMode("OPAQUE");
++            aiColor4D baseColour(1,1,1,1);
++            aiColor3D emission(0,0,0);
++            m->Get(AI_MATKEY_GLTF_TEXTURE_SCALE(aiTextureType_NORMALS,0),normalScale);
++            m->Get(AI_MATKEY_GLTF_TEXTURE_STRENGTH(aiTextureType_LIGHTMAP,0),occlusionStrength);
++            m->Get(AI_MATKEY_GLTF_ALPHACUTOFF,alphaCutoff);
++            m->Get(AI_MATKEY_GLTF_ALPHAMODE,alphaMode);
++            m->Get(AI_MATKEY_OPACITY,opacity);
++            m->Get(AI_MATKEY_TWOSIDED,doubleSided);
++            m->Get(AI_MATKEY_BASE_COLOR,baseColour);
++            m->Get(AI_MATKEY_COLOR_EMISSIVE,emission);
++            p.AddP70numberA("gcad|NormalScale",normalScale);
++            p.AddP70numberA("gcad|OcclusionStrength",occlusionStrength);
++            p.AddP70numberA("gcad|AlphaCutoff",alphaCutoff);
++            p.AddP70string("gcad|AlphaMode",alphaMode.C_Str());
++            p.AddP70numberA("gcad|BaseAlpha",opacity);
++            p.AddP70int("gcad|DoubleSided",doubleSided);
++            p.AddP70colorA("gcad|BaseColour",baseColour.r,baseColour.g,baseColour.b);
++            p.AddP70colorA("gcad|Emission",emission.r,emission.g,emission.b);
++            const aiTextureType slots[]={aiTextureType_BASE_COLOR,aiTextureType_DIFFUSE_ROUGHNESS,aiTextureType_METALNESS,aiTextureType_NORMALS,aiTextureType_LIGHTMAP,aiTextureType_EMISSIVE};
++            const char* names[]={"BaseColour","Roughness","Metallic","Normal","Occlusion","Emission"};
++            for(unsigned slot=0;slot<6;++slot) {
++                if(!m->GetTextureCount(slots[slot]))continue;
++                auto prefix=std::string("gcad|")+names[slot];
++                int u=0,v=0,mag=-1,min=-1,uv=0;
++                m->Get(AI_MATKEY_MAPPINGMODE_U(slots[slot],0),u);
++                m->Get(AI_MATKEY_MAPPINGMODE_V(slots[slot],0),v);
++                m->Get(AI_MATKEY_GLTF_MAPPINGFILTER_MAG(slots[slot],0),mag);
++                m->Get(AI_MATKEY_GLTF_MAPPINGFILTER_MIN(slots[slot],0),min);
++                m->Get(AI_MATKEY_UVWSRC(slots[slot],0),uv);
++                auto wrap=[](int mode) {
++                    if(mode==aiTextureMapMode_Wrap)return 10497;
++                    if(mode==aiTextureMapMode_Clamp)return 33071;
++                    if(mode==aiTextureMapMode_Mirror)return 33648;
++                    throw DeadlyExportError("gcad extension cannot represent this wrap mode");
++                };
++                p.AddP70int(prefix+"|WrapU",wrap(u));
++                p.AddP70int(prefix+"|WrapV",wrap(v));
++                p.AddP70int(prefix+"|MagFilter",mag);
++                p.AddP70int(prefix+"|MinFilter",min);
++                p.AddP70int(prefix+"|UvSet",uv);
++            }
++        }
+         // materials exported using the FBX SDK have two sets of fields.
+         // there are the properties specified in the PropertyTemplate,
+         // which are those supported by the modernFBX SDK,
+@@ -1791,8 +1914,18 @@ void FBXExporter::WriteObjects () {
+             const int64_t image_uid = elem->second;
+ 
+             // get the name of the material property to connect to
+-            auto elem2 = prop_name_by_tt.find(tt);
+-            if (elem2 == prop_name_by_tt.end()) {
++            auto gcad_props = prop_name_by_tt;
++            int gcadVersion = 0;
++            if (mat->Get("gcad.extension.version", 0, 0, gcadVersion) == AI_SUCCESS && gcadVersion == 3) {
++                gcad_props[aiTextureType_DIFFUSE_ROUGHNESS] = "gcad|Roughness";
++                gcad_props[aiTextureType_METALNESS] = "gcad|Metallic";
++                gcad_props[aiTextureType_LIGHTMAP] = "gcad|Occlusion";
++                gcad_props[aiTextureType_BASE_COLOR] = "gcad|BaseColour";
++                gcad_props[aiTextureType_NORMALS] = "gcad|Normal";
++                gcad_props[aiTextureType_EMISSIVE] = "gcad|Emission";
++            }
++            auto elem2 = gcad_props.find(tt);
++            if (elem2 == gcad_props.end()) {
+                 // don't know how to handle this type of texture,
+                 // so skip it.
+                 std::stringstream err;
+@@ -2101,6 +2234,8 @@ void FBXExporter::WriteObjects () {
+         }
+     }
+ 
++    const bool gcadMergeSkins = mProperties->GetPropertyBool("GCAD_FBX_MERGE_SKINS", false);
++    std::map<const aiNode*, int64_t> gcadSkinByNode;
+     // now, for each aiMesh, we need to export a deformer,
+     // and for each aiBone a subdeformer,
+     // which should have all the skinning info.
+@@ -2113,19 +2248,24 @@ void FBXExporter::WriteObjects () {
+         }
+ 
+         const aiNode *mesh_node = get_node_for_mesh((uint32_t)mi, mScene->mRootNode);
+-        // make a deformer for this mesh
+-        int64_t deformer_uid = generate_uid();
+-        FBX::Node dnode("Deformer");
+-        dnode.AddProperties(deformer_uid, FBX::SEPARATOR + "Deformer", "Skin");
+-        dnode.AddChild("Version", int32_t(101));
+-        // "acuracy"... this is not a typo....
+-        dnode.AddChild("Link_DeformAcuracy", double(50));
+-        dnode.AddChild("SkinningType", "Linear"); // TODO: other modes?
+-        dnode.Dump(outstream, binary, indent);
+-
+-        // connect it
+-        connections.emplace_back("C", "OO", deformer_uid, mesh_uids[mesh_node]);
+-
++        if (!mesh_node)throw DeadlyExportError("gcad skin has no mesh node");
++        // One Skin for the merged Geometry. Keep each primitive's clusters and
++        // original index offsets/binds, including repeated bone identities.
++        int64_t deformer_uid = 0;
++        auto existing = gcadSkinByNode.find(mesh_node);
++        if (gcadMergeSkins && existing != gcadSkinByNode.end()) {
++            deformer_uid = existing->second;
++        } else {
++            deformer_uid = generate_uid();
++            FBX::Node dnode("Deformer");
++            dnode.AddProperties(deformer_uid, FBX::SEPARATOR + "Deformer", "Skin");
++            dnode.AddChild("Version", int32_t(101));
++            dnode.AddChild("Link_DeformAcuracy", double(50));
++            dnode.AddChild("SkinningType", "Linear");
++            dnode.Dump(outstream, binary, indent);
++            connections.emplace_back("C", "OO", deformer_uid, mesh_uids[mesh_node]);
++            if(gcadMergeSkins)gcadSkinByNode.emplace(mesh_node,deformer_uid);
++        }
+         // TODO, FIXME: this won't work if anything is not in the bind pose.
+         // for now if such a situation is detected, we throw an exception.
+         std::set<const aiBone*> not_in_bind_pose;
+@@ -2504,7 +2644,7 @@ void FBXExporter::WriteObjects () {
+ 
+             // scale
+             WriteAnimationCurveNode(outstream,
+-                ids[2], "S", S, "Lcl Scale",
++                ids[2], "S", S, gcadMergeSkins ? "Lcl Scaling" : "Lcl Scale",
+                 layer_uid, node_uids[node]
+             );
+ 
+@@ -2514,6 +2654,15 @@ void FBXExporter::WriteObjects () {
+         curve_node_uids.push_back(nodeanim_uids);
+     }
+ 
++    auto gcadStep = [&](const auto* keys, unsigned count) {
++        if(!gcadMergeSkins || !count)return false;
++        auto interpolation=keys[0].mInterpolation;
++        if(interpolation!=aiAnimInterpolation_Step && interpolation!=aiAnimInterpolation_Linear)
++            throw DeadlyExportError("gcad supports only STEP or LINEAR curve interpolation");
++        for(unsigned i=1;i<count;++i)if(keys[i].mInterpolation!=interpolation)
++            throw DeadlyExportError("gcad curve has mixed interpolation modes");
++        return interpolation==aiAnimInterpolation_Step;
++    };
+     // AnimCurve - defines actual keyframe data.
+     // there's a separate curve for every component of every vector,
+     // for example a transform curvenode will have separate X/Y/Z AnimCurve's
+@@ -2541,9 +2690,9 @@ void FBXExporter::WriteObjects () {
+                 zval.push_back(k.mValue.z);
+             }
+             // one curve each for X, Y, Z
+-            WriteAnimationCurve(outstream, T.x, times, xval, ids[0], "d|X");
+-            WriteAnimationCurve(outstream, T.y, times, yval, ids[0], "d|Y");
+-            WriteAnimationCurve(outstream, T.z, times, zval, ids[0], "d|Z");
++            WriteAnimationCurve(outstream, T.x, times, xval, ids[0], "d|X", gcadStep(na->mPositionKeys, na->mNumPositionKeys));
++            WriteAnimationCurve(outstream, T.y, times, yval, ids[0], "d|Y", gcadStep(na->mPositionKeys, na->mNumPositionKeys));
++            WriteAnimationCurve(outstream, T.z, times, zval, ids[0], "d|Z", gcadStep(na->mPositionKeys, na->mNumPositionKeys));
+ 
+             // rotation
+             times.clear(); xval.clear(); yval.clear(); zval.clear();
+@@ -2568,9 +2717,78 @@ void FBXExporter::WriteObjects () {
+                     }
+                 }
+             }
+-            WriteAnimationCurve(outstream, R.x, times, xval, ids[1], "d|X");
+-            WriteAnimationCurve(outstream, R.y, times, yval, ids[1], "d|Y");
+-            WriteAnimationCurve(outstream, R.z, times, zval, ids[1], "d|Z");
++            // Opt-in local refinement; quarter-point checks are sampled evidence,
++            // not a continuous error proof. Bound both work and output key count.
++            if(gcadMergeSkins && na->mNumRotationKeys>1 && !gcadStep(na->mRotationKeys,na->mNumRotationKeys)) {
++                using Rotation=aiQuaterniont<double>;
++                struct Sample { double ticks; Rotation rotation; };
++                std::vector<Sample> samples;
++                for(unsigned i=0;i<na->mNumRotationKeys;++i) {
++                    const auto& key=na->mRotationKeys[i];
++                    if(i && !(key.mTime>na->mRotationKeys[i-1].mTime))throw DeadlyExportError("gcad rotation key times unordered");
++                    Rotation q(key.mValue.w,key.mValue.x,key.mValue.y,key.mValue.z);q.Normalize();
++                    samples.push_back({key.mTime,q});
++                }
++                bool accepted=false;double lastWorst=0;
++                for(unsigned pass=0;pass<32 && samples.size()<=65536;++pass) {
++                    times.clear();xval.clear();yval.clear();zval.clear();
++                    for(const auto& sample:samples) {
++                        const auto& q=sample.rotation;
++                            aiMatrix4x4t<double> matrix(q.GetMatrix());aiVector3t<double> scale,angles,translation;
++                            matrix.Decompose(scale,angles,translation);angles=angles*(180.0/3.14159265358979323846);
++                            aiVector3D euler(ai_real(angles.x),ai_real(angles.y),ai_real(angles.z));
++                            if(!xval.empty()) {
++                                // Preserve orientation: the legacy helper treats an entire
++                                // degree around gimbal lock as singular and changes rotations.
++                                const aiVector3D previous(xval.back(),yval.back(),zval.back());
++                                if(std::abs(std::abs(euler.y)-90.f)<1e-5f) {
++                                    if(euler.y>0){float delta=euler.z-euler.x;euler.x=previous.x;euler.z=delta+euler.x;}
++                                    else {float sum=euler.z+euler.x;euler.x=previous.x;euler.z=sum-euler.x;}
++                                }
++                                auto near=[&](aiVector3D value) {
++                                    for(unsigned c=0;c<3;++c)value[c]+=360.f*std::round((previous[c]-value[c])/360.f);
++                                    return value;
++                                };
++                                auto first=near(euler),second=near(aiVector3D(euler.x+180.f,euler.y>=0?180.f-euler.y:-180.f-euler.y,euler.z+180.f));
++                                euler=(first-previous).SquareLength()<=(second-previous).SquareLength()?first:second;
++                            }
++                        const int64_t time=to_ktime(sample.ticks,anim);
++                        if(!times.empty() && time<=times.back())throw DeadlyExportError("gcad baked rotation exceeds FBX time resolution");
++                        times.push_back(time);xval.push_back(euler.x);yval.push_back(euler.y);zval.push_back(euler.z);
++                    }
++                    std::vector<bool> refine(samples.size(),false);size_t splitCount=0;double worst=0;
++                    for(size_t i=1;i<samples.size();++i)for(unsigned quarter=0;quarter<=4;++quarter) {
++                        const double f=quarter*.25;Rotation q;
++                        Rotation::Interpolate(q,samples[i-1].rotation,samples[i].rotation,f);q.Normalize();
++                        aiMatrix4x4t<double> expected(q.GetMatrix()),actual;
++                        const double radians=3.14159265358979323846/180.0;
++                        actual.FromEulerAnglesXYZ((xval[i-1]*(1-f)+xval[i]*f)*radians,(yval[i-1]*(1-f)+yval[i]*f)*radians,(zval[i-1]*(1-f)+zval[i]*f)*radians);
++                        for(unsigned row=0;row<3;++row)for(unsigned col=0;col<3;++col) {
++                            double error=std::abs(actual[row][col]-expected[row][col]);
++                            if(!std::isfinite(error))throw DeadlyExportError("gcad baked rotation is nonfinite");
++                            worst=std::max(worst,error);
++                            if(error>2e-6 && !refine[i]){refine[i]=true;++splitCount;}
++                        }
++                    }
++                    lastWorst=worst;if(!splitCount){accepted=true;break;}
++                    if(samples.size()+splitCount>65536)break;
++                    std::vector<Sample> next;next.reserve(samples.size()+splitCount);next.push_back(samples[0]);
++                    for(size_t i=1;i<samples.size();++i) {
++                        if(refine[i]) {
++                            double ticks=samples[i-1].ticks+(samples[i].ticks-samples[i-1].ticks)*.5;
++                            if(!(ticks>samples[i-1].ticks && ticks<samples[i].ticks))throw DeadlyExportError("gcad rotation refinement exhausted time precision");
++                            Rotation q;Rotation::Interpolate(q,samples[i-1].rotation,samples[i].rotation,.5);q.Normalize();
++                            next.push_back({ticks,q});
++                        }
++                        next.push_back(samples[i]);
++                    }
++                    samples.swap(next);
++                }
++                if(!accepted)throw DeadlyExportError("gcad rotation refinement cannot meet sampled error within 65536 keys and 32 passes; error "+std::to_string(lastWorst));
++            }
++            WriteAnimationCurve(outstream, R.x, times, xval, ids[1], "d|X", gcadStep(na->mRotationKeys, na->mNumRotationKeys));
++            WriteAnimationCurve(outstream, R.y, times, yval, ids[1], "d|Y", gcadStep(na->mRotationKeys, na->mNumRotationKeys));
++            WriteAnimationCurve(outstream, R.z, times, zval, ids[1], "d|Z", gcadStep(na->mRotationKeys, na->mNumRotationKeys));
+ 
+             // scaling/scale
+             times.clear(); xval.clear(); yval.clear(); zval.clear();
+@@ -2581,9 +2799,9 @@ void FBXExporter::WriteObjects () {
+                 yval.push_back(k.mValue.y);
+                 zval.push_back(k.mValue.z);
+             }
+-            WriteAnimationCurve(outstream, S.x, times, xval, ids[2], "d|X");
+-            WriteAnimationCurve(outstream, S.y, times, yval, ids[2], "d|Y");
+-            WriteAnimationCurve(outstream, S.z, times, zval, ids[2], "d|Z");
++            WriteAnimationCurve(outstream, S.x, times, xval, ids[2], "d|X", gcadStep(na->mScalingKeys, na->mNumScalingKeys));
++            WriteAnimationCurve(outstream, S.y, times, yval, ids[2], "d|Y", gcadStep(na->mScalingKeys, na->mNumScalingKeys));
++            WriteAnimationCurve(outstream, S.z, times, zval, ids[2], "d|Z", gcadStep(na->mScalingKeys, na->mNumScalingKeys));
+         }
+     }
+ 
+@@ -2930,7 +3148,7 @@ void FBXExporter::WriteAnimationCurve(
+     const std::vector<int64_t>& times,
+     const std::vector<float>& values,
+     int64_t curvenode_uid,
+-    const std::string& property_link // "d|X", "d|Y", etc
++    const std::string& property_link, bool step // "d|X", "d|Y", etc
+ ) {
+     FBX::Node n("AnimationCurve");
+     int64_t curve_uid = generate_uid();
+@@ -2940,7 +3158,7 @@ void FBXExporter::WriteAnimationCurve(
+     n.AddChild("KeyTime", times);
+     n.AddChild("KeyValueFloat", values);
+     // keyattr flags and data
+-    n.AddChild("KeyAttrFlags", std::vector<int32_t>{ 8452 }); // InterpType = Linear
++    n.AddChild("KeyAttrFlags", std::vector<int32_t>{ step ? 2 : 8452 }); // InterpType = Linear
+     n.AddChild("KeyAttrDataFloat", std::vector<float>{0,0,0,0});
+     n.AddChild(
+         "KeyAttrRefCount",
+diff --git a/code/AssetLib/FBX/FBXExporter.h b/code/AssetLib/FBX/FBXExporter.h
+index 61c20b5dc13970654ab46c1613b17075191b74a1..768ea9a7c0bc0e10560ef21b155214e3b1994e8b 100644
+--- a/code/AssetLib/FBX/FBXExporter.h
++++ b/code/AssetLib/FBX/FBXExporter.h
+@@ -167,7 +167,7 @@ namespace Assimp {
+             const std::vector<int64_t>& times,
+             const std::vector<float>& values,
+             int64_t curvenode_id,
+-            const std::string& property_link // "d|X", "d|Y", etc
++            const std::string& property_link, bool step = false // "d|X", "d|Y", etc
+         );
+     };
+ }
+diff --git a/code/AssetLib/glTF2/glTF2Importer.cpp b/code/AssetLib/glTF2/glTF2Importer.cpp
+index 860c3f6a75214eb640764c5da7c1b802398cdcf8..16a5d8528173f0e4221ff27cb094e132f7cec3bf 100644
+--- a/code/AssetLib/glTF2/glTF2Importer.cpp
++++ b/code/AssetLib/glTF2/glTF2Importer.cpp
+@@ -1119,9 +1119,34 @@ static void BuildVertexWeightMapping(Mesh::Primitive &primitive, std::vector<std
+     struct Weights {
+         float values[4];
+     };
+-    Weights **weights = new Weights*[attr.weight.size()];
++    std::vector<std::unique_ptr<Weights[]>> weights(attr.weight.size());
+     for (size_t w = 0; w < attr.weight.size(); ++w) {
+-        num_vertices = attr.weight[w]->ExtractData(weights[w], vertexRemappingTablePtr);
++        auto accessor = attr.weight[w];
++        if (accessor->GetNumComponents() != 4) {
++            throw DeadlyImportError("GLTF: skin weights must have four components");
++        }
++        auto decodeNormalized = [&](auto scalar) {
++            using Scalar = decltype(scalar);
++            struct Packed { Scalar values[4]; };
++            Packed *raw = nullptr;
++            num_vertices = accessor->ExtractData(raw, vertexRemappingTablePtr);
++            std::unique_ptr<Packed[]> packed(raw);
++            weights[w].reset(new Weights[num_vertices]{});
++            for (size_t i = 0; i < num_vertices; ++i)
++                for (unsigned c = 0; c < 4; ++c)
++                    weights[w][i].values[c] = float(packed[i].values[c]) / float(std::numeric_limits<Scalar>::max());
++        };
++        if (accessor->componentType == ComponentType_FLOAT && !accessor->normalized) {
++            Weights *raw = nullptr;
++            num_vertices = accessor->ExtractData(raw, vertexRemappingTablePtr);
++            weights[w].reset(raw);
++        } else if (accessor->normalized && accessor->componentType == ComponentType_UNSIGNED_BYTE) {
++            decodeNormalized(uint8_t(0));
++        } else if (accessor->normalized && accessor->componentType == ComponentType_UNSIGNED_SHORT) {
++            decodeNormalized(uint16_t(0));
++        } else {
++            throw DeadlyImportError("GLTF: unsupported skin weight encoding");
++        }
+     }
+ 
+     struct Indices8 {
+@@ -1165,13 +1190,11 @@ static void BuildVertexWeightMapping(Mesh::Primitive &primitive, std::vector<std
+     }
+ 
+     for (size_t w = 0; w < attr.weight.size(); ++w) {
+-        delete[] weights[w];
+         if(indices8)
+             delete[] indices8[w];
+         if (indices16)
+             delete[] indices16[w];
+     }
+-    delete[] weights;
+     delete[] indices8;
+     delete[] indices16;
+ }

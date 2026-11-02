@@ -1,0 +1,45 @@
+diff --git a/code/AssetLib/FBX/FBXExporter.cpp b/code/AssetLib/FBX/FBXExporter.cpp
+index 353140eb5666ef6adc2093cefdb3adcf82525bb2..db052c2180ee2185252b2f5eedcaf78525465086 100644
+--- a/code/AssetLib/FBX/FBXExporter.cpp
++++ b/code/AssetLib/FBX/FBXExporter.cpp
+@@ -1516,6 +1516,22 @@ void FBXExporter::WriteObjects () {
+ 
+         FBX::Node p("Properties70");
+ 
++        // Isolated gcad GLB-route experiment, explicitly opted in by the caller.
++        // Legacy shading stays intact. Consumers must understand these properties.
++        int gcadVersion = 0;
++        if (m->Get("gcad.extension.version", 0, 0, gcadVersion) == AI_SUCCESS && gcadVersion == 1) {
++            p.AddP70int("gcad|PbrVersion", 1);
++            ai_real roughness = 1, metallic = 0;
++            m->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
++            m->Get(AI_MATKEY_METALLIC_FACTOR, metallic);
++            p.AddP70numberA("gcad|Roughness", roughness);
++            p.AddP70numberA("gcad|Metallic", metallic);
++            p.AddP70numberA("gcad|Occlusion", 1.0);
++            // glTF metallic-roughness packed G/B; occlusion samples R.
++            p.AddP70int("gcad|RoughnessChannel", 1);
++            p.AddP70int("gcad|MetallicChannel", 2);
++            p.AddP70int("gcad|OcclusionChannel", 0);
++        }
+         // materials exported using the FBX SDK have two sets of fields.
+         // there are the properties specified in the PropertyTemplate,
+         // which are those supported by the modernFBX SDK,
+@@ -1791,8 +1807,15 @@ void FBXExporter::WriteObjects () {
+             const int64_t image_uid = elem->second;
+ 
+             // get the name of the material property to connect to
+-            auto elem2 = prop_name_by_tt.find(tt);
+-            if (elem2 == prop_name_by_tt.end()) {
++            auto gcad_props = prop_name_by_tt;
++            int gcadVersion = 0;
++            if (mat->Get("gcad.extension.version", 0, 0, gcadVersion) == AI_SUCCESS && gcadVersion == 1) {
++                gcad_props[aiTextureType_DIFFUSE_ROUGHNESS] = "gcad|Roughness";
++                gcad_props[aiTextureType_METALNESS] = "gcad|Metallic";
++                gcad_props[aiTextureType_LIGHTMAP] = "gcad|Occlusion";
++            }
++            auto elem2 = gcad_props.find(tt);
++            if (elem2 == gcad_props.end()) {
+                 // don't know how to handle this type of texture,
+                 // so skip it.
+                 std::stringstream err;

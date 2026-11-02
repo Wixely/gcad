@@ -1,0 +1,9 @@
+asset 1
+project ../..
+source plate ../parts/plate.gcad body=main
+tessellate plate tolerance=0.1
+uv plate projection=box tile=25
+surface plate base_colour=1,1,1,1 roughness=0.75 double_sided=true wrap_u=repeat wrap_v=repeat magnify=nearest minify=nearest mipmap=none
+map plate base_colour maps/rgba.png license=GPL-3.0-or-later origin=gcad-test-pattern
+node plate source=plate
+face_uv plate ../../target/game-asset-plate-end.faces.json scale=-2,3 rotation=30 offset=0.2,-0.1

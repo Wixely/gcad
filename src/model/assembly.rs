@@ -174,6 +174,51 @@ pub struct Source {
     pub vars: Vec<(String, f64)>,
 }
 
+/// An evaluated `part` instance. Frames are in the owning model's coordinates;
+/// body names remain the evaluator's exact names, including single-body renames.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct AssemblyInstance {
+    pub name: String,
+    pub placement: Matrix4,
+    pub bodies: Vec<String>,
+    pub children: Vec<AssemblyInstance>,
+}
+
+impl AssemblyInstance {
+    fn selected(&self, picked: &[String], rename: &impl Fn(&str) -> String) -> Option<Self> {
+        let bodies: Vec<_> = self
+            .bodies
+            .iter()
+            .filter(|b| picked.contains(b))
+            .map(|b| rename(b))
+            .collect();
+        if bodies.is_empty() {
+            return None;
+        }
+        Some(Self {
+            name: self.name.clone(),
+            placement: self.placement,
+            bodies,
+            children: self
+                .children
+                .iter()
+                .filter_map(|c| c.selected(picked, rename))
+                .collect(),
+        })
+    }
+
+    fn move_members(&mut self, moving: &[String], transform: Matrix4) {
+        // A partial move belongs below this frame. Moving every member also moves
+        // the frame, keeping each child's local placement relative to it intact.
+        if !self.bodies.is_empty() && self.bodies.iter().all(|b| moving.contains(b)) {
+            self.placement = transform * self.placement;
+        }
+        for child in &mut self.children {
+            child.move_members(moving, transform);
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Couple {
     pub driven: String,
@@ -634,6 +679,9 @@ impl Model {
         for body in &moving {
             self.move_body(body, transform)?;
         }
+        for instance in &mut self.assembly_instances {
+            instance.move_members(&moving, transform);
+        }
         for other in self.joints.iter_mut() {
             if moving.contains(&other.parent) {
                 *other = other.moved(transform);
@@ -889,6 +937,16 @@ impl Model {
             self.bodies.push((new.clone(), solid));
             added.push(new);
         }
+        self.assembly_instances.push(AssemblyInstance {
+            name: name.clone(),
+            placement: Matrix4::identity(),
+            bodies: added.clone(),
+            children: loaded
+                .assembly_instances
+                .iter()
+                .filter_map(|instance| instance.selected(&picked, &rename))
+                .collect(),
+        });
         for joint in &loaded.joints {
             if picked.contains(&joint.child) && picked.contains(&joint.parent) {
                 self.joints.push(Joint {

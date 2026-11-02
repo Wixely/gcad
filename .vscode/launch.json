@@ -1,0 +1,445 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Animated five-map atlas validation (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["check", "${workspaceFolder}/examples/game-assets/atlas-extra-motion.gasset"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Occlusion and emissive atlas validation (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["check", "${workspaceFolder}/examples/game-assets/atlas-extra-maps.gasset"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Raw mask atlas validation (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["check", "${workspaceFolder}/examples/game-assets/atlas-mask-raw.gasset"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Atlas mask coverage report (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["asset-report", "${workspaceFolder}/examples/game-assets/atlas-mask-coverage.gasset"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Atlas alpha validation (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["check", "${workspaceFolder}/examples/game-assets/atlas-alpha.gasset"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Textured atlas animation validation (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["check", "${workspaceFolder}/examples/game-assets/atlas-motion.gasset"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Authored mip-chain validation (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["check", "${workspaceFolder}/examples/game-assets/atlas-mips.gasset"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Atlas renderer fixture (Windows, new output)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/examples/game_asset_renderer_fixture.exe",
+            "args": ["${workspaceFolder}/target/renderer-atlas-debug.bin"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build atlas GPU examples (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Atlas GPU mip verification (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/examples/game_asset_mip_gpu.exe",
+            "args": ["dx12"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build atlas GPU examples (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Authored face weights snapshot (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["asset-preview", "${workspaceFolder}/examples/game-assets/plate-face-weights.gasset", "--clip", "bend", "--time", "0.5", "--snapshot", "${workspaceFolder}/target/plate-face-weights-debug.png"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Assign selected plate weights (Windows, new output)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["asset-face-weights", "${workspaceFolder}/examples/game-assets/plate-face-materials.gasset", "plate", "${workspaceFolder}/target/game-asset-plate-end.faces.json", "${workspaceFolder}/target/plate-face-weights.glb", "--influence", "base=0.25", "--influence", "tip=0.75", "--boundary", "reject-shared"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Textured face UV example snapshot (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["asset-preview", "${workspaceFolder}/examples/game-assets/plate-face-uv.gasset", "--snapshot", "${workspaceFolder}/target/plate-face-uv-debug.png"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Transform selected plate UVs (Windows, new output)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["asset-face-uv", "${workspaceFolder}/examples/game-assets/plate-face-materials.gasset", "plate", "${workspaceFolder}/target/game-asset-plate-end.faces.json", "${workspaceFolder}/target/plate-face-uv.glb", "--scale=-2,3", "--rotation", "30", "--offset=0.2,-0.1"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Skinned face-material example snapshot (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["asset-preview", "${workspaceFolder}/examples/game-assets/plate-face-materials.gasset", "--clip", "bend", "--time", "0.5", "--snapshot", "${workspaceFolder}/target/plate-face-materials-debug.png"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Face material independent import (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/game-assets-tools/build/Debug/gcad_glb_probe.exe",
+            "args": ["${workspaceFolder}/target/game-assets-face-material-import/skin-reference.glb", "${workspaceFolder}/target/game-assets-face-material-import/skin-assigned.glb", "--face-material", "plate"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build FBX feasibility probe (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Assign plate end-face material (Windows, new output)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["asset-face-material", "${workspaceFolder}/examples/game-assets/plate-skinned.gasset", "plate", "${workspaceFolder}/target/plate-end.faces.json", "${workspaceFolder}/target/plate-end-material.glb", "--surface", "base_colour=1,0,0,1", "--surface", "roughness=0.2"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Resolve prepared plate end-face selection (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["asset-face-resolve", "${workspaceFolder}/examples/game-assets/plate-skinned.gasset", "plate", "${workspaceFolder}/target/plate-end.faces.json"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Capture plate end-face selection (Windows, new output)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["asset-face-bind", "${workspaceFolder}/examples/game-assets/plate-skinned.gasset", "plate", "base.end", "${workspaceFolder}/target/plate-end.faces.json"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Check plate end-face selection (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["asset-face-check", "${workspaceFolder}/examples/game-assets/plate-skinned.gasset", "plate", "${workspaceFolder}/target/plate-end.faces.json"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Quantised weight raw probe (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/game-assets-tools/build/Debug/gcad_glb_probe.exe",
+            "args": ["${workspaceFolder}/target/flex-reference.glb", "${workspaceFolder}/target/flex-unorm16.glb", "--quantized-raw", "0.001", "0.01"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build FBX feasibility probe (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Quantised weight export (Windows, new output)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["asset-quantize-weights", "${workspaceFolder}/examples/game-assets/plate-flex.gasset", "${workspaceFolder}/target/flex-unorm16.glb", "--max-error", "0.01", "--max-angle", "0.1"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Float weight reference export (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["export", "${workspaceFolder}/examples/game-assets/plate-flex.gasset", "${workspaceFolder}/target/flex-reference.glb"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "FBX authored-map audit (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/game-assets-tools/build/Debug/gcad_fbx_probe.exe",
+            "args": ["--audit-maps-metres", "${workspaceFolder}/target/game-asset-plate-maps.glb", "${workspaceFolder}/target/fbx-maps-debug-session"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build FBX feasibility probe (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Authored map import probe (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/game-assets-tools/build/Debug/gcad_glb_probe.exe",
+            "args": ["${workspaceFolder}/target/game-asset-plate-maps.glb", "--maps"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build FBX feasibility probe (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Authored surface import probe (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/game-assets-tools/build/Debug/gcad_glb_probe.exe",
+            "args": ["${workspaceFolder}/target/game-asset-plate-surfaces.glb", "--surfaces"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build FBX feasibility probe (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Fine sliced twist surface probe (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/game-assets-tools/build/Debug/gcad_glb_probe.exe",
+            "args": ["${workspaceFolder}/target/game-asset-plate-twist-chain.glb", "${workspaceFolder}/target/game-asset-plate-twist-sliced-fine.glb", "--twist-sliced-fine"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build FBX feasibility probe (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Sliced twist import probe (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/game-assets-tools/build/Debug/gcad_glb_probe.exe",
+            "args": ["${workspaceFolder}/target/game-asset-plate-twist-chain.glb", "${workspaceFolder}/target/game-asset-plate-twist-sliced.glb", "--twist-sliced"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build FBX feasibility probe (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Twist chain import probe (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/game-assets-tools/build/Debug/gcad_glb_probe.exe",
+            "args": ["${workspaceFolder}/target/game-asset-plate-twist-chain.glb", "--twist-chain"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build FBX feasibility probe (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Attachment and twist import probe (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/game-assets-tools/build/Debug/gcad_glb_probe.exe",
+            "args": ["${workspaceFolder}/target/game-asset-plate-attachments.glb", "--attachments"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build FBX feasibility probe (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Game asset capability report (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["asset-capabilities", "${workspaceFolder}/examples/game-assets/plate-atlas.gasset"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Rigid root-motion export (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["asset-root-motion", "${workspaceFolder}/examples/game-assets/plate-root-motion.gasset", "root", "${workspaceFolder}/target/game-asset-rigid-root-motion.glb", "--clip", "travel", "--in-place", "travel-rigid-in-place", "--rigid"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Translation root-motion export (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["asset-root-motion", "${workspaceFolder}/examples/game-assets/plate-root-motion.gasset", "root", "${workspaceFolder}/target/game-asset-root-motion.glb", "--clip", "travel", "--in-place", "travel-in-place", "--axes", "xy"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Normal detail bake fixture (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/examples/game_asset_glb.exe",
+            "args": ["${workspaceFolder}/target/game-asset-normal-detail.glb", "--normal-bake"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build static GLB fixture (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Textured CAD atlas fixture (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/examples/game_asset_glb.exe",
+            "args": ["${workspaceFolder}/target/game-asset-atlas-textured.glb", "--atlas"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build static GLB fixture (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Game asset atlas export (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["export", "${workspaceFolder}/examples/game-assets/plate-atlas.gasset", "${workspaceFolder}/target/game-asset-plate-atlas.glb"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Game asset preview (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["asset-preview", "${workspaceFolder}/examples/game-assets/plate-motion.gasset", "--clip", "swing"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Skinned GLB fixture (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/examples/game_asset_glb.exe",
+            "args": ["${workspaceFolder}/target/game-asset-skin.glb", "--skin"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build static GLB fixture (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Game asset check (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["check", "${workspaceFolder}/examples/game-assets/plate.gasset"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Static GLB fixture (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/examples/game_asset_glb.exe",
+            "args": ["${workspaceFolder}/target/game-asset-prop.glb"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build static GLB fixture (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "GLB import probe (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/game-assets-tools/build/Debug/gcad_glb_probe.exe",
+            "args": ["${workspaceFolder}/target/game-asset-prop.glb"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build FBX feasibility probe (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "FBX feasibility probe (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/game-assets-tools/build/Debug/gcad_fbx_probe.exe",
+            "args": ["${workspaceFolder}/target/game-assets-tools/debug-output"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build FBX feasibility probe (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "FBX authored skin unit audit (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/game-assets-tools/build/Debug/gcad_fbx_probe.exe",
+            "args": ["--audit-skin-metres", "${workspaceFolder}/target/game-asset-plate-attachments.glb", "${workspaceFolder}/target/fbx-authored-skin-debug-session"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build FBX feasibility probe (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Crease reference geometry (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/examples/game_asset_normals_reference.exe",
+            "args": ["${workspaceFolder}/examples/game-assets/plate-normals.gasset", "${workspaceFolder}/target/crease-reference-debug-session.json"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build crease reference (Debug)",
+            "console": "internalConsole"
+        },
+        {
+            "name": "Crease normals GLB export (Windows)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/gcad.exe",
+            "args": ["export", "${workspaceFolder}/examples/game-assets/plate-normals.gasset", "${workspaceFolder}/target/game-asset-plate-normals.glb"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build game asset CLI (Debug)",
+            "console": "internalConsole"
+        }
+    ]
+}

@@ -1,0 +1,12 @@
+asset 1
+project ../..
+source hard ../parts/plate.gcad body=main
+tessellate hard tolerance=0.1
+normals hard crease=0
+uv hard projection=box tile=25
+source smooth ../parts/plate.gcad body=main
+tessellate smooth tolerance=0.1
+normals smooth crease=60
+uv smooth projection=box tile=25
+node hard source=hard translation=-30,0,0
+node smooth source=smooth translation=30,0,0

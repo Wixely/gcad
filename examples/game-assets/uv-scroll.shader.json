@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "template": "uv-scroll-pbr",
+  "scale": [1.0, 1.0],
+  "offset": [0.0, 0.0],
+  "speed": [0.125, 0.0],
+  "fallback": { "mode": "reject" }
+}

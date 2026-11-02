@@ -1,0 +1,13 @@
+asset 1
+source plate ../parts/plate.gcad body=main
+tessellate plate tolerance=0.1
+uv plate projection=box tile=25
+node plate source=plate parent=pivot translation=50,0,0
+node pivot translation=0,100,0
+clip resize interpolation=linear
+key resize plate time=0 scale=1,1,1
+key resize plate time=2 scale=2,3,4
+clip snap interpolation=step
+key snap plate time=0 scale=1,1,1
+key snap plate time=1 scale=-2,3,4
+key snap plate time=2 scale=1,1,1

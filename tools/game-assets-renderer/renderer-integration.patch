@@ -1,0 +1,563 @@
+diff --git a/src/viewer3d/explicit_scene_tests.rs b/src/viewer3d/explicit_scene_tests.rs
+new file mode 100644
+index 0000000..642b296
+--- /dev/null
++++ b/src/viewer3d/explicit_scene_tests.rs
+@@ -0,0 +1,339 @@
++use super::*;
++use std::io::Read;
++
++fn requested_render_state() -> egui_wgpu::RenderState {
++    let (backends, expected) = match std::env::var("GCAD_RENDER_BACKEND").as_deref() {
++        Ok("vulkan") => (wgpu::Backends::VULKAN, wgpu::Backend::Vulkan),
++        Ok("dx12") | Err(std::env::VarError::NotPresent) => {
++            (wgpu::Backends::DX12, wgpu::Backend::Dx12)
++        }
++        other => panic!("unsupported GCAD_RENDER_BACKEND: {other:?}"),
++    };
++    let egui_wgpu::WgpuSetup::CreateNew(mut setup) = egui_kittest::wgpu::default_wgpu_setup()
++    else {
++        panic!("expected a new headless renderer");
++    };
++    setup.instance_descriptor.backends = backends;
++    let state = egui_kittest::wgpu::create_render_state(
++        egui_wgpu::WgpuSetup::CreateNew(setup),
++        egui_wgpu::RendererOptions::PREDICTABLE,
++    );
++    assert_eq!(
++        state.adapter.get_info().backend,
++        expected,
++        "backend fallback is forbidden"
++    );
++    println!("Verified requested backend: {expected:?}");
++    state
++}
++
++fn fixture_u32(reader: &mut impl Read) -> u32 {
++    let mut bytes = [0; 4];
++    reader.read_exact(&mut bytes).unwrap();
++    u32::from_le_bytes(bytes)
++}
++
++#[test]
++fn gcad_explicit_real_atlas_matches_separate_chart_references() {
++    let path = std::env::var("GCAD_ATLAS_FIXTURE")
++        .expect("set GCAD_ATLAS_FIXTURE to the gcad-generated binary fixture");
++    let mut bytes = Vec::new();
++    std::fs::File::open(path)
++        .unwrap()
++        .take(1024 * 1024 + 1)
++        .read_to_end(&mut bytes)
++        .unwrap();
++    assert!(bytes.len() <= 1024 * 1024);
++    let mut reader = std::io::Cursor::new(&bytes);
++    let mut magic = [0; 8];
++    reader.read_exact(&mut magic).unwrap();
++    assert_eq!(&magic, b"GCADAT01");
++    assert_eq!(fixture_u32(&mut reader), 6);
++    let mut positions = Vec::new();
++    let mut normals = Vec::new();
++    let mut uvs = Vec::new();
++    for _ in 0..6 {
++        let v: [f32; 8] = std::array::from_fn(|_| f32::from_bits(fixture_u32(&mut reader)));
++        assert!(v.iter().all(|v| v.is_finite()));
++        positions.push([v[0], v[1], v[2]]);
++        normals.push([v[3], v[4], v[5]]);
++        uvs.push([v[6], v[7]]);
++    }
++    let mut atlas_scene: Scene = Scene::default();
++    atlas_scene.radius = 1.;
++    for slot in 0..3 {
++        assert_eq!(fixture_u32(&mut reader), 4);
++        let mut levels = Vec::new();
++        for level in 0..4 {
++            let w = fixture_u32(&mut reader) as usize;
++            let h = fixture_u32(&mut reader) as usize;
++            assert_eq!((w, h), (128 >> level, 64 >> level));
++            let mut rgba = vec![0; w * h * 4];
++            reader.read_exact(&mut rgba).unwrap();
++            levels.push(Image {
++                width: w,
++                height: h,
++                rgba,
++            });
++        }
++        atlas_scene.images.push(levels[0].clone());
++        atlas_scene.explicit_images.insert(
++            slot,
++            ExplicitImage::new(
++                levels,
++                if slot == 0 {
++                    ImageEncoding::Srgb
++                } else {
++                    ImageEncoding::Linear
++                },
++            )
++            .unwrap(),
++        );
++    }
++    assert_eq!(reader.position() as usize, bytes.len());
++    let mut reference: Scene = Scene::default();
++    reference.radius = 1.;
++    for chart in 0..2 {
++        let surface = Surface {
++            positions: positions[chart * 3..chart * 3 + 3].to_vec(),
++            normals: normals[chart * 3..chart * 3 + 3].to_vec(),
++            uvs: uvs[chart * 3..chart * 3 + 3].to_vec(),
++            colour: [1.; 3],
++            texture: Some(0),
++            normal_map: Some(1),
++            metal_rough_map: Some(2),
++            ..Default::default()
++        };
++        atlas_scene.surfaces.push(surface.clone());
++        let base = reference.images.len();
++        reference.images.extend([
++            image(
++                1,
++                if chart == 0 {
++                    [137, 0, 0, 255]
++                } else {
++                    [0, 0, 255, 255]
++                },
++            ),
++            image(1, [128, 191, 255, 255]),
++            image(1, [255, 64, 192, 255]),
++        ]);
++        reference.surfaces.push(Surface {
++            texture: Some(base),
++            normal_map: Some(base + 1),
++            metal_rough_map: Some(base + 2),
++            ..surface
++        });
++    }
++    let state = requested_render_state();
++    gpu::install(&state);
++    let atlas = Viewer::new(Arc::new(atlas_scene), Camera::default()).edges(false);
++    let reference = Viewer::new(Arc::new(reference), Camera::default()).edges(false);
++    let mut compared = 0;
++    let mut maximum = 0;
++    for size in [128, 32, 8] {
++        let actual = atlas
++            .render_gpu(size, size)
++            .expect("atlas render requires GPU");
++        let expected = reference
++            .render_gpu(size, size)
++            .expect("reference render requires GPU");
++        let mut material_pixels = 0;
++        let mut worst = (0, 0, [0; 4], [0; 4]);
++        for (index, (a, b)) in actual.pixels.iter().zip(&expected.pixels).enumerate() {
++            if *b != expected.pixels[0] {
++                material_pixels += 1;
++            }
++            for (x, y) in a.to_array().into_iter().zip(b.to_array()) {
++                maximum = maximum.max(x.abs_diff(y));
++                if x.abs_diff(y) > worst.0 {
++                    worst = (x.abs_diff(y), index, a.to_array(), b.to_array());
++                }
++            }
++            compared += 1;
++        }
++        assert!(material_pixels > 0, "empty atlas render at size {size}");
++        println!(
++            "Atlas diagnostic size {size}: worst {worst:?}, material pixels {material_pixels}"
++        );
++    }
++    assert!(
++        maximum <= 2,
++        "gcad atlas differs from independent chart reference: {maximum}"
++    );
++    println!(
++        "Candidate gcad atlas: {compared} pixels across 128/32/8 sizes, maximum byte error {maximum}; backend {:?}",
++        state.adapter.get_info().backend
++    );
++}
++
++fn image(size: usize, colour: [u8; 4]) -> Image {
++    Image {
++        width: size,
++        height: size,
++        rgba: colour.repeat(size * size),
++    }
++}
++fn scene(explicit: bool) -> Scene {
++    let mut scene = Scene::default();
++    scene.radius = 1.;
++    scene.surfaces.push(Surface {
++        positions: vec![[-1., -1., 0.], [1., -1., 0.], [0., 1., 0.]],
++        normals: vec![[0., 0., 1.]; 3],
++        uvs: vec![[0., 0.], [1., 0.], [0.5, 1.]],
++        colour: [1.; 3],
++        texture: Some(0),
++        normal_map: Some(1),
++        metal_rough_map: Some(2),
++        ..Default::default()
++    });
++    for (i, colour) in [
++        [137, 64, 200, 255],
++        [128, 128, 255, 255],
++        [255, 100, 50, 255],
++    ]
++    .into_iter()
++    .enumerate()
++    {
++        scene.images.push(image(16, colour));
++        if explicit {
++            scene.explicit_images.insert(
++                i,
++                ExplicitImage::new(
++                    vec![image(16, colour), image(8, colour)],
++                    if i == 0 {
++                        ImageEncoding::Srgb
++                    } else {
++                        ImageEncoding::Linear
++                    },
++                )
++                .unwrap(),
++            );
++        }
++    }
++    scene
++}
++
++#[test]
++fn gcad_explicit_scene_rejects_stale_mixed_and_wrong_encoding_images() {
++    let mut s = scene(true);
++    assert_eq!(s.validate_explicit_images(), Ok(()));
++    s.images[0].rgba[0] = 0;
++    assert!(
++        s.validate_explicit_images()
++            .unwrap_err()
++            .contains("base differs")
++    );
++    s.images[0].rgba[0] = 137;
++    let removed = s.explicit_images.remove(&1).unwrap();
++    assert!(
++        s.validate_explicit_images()
++            .unwrap_err()
++            .contains("mixes explicit")
++    );
++    s.explicit_images.insert(1, removed);
++    s.explicit_images.insert(
++        0,
++        ExplicitImage::new(vec![s.images[0].clone()], ImageEncoding::Linear).unwrap(),
++    );
++    assert!(
++        s.validate_explicit_images()
++            .unwrap_err()
++            .contains("encoding mismatch")
++    );
++}
++
++#[test]
++fn gcad_explicit_renderer_matches_legacy_constant_material_without_double_decode() {
++    let state = requested_render_state();
++    println!(
++        "Candidate renderer backend: {:?}",
++        state.adapter.get_info().backend
++    );
++    gpu::install(&state);
++    let legacy = Viewer::new(Arc::new(scene(false)), Camera::default()).edges(false);
++    let explicit = Viewer::new(Arc::new(scene(true)), Camera::default()).edges(false);
++    assert_eq!(explicit.explicit_image_error(), None);
++    let a = legacy
++        .render_gpu(96, 96)
++        .expect("legacy render requires GPU");
++    let b = explicit
++        .render_gpu(96, 96)
++        .expect("explicit render requires GPU");
++    assert_eq!(a.pixels.len(), b.pixels.len());
++    let mut different_background = 0;
++    let mut max_error = 0;
++    for (pa, pb) in a.pixels.iter().zip(&b.pixels) {
++        if *pa != a.pixels[0] {
++            different_background += 1;
++        }
++        for (x, y) in pa.to_array().into_iter().zip(pb.to_array()) {
++            max_error = max_error.max(x.abs_diff(y));
++        }
++    }
++    assert!(
++        different_background > 500,
++        "fixture did not render enough material pixels"
++    );
++    assert!(
++        max_error <= 2,
++        "explicit path changed constant shading: {max_error}"
++    );
++    println!(
++        "Candidate renderer: {} pixels compared, {} material pixels, maximum byte error {}",
++        a.pixels.len(),
++        different_background,
++        max_error
++    );
++    // A green supplied lower level must visibly replace the purple base. This
++    // prevents a legacy-only implementation from passing the equality check.
++    // A base-only normal chain then forces the shared sampler back to LOD zero.
++    for short_normal in [false, true] {
++        let mut supplied = scene(true);
++        supplied.images[0] = image(256, [137, 64, 200, 255]);
++        supplied.explicit_images.insert(
++            0,
++            ExplicitImage::new(
++                vec![supplied.images[0].clone(), image(128, [0, 255, 0, 255])],
++                ImageEncoding::Srgb,
++            )
++            .unwrap(),
++        );
++        if short_normal {
++            supplied.explicit_images.insert(
++                1,
++                ExplicitImage::new(vec![supplied.images[1].clone()], ImageEncoding::Linear)
++                    .unwrap(),
++            );
++        }
++        let rendered = Viewer::new(Arc::new(supplied), Camera::default())
++            .edges(false)
++            .render_gpu(96, 96)
++            .expect("supplied level render requires GPU");
++        let mut green = 0;
++        let mut error = 0;
++        for (original, actual) in a.pixels.iter().zip(&rendered.pixels) {
++            let [r, g, b, _] = actual.to_array();
++            if g as u16 > r as u16 + 16 && g as u16 > b as u16 + 16 {
++                green += 1;
++            }
++            for (x, y) in original.to_array().into_iter().zip(actual.to_array()) {
++                error = error.max(x.abs_diff(y));
++            }
++        }
++        if short_normal {
++            assert!(error <= 2, "shortest-chain LOD bound failed: {error}");
++        } else {
++            assert!(
++                green > 1000,
++                "renderer ignored supplied lower level: {green} green pixels"
++            );
++        }
++        println!(
++            "Candidate supplied levels: short normal {short_normal}, green pixels {green}, reference error {error}"
++        );
++    }
++    let traced = Viewer::new(Arc::new(scene(true)), Camera::default()).mode(RenderMode::Traversal);
++    assert!(traced.explicit_image_error().unwrap().contains("tracing"));
++    assert!(traced.render_gpu(16, 16).is_none());
++}
+diff --git a/src/viewer3d/gpu.rs b/src/viewer3d/gpu.rs
+index d314371..13eb600 100644
+--- a/src/viewer3d/gpu.rs
++++ b/src/viewer3d/gpu.rs
+@@ -72,6 +72,8 @@ struct Batch {
+     normal_map: Option<usize>,
+     metal_rough_map: Option<usize>,
+     bind: wgpu::BindGroup,
++    explicit_colour: bool,
++    explicit_material: bool,
+     first: u32,
+     count: u32,
+     aabb: Aabb,
+@@ -595,6 +597,7 @@ fn material_group(
+     state: &State,
+     views: &[wgpu::TextureView],
+     maps: [Option<usize>; 3],
++    explicit_lod: Option<u32>,
+ ) -> wgpu::BindGroup {
+     let view = |m: Option<usize>, blank| m.and_then(|i| views.get(i)).unwrap_or(blank);
+     let [colour, normal, metal_rough] = maps;
+@@ -610,9 +613,10 @@ fn material_group(
+             resource: wgpu::BindingResource::TextureView(view),
+         })
+         .collect();
++    let explicit_sampler = explicit_lod.map(|lod| super::explicit_image::explicit_sampler(&state.device, lod));
+     bound.push(wgpu::BindGroupEntry {
+         binding: 1,
+-        resource: wgpu::BindingResource::Sampler(&state.sampler),
++        resource: wgpu::BindingResource::Sampler(explicit_sampler.as_ref().unwrap_or(&state.sampler)),
+     });
+     state.device.create_bind_group(&wgpu::BindGroupDescriptor {
+         label: Some("viewer3d material"),
+@@ -667,9 +671,15 @@ fn gather<M: Material>(scene: &Scene<M>) -> Vec<Gathered<M>> {
+ }
+ 
+ fn upload<M: Material>(state: &State, scene: &Scene<M>) -> Uploaded {
++    scene.validate_explicit_images().expect("invalid explicit scene images");
+     let device = &state.device;
+     let views: Vec<wgpu::TextureView> =
+-        scene.images.iter().map(|image| image_view(device, &state.queue, image)).collect();
++        scene.images.iter().enumerate().map(|(index, image)| {
++            match scene.explicit_images.get(&index) {
++                Some(explicit) => explicit.upload(device, &state.queue).expect("validated explicit GPU image").view,
++                None => image_view(device, &state.queue, image),
++            }
++        }).collect();
+     let gathered = gather(scene);
+     let mut all: Vec<Vertex> = Vec::new();
+     let mut batches = Vec::with_capacity(gathered.len());
+@@ -697,7 +707,13 @@ fn upload<M: Material>(state: &State, scene: &Scene<M>) -> Uploaded {
+             texture,
+             normal_map,
+             metal_rough_map,
+-            bind: material_group(state, &views, maps),
++            bind: material_group(state, &views, maps, {
++                let explicit = maps.map(|i| i.and_then(|i| scene.explicit_images.get(&i)));
++                explicit.iter().any(Option::is_some).then(||
++                    super::explicit_image::explicit_material_lod(explicit).expect("validated material"))
++            }),
++            explicit_colour: texture.is_some_and(|i| scene.explicit_images.contains_key(&i)),
++            explicit_material: maps.iter().flatten().any(|i| scene.explicit_images.contains_key(i)),
+             first: all.len() as u32,
+             count: g.vertices.len() as u32,
+             aabb: g.aabb,
+@@ -1106,14 +1122,14 @@ fn draw<M: Material>(
+             normal: normal_matrix(&look.placement),
+             tint,
+             surface: [p.roughness, p.metallic, p.specular, flag(s.capped)],
+-            params: [opacity, flag(batch.texture.is_some()), 0.0, flag(batch.normal_map.is_some())],
++            params: [opacity, if batch.explicit_colour { 2.0 } else { flag(batch.texture.is_some()) }, 0.0, flag(batch.normal_map.is_some())],
+             colour: match viewer.mode {
+                 RenderMode::Groups => four(palette(batch.group), 1.0),
+                 RenderMode::Batches => four(palette(i), 1.0),
+                 _ => [0.0; 4],
+             },
+             emission: four(p.emission, p.normal_scale),
+-            coat: [p.clearcoat, p.clearcoat_roughness, flag(batch.metal_rough_map.is_some()), 0.0],
++            coat: [p.clearcoat, p.clearcoat_roughness, flag(batch.metal_rough_map.is_some()), flag(batch.explicit_material)],
+         });
+         let box_ = placed(&batch.aabb, &look);
+         items.push(Item {
+diff --git a/src/viewer3d/mod.rs b/src/viewer3d/mod.rs
+index 70b0544..de31aba 100644
+--- a/src/viewer3d/mod.rs
++++ b/src/viewer3d/mod.rs
+@@ -1,4 +1,6 @@
+ mod controls;
++#[cfg(test)]
++mod explicit_scene_tests;
+ mod explicit_image;
+ pub use explicit_image::{ExplicitImage, ImageEncoding, UploadedImage};
+ mod environment;
+@@ -144,6 +146,9 @@ pub struct Scene<M = ()> {
+     pub surfaces: Vec<Surface<M>>,
+     pub lines: Vec<Lines<M>>,
+     pub images: Vec<Image>,
++    /// Explicit GPU overrides keyed by legacy image index. Keep level zero equal
++    /// to the legacy image and use a fresh scene id when changing either payload.
++    pub explicit_images: std::collections::BTreeMap<usize, ExplicitImage>,
+     pub centre: V3,
+     pub radius: f32,
+ }
+@@ -156,6 +161,7 @@ impl<M> Default for Scene<M> {
+             surfaces: Vec::new(),
+             lines: Vec::new(),
+             images: Vec::new(),
++            explicit_images: Default::default(),
+             centre: [0.0; 3],
+             radius: 1.0,
+         }
+@@ -163,6 +169,27 @@ impl<M> Default for Scene<M> {
+ }
+ 
+ impl<M> Scene<M> {
++    pub fn validate_explicit_images(&self) -> Result<(), &'static str> {
++        for (&index, explicit) in &self.explicit_images {
++            let base = self.images.get(index).ok_or("explicit image index is missing")?;
++            let level = &explicit.levels()[0];
++            if base.width != level.width || base.height != level.height || base.rgba != level.rgba {
++                return Err("explicit image base differs from scene image");
++            }
++        }
++        for surface in &self.surfaces {
++            let maps = [surface.texture, surface.normal_map, surface.metal_rough_map];
++            let explicit = maps.map(|i| i.and_then(|i| self.explicit_images.get(&i)));
++            if explicit.iter().any(Option::is_some) {
++                if maps.iter().zip(&explicit).any(|(map, image)| map.is_some() && image.is_none()) {
++                    return Err("material mixes explicit and legacy images");
++                }
++                explicit_image::explicit_material_lod(explicit)?;
++            }
++        }
++        Ok(())
++    }
++
+     pub fn triangles(&self) -> usize {
+         self.surfaces.iter().map(|s| s.positions.len() / 3).sum()
+     }
+@@ -997,15 +1024,35 @@ impl<M: Material> Viewer<M> {
+         self.camera != before
+     }
+ 
++    /// Query before render_gpu to distinguish unsupported modes from no GPU.
++    pub fn explicit_image_error(&self) -> Option<&'static str> {
++        if let Err(error) = self.scene.validate_explicit_images() { return Some(error); }
++        if !self.scene.explicit_images.is_empty() &&
++            (self.mode == RenderMode::Traversal || (self.mode == RenderMode::Shaded && self.trace.is_some())) {
++            return Some("explicit mip images do not support tracing preview");
++        }
++        if !self.scene.explicit_images.is_empty() && !gpu::installed() {
++            return Some("explicit mip images require GPU raster preview");
++        }
++        None
++    }
++
+     pub fn paint(&self, ui: &Ui, rect: Rect) -> Painted {
++        if let Some(error) = self.explicit_image_error() {
++            ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, error,
++                egui::FontId::proportional(14.0), egui::Color32::RED);
++            return Painted::default();
++        }
+         gpu::paint(ui, rect, self)
+     }
+ 
+     pub fn render_gpu(&self, width: usize, height: usize) -> Option<ColorImage> {
++        if self.explicit_image_error().is_some() { return None; }
+         gpu::render_gpu(self, width, height)
+     }
+ 
+     pub fn render_soft(&self, width: usize, height: usize) -> ColorImage {
++        assert!(self.scene.explicit_images.is_empty(), "explicit mip images require GPU raster preview");
+         soft::render(self, width, height)
+     }
+ }
+diff --git a/src/viewer3d/shader.wgsl b/src/viewer3d/shader.wgsl
+index f69a692..d9d86b8 100644
+--- a/src/viewer3d/shader.wgsl
++++ b/src/viewer3d/shader.wgsl
+@@ -64,6 +64,7 @@ struct SurfaceOut {
+     @location(3) uv: vec2<f32>,
+     @location(4) bary: vec3<f32>,
+     @location(5) tangent: vec4<f32>,
++    @location(6) @interpolate(perspective, centroid) atlas_uv: vec2<f32>,
+ }
+ 
+ const SHADED: u32 = 0u;
+@@ -87,6 +88,7 @@ fn surface_vertex(v: SurfaceIn, @builtin(vertex_index) index: u32) -> SurfaceOut
+     out.nor = (draw.normal * vec4<f32>(v.normal, 0.0)).xyz;
+     out.col = v.colour;
+     out.uv = v.uv;
++    out.atlas_uv = v.uv;
+     out.tangent = vec4<f32>((draw.model * vec4<f32>(v.tangent.xyz, 0.0)).xyz, v.tangent.w);
+     let corner = index % 3u;
+     out.bary = vec3<f32>(f32(corner == 0u), f32(corner == 1u), f32(corner == 2u));
+@@ -140,9 +142,10 @@ fn mapped_normal(in: SurfaceOut, sample: vec3<f32>) -> vec3<f32> {
+ 
+ @fragment
+ fn surface_fragment(in: SurfaceOut, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
+-    let sampled = textureSample(tex, samp, in.uv).rgb;
+-    let bump = textureSample(normal_tex, samp, in.uv).rgb;
+-    let metal_rough = textureSample(metal_rough_tex, samp, in.uv).rgb;
++    let uv = select(in.uv, in.atlas_uv, draw.coat.w > 0.5);
++    let sampled = textureSample(tex, samp, uv).rgb;
++    let bump = textureSample(normal_tex, samp, uv).rgb;
++    let metal_rough = textureSample(metal_rough_tex, samp, uv).rgb;
+     let edge = wire(in.bary);
+     let facet = cross(dpdx(in.pos), dpdy(in.pos));
+     if clipped(in.pos) {
+@@ -152,7 +155,7 @@ fn surface_fragment(in: SurfaceOut, @builtin(front_facing) front: bool) -> @loca
+     let alpha = draw.params.x;
+     var albedo = in.col;
+     if draw.params.y > 0.5 {
+-        albedo = to_linear(sampled);
++        albedo = select(to_linear(sampled), sampled, draw.params.y > 1.5);
+     }
+     albedo = mix(albedo, draw.tint.rgb, draw.tint.a);
+     var rough = draw.surface.x;

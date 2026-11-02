@@ -1,0 +1,4 @@
+# Unified diffs contain single-space blank context lines; preserve their pins.
+tools/game-assets-renderer/*.patch text eol=lf -whitespace
+tools/game-assets-fbx/*.patch text eol=lf -whitespace
+tools/game-assets.sh text eol=lf

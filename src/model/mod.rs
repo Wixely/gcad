@@ -810,8 +810,16 @@ impl Model {
             },
             (Some(existing), Combine::Remove) => {
                 let tool = solids::clear_flush(&tool, existing);
-                monstertruck::solid::difference_normalized(existing, &tool)
-                    .map_err(|e| anyhow!("cut failed: {e}"))?
+                match monstertruck::solid::difference_normalized(existing, &tool) {
+                    Ok(result) => result,
+                    Err(first) => [1.0e-5, -1.0e-5]
+                        .into_iter()
+                        .find_map(|grow| {
+                            let nudged = solids::scaled_about_centre(&tool, 1.0 + grow);
+                            monstertruck::solid::difference_normalized(existing, &nudged).ok()
+                        })
+                        .ok_or_else(|| anyhow!("cut failed: {first}"))?,
+                }
             }
             (Some(existing), Combine::Common) => {
                 let tool = solids::clear_flush(&tool, existing);

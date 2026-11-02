@@ -1,6 +1,6 @@
 [package]
 name = "gcad"
-version = "0.5.2"
+version = "0.5.3"
 edition = "2024"
 description = "Parametric CAD written like G-code: one operation per line"
 license = "GPL-3.0-or-later"
@@ -74,7 +74,7 @@ name = "game_asset_preview_bench"
 required-features = ["game-assets"]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-eframe = { version = "0.37", default-features = false, features = ["wayland", "x11"] }
+eframe = { version = "0.37", default-features = false, features = ["wayland", "clipboard", "links", "x11"] }
 faer = { version = "0.24", features = ["rayon"] }
 notify = "8"
 ureq = { version = "2.12", features = ["json"] }

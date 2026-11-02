@@ -261,6 +261,7 @@ Assemblies are `.gasm` files. They bring in the bodies of `.gcad` part files and
 | 3MF export | supported | `gcad export part.gcad part.3mf` | `output::three_mf`, `output::three_mf_names_the_bodies` |
 | SVG drawing | supported | `gcad export part.gcad part.svg` | `output::drawing` |
 | drawing dimensions and hole callouts | supported | overall sizes, `4× ⌀3.2` | `output::drawing_dimensions_and_section` |
+| drawing labels clear of the view | supported | dimension and callout labels do not overlap the part | `output::drawing_labels_sit_clear_of_the_view` |
 | section view | supported | `gcad export part.gcad part.svg --section y=0` | `output::drawing_dimensions_and_section` |
 | STL import | supported | `import part.stl` | `output::stl_import` |
 | drawing sheets | supported | `.gdwg` file: `sheet`, `view`, `section`, `dims`, `dim`, `level`, `callout`, `note`, `cutlist`, exported with `gcad export x.gdwg x.pdf` | `output::drawing_sheets`, `output::drawing_view_that_does_not_fit` |

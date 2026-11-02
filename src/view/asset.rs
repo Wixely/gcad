@@ -27,6 +27,10 @@ mod motion;
 mod reload;
 #[path = "asset_export.rs"]
 mod export;
+#[path = "asset_stage.rs"]
+mod stage;
+#[path = "asset_sprites.rs"]
+pub mod sprites;
 #[path = "asset_rig.rs"]
 mod rig;
 #[path = "asset_visuals.rs"]
@@ -479,6 +483,8 @@ pub fn snapshot(
 }
 
 struct Preview {
+    stage: stage::Stage,
+    sprites: sprites::Panel,
     consumer:consumer::ConsumerView,
     lod: lod::Comparison,
     motion: motion::MotionPreview,
@@ -595,6 +601,8 @@ impl Document {
                                 p.error = None;
                             } else {
                                 self.preview = Some(Preview {
+                                    stage: stage::Stage::default(),
+                                    sprites: sprites::Panel::default(),
                                     consumer,
                                     lod: lod::Comparison::default(),
                                     motion: motion::MotionPreview::default(),
@@ -702,6 +710,8 @@ impl Preview {
                 self.time = 0.;
                 self.playing = false;
             }
+            self.stage.ui(ui, &mut self.camera);
+            self.sprites.ui(ui, &self.asset, self.clip, self.time, self.camera, self.stage);
             viewer3d::mode_controls(ui, &mut self.mode);
             if !self.asset.skins.is_empty() {
                 ui.horizontal(|ui| {
@@ -776,12 +786,12 @@ impl Preview {
         egui::CentralPanel::default().show(ui, |ui| {
             let rect = ui.max_rect();
             let response = ui.allocate_rect(rect, egui::Sense::click_and_drag());
-            let mut viewer = Viewer::new(self.frame.scene.clone(), self.camera)
+            let mut viewer = Viewer::new(self.frame.scene.clone(), self.stage.camera(self.camera))
                 .looks(self.frame.looks.clone())
-                .lighting(Lighting::STUDIO)
+                .lighting(self.stage.lighting())
                 .mode(self.mode);
             viewer.navigate(ui, &response, &mut self.orbit);
-            self.camera = viewer.camera();
+            self.camera = self.stage.restore_camera(viewer.camera());
             viewer.paint(ui, rect);
             if self.consumer.boxes {
                 collision::paint(ui, rect, &viewer.projector(rect), &self.frame.collision_boxes);
@@ -835,6 +845,15 @@ mod tests {
 
     #[test]
     fn live_document_recovers_texture_and_preserves_camera_and_clip() {
+        check_live_texture(false);
+    }
+
+    #[test]
+    fn unwrapped_live_document_recovers_texture_without_moving_uvs() {
+        check_live_texture(true);
+    }
+
+    fn check_live_texture(unwrap: bool) {
         use egui_kittest::kittest::Queryable as _;
         use std::{
             path::Path,
@@ -892,7 +911,10 @@ mod tests {
         std::fs::write(&part, "rect 20 10\nextrude 2\n").unwrap();
         png(&texture, 1, [255, 0, 0, 255]);
         let source = "asset 1\nproject .\nsource plate part.gcad body=main\ntessellate plate tolerance=0.1\nuv plate projection=box tile=10\nsurface plate base_colour=1,1,1,1\nmap plate base_colour colour.png license=CC0-1.0 origin=test\nnode plate source=plate\nclip resize interpolation=linear\nkey resize plate time=0 scale=1,1,1\nkey resize plate time=2 scale=2,2,2\n";
-        std::fs::write(&path, source).unwrap();
+        let source = if unwrap {
+            source.replace("projection=box tile=10", "projection=unwrap resolution=128 padding=4")
+        } else { source.to_owned() };
+        std::fs::write(&path, &source).unwrap();
         let mut harness = egui_kittest::Harness::builder()
             .with_size(egui::vec2(1000., 800.))
             .with_context_setup(egui_bench::install)
@@ -909,6 +931,8 @@ mod tests {
             );
         wait(&mut harness, Document::ready);
         assert_eq!(pixel(harness.state().as_ref().unwrap()), [255, 0, 0, 255]);
+        let original_uvs = harness.state().as_ref().unwrap().preview.as_ref().unwrap()
+            .asset.scene.meshes[0].primitives[0].geometry.texcoords.clone();
         let camera = Camera {
             zoom: 1.7,
             shift: [2., 3., 0.],
@@ -929,6 +953,7 @@ mod tests {
         let preview = harness.state().as_ref().unwrap().preview.as_ref().unwrap();
         assert_eq!(preview.camera, camera);
         assert_eq!(preview.time, 1.5);
+        assert_eq!(preview.asset.scene.meshes[0].primitives[0].geometry.texcoords, original_uvs);
         assert_eq!(
             preview.asset.scene.clips[preview.clip.unwrap()].name,
             "resize"

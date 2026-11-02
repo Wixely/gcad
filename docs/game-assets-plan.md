@@ -2,6 +2,36 @@
 
 ## Current direction
 
+### Automatic UV unwrap and painting guides (2026-11-02)
+
+Native game-asset builds now support `uv SOURCE projection=unwrap resolution=1024
+padding=8`, using pinned xatlas bindings. The prepared mesh retains exact source
+triangle positions and face lineage while seam vertices and UVs change. Existing
+skin bindings require explicit regeneration after a UV change.
+
+`asset-paint-guide` exports a blank canvas, labelled islands, a wireframe, six
+colour-matched orthographic views and a geometry/UV fingerprint. `asset-paint-apply`
+validates that fingerprint and image dimensions, masks the paint to the islands
+and extends edge colours into padding. Both commands preserve existing outputs.
+The skill workflow now prefers this path for bespoke surface detail. Image
+generation remains a separate step, followed by inspection in the existing viewer.
+
+Windows release CLI validation covers guide creation, padded diagnostic painting,
+preview and GLB/FBX/PNG export on the curved plate fixture. Automatic unwrap tests
+cover repeatability, geometry preservation, face lineage, invalid settings and
+stale-guide rejection. Default CAD compilation also passes.
+The 27 viewer tests pass, including unwrapped PNG live reload with stable UVs,
+camera and clip state; the helper-dependent viewer test remains skipped. The CLI
+FBX conversion was checked separately. The initial three viewer failures shared
+a generated 0.5.2 skin-binding fixture, resolved by explicit regeneration for 0.5.3.
+Native builds require
+a C++ toolchain and libclang; Linux and engine-specific imports remain unverified.
+
+Remaining: manual seam selection, shared atlases across multiple source meshes,
+and evaluation of generated artwork across seams. Next action (owner: TBD): paint
+a representative model from its guide, inspect seam continuity and validate its
+GLB/FBX in a target engine. Review: 2026-11-14.
+
 ### Character playback performance (2026-11-02)
 
 Playback now resolves world transforms once per pose and shares each skin's joint
@@ -4141,3 +4171,29 @@ the original clip at declared samples; continuous bounds remain unproven.
 The native helper route and multi-engine scope are approved. Continue validating
 target-engine import and production integration. Game export,
 engine validation, optimisation, shader support and upstream submission remain.
+
+### Presentation and sprite export (2026-11-02)
+
+Game-asset viewer lighting and model turntables now have independent angle, speed
+and looping playback controls. GPU sprite export samples arbitrary camera, model,
+lighting and animation settings into a transparent PNG sheet plus JSON rectangles.
+The viewer panel and asset-sprites recipe command share the exporter. Direct3D 12
+checks cover angle/light/pose differences, alpha recovery, bounds validation,
+cancellation and preservation of existing output. Turntable wrap/navigation and
+live-document reload checks pass. See [sprite workflow](game-asset-sprites.md).
+Remaining: Linux GPU validation and target-engine sprite import.
+Next action (owner: user): import a generated sheet with straight alpha and verify
+cell rectangles/padding in the intended engine.
+
+### Sprite relighting (2026-11-02)
+
+Sprite recipes and the export panel now control key/fill colour and intensity,
+ambient/exposure, and off/hard/soft traced shadows. Optional aligned albedo and
+view-relative normal sheets support 2D runtime lighting. Normals include authored
+surface normal maps; all sheets share raster coverage and two-texel transparent
+RGB padding. Direct3D 12 tests cover material normal contribution, shadow occlusion,
+light-invariant runtime sheets, unit normals, axis convention and alpha alignment.
+Tracing material limitations are documented in game-asset-sprites.md.
+Remaining: target-engine 2D-lighting import and Linux/Vulkan verification.
+Next action (owner: user): import albedo.png with normals.png as linear normal data
+and verify the selected green-channel convention in the game's 2D material.

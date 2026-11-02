@@ -1,0 +1,18 @@
+{
+  "width": 256,
+  "height": 256,
+  "columns": 4,
+  "padding": 2,
+  "orthographic": true,
+  "zoom": 1.0,
+  "frames": [
+    { "model_angle": 0 },
+    { "model_angle": 45 },
+    { "model_angle": 90 },
+    { "model_angle": 135 },
+    { "model_angle": 180 },
+    { "model_angle": 225 },
+    { "model_angle": 270 },
+    { "model_angle": 315 }
+  ]
+}

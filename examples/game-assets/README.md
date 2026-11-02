@@ -1,5 +1,10 @@
 # Experimental asset fixtures
 
+`turntable.sprites.json` is an eight-angle sprite recipe. Run
+`gcad asset-sprites examples/game-assets/plate.gasset examples/game-assets/turntable.sprites.json target/plate-sprites`
+with the game-asset build and a new destination directory. See
+[the sprite guide](../../docs/game-asset-sprites.md).
+
 Build with `cargo build --locked --features game-assets`, then run
 `sh tools/game-assets.sh prepare-fixtures` from the repository root. Existing
 weights and face selections are preserved. Set `GCAD` to use another executable.
@@ -7,6 +12,10 @@ See [development commands](../../tools/game-assets.md) for GPU and native probes
 
 These fixtures exercise the experimental game-assets feature. They are diagnostic
 inputs, not accepted production assets. CAD source files remain authoritative.
+
+`plate-unwrapped.gasset` uses automatic xatlas UV unwrapping for a bespoke painted
+texture. See the painting-guide commands in `docs/game-assets.md`; guide and paint
+outputs belong in a scratch or asset-project directory, not in this fixture folder.
 
 `atlas-extra-maps.gasset` exercises all six source texture maps, packed into five
 preview slots by the isolated renderer/adapter proposal. Two instances share

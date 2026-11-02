@@ -1,0 +1,7 @@
+asset 1
+project ../..
+source plate ../parts/plate.gcad body=main
+tessellate plate tolerance=0.1
+uv plate projection=unwrap resolution=1024 padding=8
+surface plate base_colour=1,1,1,1 roughness=0.65 metallic=0 wrap_u=clamp wrap_v=clamp
+node plate source=plate

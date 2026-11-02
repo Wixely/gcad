@@ -155,6 +155,13 @@ enum Command {
     /// Dry-run GLB encoding and report export capabilities as JSON
     AssetCapabilities { file: String },
     #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+    /// Export a GPU-rendered transparent sprite sheet and frame metadata from a JSON recipe
+    AssetSprites {
+        file: String,
+        recipe: String,
+        output: String,
+    },
+    #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
     /// Preview an authored asset, or render a software diagnostic PNG
     AssetPreview {
         file: String,
@@ -165,6 +172,23 @@ enum Command {
         #[arg(long)]
         snapshot: Option<String>,
     },
+    #[cfg(feature = "game-assets")]
+    /// Export labelled UV islands and matching model views for painting
+    #[cfg(not(target_arch = "wasm32"))]
+    AssetPaintGuide {
+        file: String,
+        node: String,
+        output: String,
+        #[arg(long, default_value_t = 0)]
+        primitive: usize,
+        #[arg(long, default_value_t = 1024)]
+        resolution: u32,
+        #[arg(long, default_value_t = 8)]
+        padding: u32,
+    },
+    #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+    /// Validate a painted image against its UV guide and extend island-edge padding
+    AssetPaintApply { file: String, guide: String, painted: String, output: String },
     #[cfg(feature = "game-assets")]
     /// Emit JSON geometry counts and sampled skin-deformation diagnostics
     AssetReport {
@@ -733,6 +757,31 @@ fn main() -> Result<()> {
                 &std::sync::atomic::AtomicBool::new(false),
             )?;
             println!("{}", serde_json::to_string_pretty(&info)?);
+            Ok(())
+        }
+        #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+        Command::AssetPaintGuide { file, node, output, primitive, resolution, padding } => {
+            let asset = gcad::asset::author::load(std::path::Path::new(&file), &vars)?;
+            gcad::asset::paint_guide::export(&asset, &node, primitive, resolution, padding, std::path::Path::new(&output))?;
+            println!("Painting guide: {output}");
+            Ok(())
+        }
+        #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+        Command::AssetPaintApply { file, guide, painted, output } => {
+            let asset = gcad::asset::author::load(std::path::Path::new(&file), &vars)?;
+            gcad::asset::paint_guide::apply(&asset, std::path::Path::new(&guide), std::path::Path::new(&painted), std::path::Path::new(&output))?;
+            println!("Padded paint texture: {output}");
+            Ok(())
+        }
+        #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+        Command::AssetSprites { file, recipe, output } => {
+            let bytes = std::fs::read(&recipe)?;
+            anyhow::ensure!(bytes.len() <= 1024 * 1024, "sprite recipe exceeds 1 MiB");
+            let recipe: gcad::view::asset::sprites::Recipe = serde_json::from_slice(&bytes)?;
+            let asset = gcad::asset::author::load(std::path::Path::new(&file), &vars)?;
+            gcad::view::asset::sprites::install_headless()?;
+            gcad::view::asset::sprites::export(&asset, &recipe, std::path::Path::new(&output), &std::sync::atomic::AtomicBool::new(false))?;
+            println!("Sprite sheet exported: {output}");
             Ok(())
         }
         #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]

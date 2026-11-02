@@ -16,6 +16,7 @@ pub struct Source {
     pub tolerance_mm: f64,
     pub tile_mm: f64,
     pub rotation_degrees: f64,
+    pub unwrap: Option<super::unwrap::Settings>,
     pub refinement: Option<(u32, usize)>,
     pub slicing: Option<SliceSettings>,
     pub normal_crease_degrees: Option<f64>,
@@ -208,6 +209,7 @@ impl Document {
         let mut face_weights = Vec::new();
         let mut maps: BTreeMap<String, Vec<super::texture_input::Input>> = BTreeMap::new();
         let mut uv = BTreeMap::new();
+        let mut unwraps = BTreeMap::new();
         let mut header = false;
         let mut nodes = Vec::new();
         let mut clips = BTreeMap::new();
@@ -656,6 +658,19 @@ impl Document {
                     );
                 }
                 "uv" => {
+                    if named.get("projection").is_some_and(|p| p == "unwrap") {
+                        ensure!(p.len() == 1 && named.keys().all(|k|
+                            matches!(k.as_str(), "projection" | "resolution" | "padding")),
+                            "uv expects NAME projection=unwrap resolution=PIXELS padding=PIXELS");
+                        let settings = super::unwrap::Settings {
+                            resolution: named.get("resolution").context("unwrap resolution is required")?.parse()?,
+                            padding: named.get("padding").context("unwrap padding is required")?.parse()?,
+                        };
+                        settings.validate()?;
+                        ensure!(uv.insert(p[0].clone(), (1., 0.)).is_none(), "duplicate UV settings");
+                        unwraps.insert(p[0].clone(), settings);
+                        continue;
+                    }
                     ensure!(
                         p.len() == 1
                             && named
@@ -710,6 +725,9 @@ impl Document {
                     "choose refine or slice per source"
                 );
                 let atlas = atlases.get(&name).copied();
+                let unwrap = unwraps.get(&name).copied();
+                ensure!(unwrap.is_none() || atlas.is_none(),
+                    "unwrap already packs an atlas; do not combine it with atlas rebaking");
                 let surface = surfaces.get(&name).cloned();
                 let shader = shaders.remove(&name);
                 let maps = maps.remove(&name).unwrap_or_default();
@@ -721,6 +739,7 @@ impl Document {
                         tolerance_mm,
                         tile_mm,
                         rotation_degrees,
+                        unwrap,
                         refinement,
                         slicing,
                         normal_crease_degrees,
@@ -1439,15 +1458,25 @@ fn prepare_mesh(
         .get(body)
         .and_then(|m| m.finish.clone())
         .unwrap_or_default();
-    let texture = finish.texture.get_or_insert_default();
-    texture.tile = Some(source.tile_mm);
-    texture.turn = Some(source.rotation_degrees);
+    if source.unwrap.is_some() {
+        ensure!(!finish.texture.as_ref().is_some_and(|t| t.shown()),
+            "unwrap needs newly painted maps; remove inherited CAD textures before unwrapping");
+        finish.texture = None;
+    } else {
+        let texture = finish.texture.get_or_insert_default();
+        texture.tile = Some(source.tile_mm);
+        texture.turn = Some(source.rotation_degrees);
+    }
     let colour = model.colours.get(body).copied().unwrap_or([0.7; 3]);
     // Model colours already include material defaults and later explicit overrides.
     // Do not let the retained library finish overwrite the evaluated body colour.
     finish.colour = Some(colour);
     let opacity = model.opacities.get(body).copied().unwrap_or(1.0);
     let (projected, mut material) = bake::finish(&mesh, &finish, colour, opacity)?;
+    let projected = match source.unwrap {
+        Some(settings) => super::unwrap::mesh(&projected, settings)?,
+        None => projected,
+    };
     let mesh = if let Some(map) = &face_map {
         let (mesh, map) = map.retain_triangles(&mesh, projected)?;
         face_map = Some(map);
@@ -1540,6 +1569,10 @@ pub(crate) fn capture_inputs(
             ),
         }
         .with_recorded_reads(&root, reads)?;
+        if let Some(s) = source.unwrap {
+            inputs.generator = format!("gcad-{}/asset-pipeline-2/xatlas-rs-v2-0.1.4/resolution={}/padding={}/normal-seams=1001/rotation=false",
+                env!("CARGO_PKG_VERSION"), s.resolution, s.padding);
+        }
         if let Some((levels, budget)) = source.refinement {
             inputs
                 .generator

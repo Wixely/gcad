@@ -18,6 +18,26 @@ or install a replacement.
 
 ## Model and preview
 
+### Bespoke textures
+
+For painted markings, clothing panels or reference-specific surface detail, prefer
+`uv SOURCE projection=unwrap resolution=1024 padding=8` over tiling one generic
+image across a whole part. Keep box projection for deliberately repeating materials.
+Read the painting workflow in `docs/game-assets.md`. Generate a guide with
+`asset-paint-guide FILE NODE NEW_DIRECTORY --resolution 1024 --padding 8`, matching
+the UV settings. Use `paint.png`, labelled islands, matching model views and the
+appearance reference when generating or painting an image. Keep island positions,
+canvas dimensions and orientation exact; exclude guide labels and baked lighting.
+Image generation is an external authoring step, not part of the gcad command.
+
+Run `asset-paint-apply FILE GUIDE PAINTED NEW_OUTPUT.png` to validate the guide and
+fill edge padding. Bind that PNG with a `map SOURCE base_colour ...` declaration,
+white base-colour factor and clamp wrapping. Inspect it in the existing live viewer
+and fix visible seams or misplaced details. Never claim seamless wrapping merely
+because a guide was supplied to an image generator. UV changes require explicit
+skin rebinding. Guides are per mesh primitive, not a shared atlas for an assembly.
+Keep guides and painted sources with the asset so later edits are reproducible.
+
 Keep authored assets, CAD sources, textures and bindings in the user's test project,
 not inside the gcad checkout. Use relative resource paths and a project root that
 contains those resources. Read `docs/game-assets.md` in the selected checkout before
@@ -55,6 +75,22 @@ their syntax. Sources use millimetres and Z-up; export converts to metres and Y-
    Existing CAD documents continue to use their ordinary viewer mode.
 
 ## Export on request
+
+For sprite maps, use the existing viewer's **Export sprite sheet** panel or
+`gcad asset-sprites ASSET RECIPE.json NEW_DIRECTORY`. Read
+`docs/game-asset-sprites.md` for per-frame view/model/light angles, animation times,
+transparent PNG sheets and JSON rectangles. Use the GPU exporter for sprites;
+software diagnostic snapshots have narrower material support. The viewer's
+**Lighting and turntable** controls provide independent looping rotation without
+changing authored geometry or animation.
+
+Sprite export can include `albedo.png` and view-relative `normals.png` for 2D
+runtime lighting. Pair those two sheets in the game; keep the baked `sprites.png`
+as a reference or pre-lit alternative. Normals are linear data (+X right, +Y up,
++Z toward the viewer), with an explicit green-flip option. Export lighting controls
+include key/fill colours and intensities, ambient, exposure and off/hard/soft
+traced shadows. Read the sprite guide's tracing material limits before enabling
+shadows; do not silently remove unsupported maps or shaders.
 
 Run commands with the configured absolute executable path (shown as `GCAD` here):
 

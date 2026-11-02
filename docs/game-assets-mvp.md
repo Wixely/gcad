@@ -30,6 +30,10 @@ The preview reloads automatically and keeps the last valid model if an edit fail
 Materials, orbit/zoom, animation playback, skeleton and weight inspection are
 available; consumer-profile assets also expose LOD and collision previews.
 
+Game assets also have independent looping light/model rotation controls and
+GPU sprite-sheet export. See [lighting and sprite sheets](game-asset-sprites.md)
+for the viewer controls and the `asset-sprites` JSON-recipe command.
+
 Expand **Export game asset** above the model controls. Choose **GLB** and a new
 `.glb` filename, or **FBX + PNG (experimental)** and a new package directory.
 The destination's parent directory must exist. Click **Export saved asset** and

@@ -202,14 +202,61 @@ Optional mesh operations are specified per source:
 | `refine SOURCE levels=N triangle_budget=N` | Uniform triangle subdivision before binding |
 | `slice SOURCE axis=x\|y\|z planes=MM,... triangle_budget=N` | Split triangles along ordered mesh-local planes |
 | `normals SOURCE crease=DEGREES` | Explicit smoothing/hard-edge rule |
+| `uv SOURCE projection=unwrap resolution=1024 padding=8` | Generate unique UV islands with native xatlas, for painting a bespoke texture |
 | `atlas SOURCE width=N height=N padding=N density=N filter=nearest\|linear [mips=N coverage=mask]` | Pack charts and rebake maps; optionally retain explicit levels and correct sampled mask coverage |
 
 Choose refinement or slicing for a source, not both. Their triangle budgets cover
 all selected source bodies. Preparation order is tessellation, refinement/slicing,
-normal rebuilding, box projection/tangents, then optional atlas packing. Skinning
+normal rebuilding, box projection or automatic unwrapping/tangents, then optional atlas packing (box UVs only). Skinning
 is bound afterward. These operations never alter the manufacturing CAD solids.
 Generated tangents use the current derivative/orthogonalisation implementation;
 they are not certified MikkTSpace tangents.
+
+### Painting a model-specific texture
+
+Use `uv SOURCE projection=unwrap resolution=1024 padding=8` instead of box
+projection for a bespoke painted image. Each prepared mesh gets its own layout;
+this does not combine an assembly into one shared atlas. Hard normal seams are
+preserved. Unwrap changes vertex tuples, so regenerate existing skin bindings
+explicitly after changing it. Inherited CAD textures must be removed first;
+bind the newly painted maps in the `.gasset`. Do not combine unwrap with `atlas`,
+which rebakes existing textures rather than creating a blank paint layout.
+
+```sh
+gcad asset-paint-guide examples/game-assets/plate-unwrapped.gasset plate target/plate-guide --resolution 1024 --padding 8
+gcad asset-paint-apply examples/game-assets/plate-unwrapped.gasset target/plate-guide target/plate-guide/paint.png target/plate-painted.png
+```
+
+Use the same resolution and padding in the UV declaration and guide command.
+The guide directory contains `paint.png` (blank canvas), `labelled.png` and
+`regions.png` (numbered/colour-coded islands), `uv.svg` (wireframe), six matching
+orthographic model views, and `guide.json` (island centres, normals and mesh/UV
+fingerprint). Views show one primitive in mesh-local space, without a rig pose.
+Paint on the canvas using these references and the desired appearance reference.
+Keep the exact dimensions, island positions and orientation: U runs right and V
+runs down in the guide images. Do not bake guide labels, wireframes, lighting or
+backgrounds into the colour map. Image generators may move islands or introduce
+seams; inspect the result on the model and correct it before acceptance.
+
+`asset-paint-apply` rejects stale geometry/UVs and wrong image dimensions, masks
+the image to the current islands, and extends edge pixels into the padding.
+Padding reduces filtering bleed; it does not make painted features continuous
+across seams. Both commands require new output paths and preserve existing files.
+Then add `map SOURCE base_colour textures/painted.png license=YOUR-LICENSE
+origin=YOUR-PROVENANCE` with an actual relative path, licence and provenance.
+Use a white base-colour factor and clamp wrapping for an untinted atlas. Existing
+live preview reloads the PNG when it is saved; GLB and FBX use the same prepared
+UVs and material maps. These commands do not invoke an image generator themselves.
+
+Native unwrap supports 1–250,000 triangles per mesh, power-of-two resolutions
+64–4096 and padding 2–resolution/16 pixels. Painting rasterization also has a
+work budget; simplify dense meshes or lower resolution if it is exceeded.
+Unwrapping requires a native build; the optional `xatlas-rs-v2` dependency is pinned
+to 0.1.4 (MIT), wrapping [xatlas](https://github.com/jpcy/xatlas) (MIT). Building the
+game-assets feature now requires a C++ toolchain and libclang for bindgen. The
+Windows build is verified; Linux build and engine import validation remain pending.
+Manual seam selection and a whole-assembly shared paint atlas remain future work.
+
 The atlas filter controls resampling. `linear` averages source texel coverage when
 reducing an image and uses bilinear sampling when enlarging it; colour/emissive RGB
 filter in linear light, while alpha and numeric maps filter numerically. `nearest`
@@ -331,6 +378,13 @@ Original source hashes and relative paths survive as material provenance even
 when later baking changes exported pixels. For a complete runnable example, use
 [`plate-maps.gasset`](../examples/game-assets/plate-maps.gasset). The included map
 files have their own [provenance notes](../examples/game-assets/maps/README.md).
+
+## Lighting, turntables and sprite sheets
+
+Game-asset preview has independent light/model angle sliders and looping playback,
+plus a GPU sprite-sheet exporter with arbitrary view angles, lighting angles and
+animation sample times. See [the sprite workflow](game-asset-sprites.md) for the
+viewer panel, `asset-sprites` CLI, JSON recipes and transparent PNG/metadata output.
 
 ## Clips and explicit skin binding
 

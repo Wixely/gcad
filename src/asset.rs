@@ -10,6 +10,9 @@ use sha2::{Digest, Sha256};
 pub mod animation;
 mod assembly_tree;
 pub mod atlas;
+pub mod unwrap;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod paint_guide;
 pub mod author;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod fbx_helper;

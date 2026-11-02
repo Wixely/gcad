@@ -1,0 +1,6 @@
+numpy
+pillow
+scipy
+trimesh
+fast-simplification
+tiktoken

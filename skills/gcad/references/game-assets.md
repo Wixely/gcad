@@ -76,6 +76,24 @@ their syntax. Sources use millimetres and Z-up; export converts to metres and Y-
 
 ## Export on request
 
+For consistent game-delivery texture detail, use the viewer's optional Normalize
+texture density on export and Preview normalized textures controls, or
+`asset-normalize-textures FILE NEW_DIRECTORY --pixels-per-metre 512 --max-dimension 2048`.
+Read docs/game-assets.md first. This derives a GLB and density report without
+changing the source textures. It matches average pixels per metre, not identical
+image dimensions; inspect achieved density and UV-island detail. Source-resolution
+caps can leave maps below target. UV shaders, explicit mips and alpha masks are
+currently rejected. Keep source-resolution sprite rendering independent.
+
+Users can pick Item or Face in the game-asset viewer and use Copy reference to
+paste a JSON selection into instructions. Resolve `node` by its authored name;
+`primitive`, `triangle` and optional `source_face` are zero-based and apply only
+to the prepared geometry identified by `mesh_sha256`. Read the selection section
+in docs/game-assets.md before using a face reference. Verify the fingerprint and
+use guarded face-selection records for persistent edits; never treat an old
+face index as a permanent CAD ID. Triangle fallback is explicit when source-face
+lineage is unavailable.
+
 For sprite maps, use the existing viewer's **Export sprite sheet** panel or
 `gcad asset-sprites ASSET RECIPE.json NEW_DIRECTORY`. Read
 `docs/game-asset-sprites.md` for per-frame view/model/light angles, animation times,

@@ -155,6 +155,16 @@ enum Command {
     /// Dry-run GLB encoding and report export capabilities as JSON
     AssetCapabilities { file: String },
     #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+    /// Export a derived GLB and density report, preserving authored texture files
+    AssetNormalizeTextures {
+        file: String,
+        output: String,
+        #[arg(long, default_value_t = 512.0)]
+        pixels_per_metre: f64,
+        #[arg(long, default_value_t = 2048)]
+        max_dimension: u32,
+    },
+    #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
     /// Export a GPU-rendered transparent sprite sheet and frame metadata from a JSON recipe
     AssetSprites {
         file: String,
@@ -771,6 +781,21 @@ fn main() -> Result<()> {
             let asset = gcad::asset::author::load(std::path::Path::new(&file), &vars)?;
             gcad::asset::paint_guide::apply(&asset, std::path::Path::new(&guide), std::path::Path::new(&painted), std::path::Path::new(&output))?;
             println!("Padded paint texture: {output}");
+            Ok(())
+        }
+        #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]
+        Command::AssetNormalizeTextures { file, output, pixels_per_metre, max_dimension } => {
+            let output=std::path::Path::new(&output);
+            anyhow::ensure!(!output.exists(), "preserving existing output directory");
+            let mut asset=gcad::asset::author::load(std::path::Path::new(&file),&vars)?;
+            let (scene,report)=gcad::asset::texel_density::normalize(&asset.scene,gcad::asset::texel_density::Settings {pixels_per_metre,max_dimension})?;
+            asset.scene=scene;
+            let bytes=asset.encode_glb()?;
+            let report=serde_json::to_vec_pretty(&report)?;
+            std::fs::create_dir(output)?;
+            std::fs::write(output.join("asset.glb"),bytes)?;
+            std::fs::write(output.join("density.json"),report)?;
+            println!("Normalized asset: {}",output.display());
             Ok(())
         }
         #[cfg(all(feature = "game-assets", not(target_arch = "wasm32")))]

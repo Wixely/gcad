@@ -2,6 +2,42 @@
 
 ## Current direction
 
+### Delivery texture density (2026-11-02)
+
+Optional export normalization derives texture sizes from rest-pose world-space
+surface area and UV coverage. GLB and FBX/PNG share the conversion; a background
+preview toggle uses the same settings and preserves original source textures.
+The asset-normalize-textures command writes a derived GLB and per-map density
+report. Colour filtering uses linear light and premultiplied alpha; numeric maps
+remain linear and normal vectors are renormalized.
+
+Validation: two density tests and 36 non-GPU viewer tests pass (one native-helper
+test skipped). Preview/export parity, source restoration, instance scale, filters
+and output preservation are covered. Windows release build and default CAD check
+pass. The launcher exports successfully to normalized GLB and FBX/PNG; at a target
+of 128 pixels/metre its maps achieve approximately 125–131 pixels/metre. A skinned
+fixture also exports. Source images remain unchanged.
+
+Remaining: per-island repacking, alpha-mask coverage preservation, explicit mip
+and UV-shader support, animated-scale density, Linux and engine import validation.
+Next action (owner: user): compare source and normalized preview at the intended
+game camera distance; choose a delivery density. Review: 2026-11-14.
+
+### Viewer selection references (2026-11-02)
+
+Game assets support click-to-select items and source faces, inspector selection
+sync, item highlighting, face outlines and copyable JSON references. Named nodes
+identify instances; primitive/face/triangle indices include a prepared-mesh hash.
+Missing face lineage falls back explicitly to a triangle reference. Reloads and
+preview LOD changes clear face references. Picking uses displayed geometry and
+camera transforms; CAD selection is unchanged.
+
+Windows checks: two picking tests and the 34-test non-GPU viewer suite pass;
+one native-helper-dependent test remains skipped. Remaining: interactive review
+of face outlines and target-platform validation outside Windows. Next action
+(owner: user): select an item and face in the launcher viewer and paste a copied
+reference into a modelling request. Review: 2026-11-14.
+
 ### Automatic UV unwrap and painting guides (2026-11-02)
 
 Native game-asset builds now support `uv SOURCE projection=unwrap resolution=1024

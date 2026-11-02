@@ -15,6 +15,10 @@ mod shader_tests;
 pub mod image_budget;
 #[path = "asset_inspector.rs"]
 mod inspector;
+#[path = "asset_selection.rs"]
+mod selection;
+#[path = "asset_density.rs"]
+mod density;
 #[path = "asset_consumer.rs"]
 mod consumer;
 #[path = "asset_collision.rs"]
@@ -483,6 +487,8 @@ pub fn snapshot(
 }
 
 struct Preview {
+    density: density::Preview,
+    selection: selection::Selection,
     stage: stage::Stage,
     sprites: sprites::Panel,
     consumer:consumer::ConsumerView,
@@ -583,6 +589,8 @@ impl Document {
                             let differences = differences(&asset);
                             if let Some(p) = &mut self.preview {
                                 p.inspector.invalidate();
+                                p.selection.invalidate();
+                                p.density.invalidate();
                                 p.motion.invalidate();
                                 p.lod.invalidate();
                                 replace_frame(
@@ -601,6 +609,8 @@ impl Document {
                                 p.error = None;
                             } else {
                                 self.preview = Some(Preview {
+                                    density: density::Preview::default(),
+                                    selection: selection::Selection::default(),
                                     stage: stage::Stage::default(),
                                     sprites: sprites::Panel::default(),
                                     consumer,
@@ -645,7 +655,7 @@ impl Document {
             }
         });
         if let Some(preview) = &mut self.preview {
-            preview.ui(ui);
+            preview.ui(ui, self.export.preview_density());
         } else {
             egui::CentralPanel::default().show(ui, |ui| {
                 ui.label(
@@ -657,7 +667,7 @@ impl Document {
 }
 
 impl Preview {
-    fn ui(&mut self, ui: &mut egui::Ui) {
+    fn ui(&mut self, ui: &mut egui::Ui, density: Option<crate::asset::texel_density::Settings>) {
         let old = (self.clip, self.time);
         let old_weight = self.weight_joint.clone();
         let old_consumer=self.consumer;
@@ -676,6 +686,7 @@ impl Preview {
         }
         let mut refit = false;
         let mut lod_changed = false;
+        let mut density_changed = false;
         egui::Panel::top("asset-controls").show(ui, |ui| {
             ui.horizontal(|ui| {
                 egui::ComboBox::from_label("Animation")
@@ -711,6 +722,8 @@ impl Preview {
                 self.playing = false;
             }
             self.stage.ui(ui, &mut self.camera);
+            self.selection.ui(ui, self.lod.displayed(&self.asset));
+            self.inspector.select(self.selection.node.clone());
             self.sprites.ui(ui, &self.asset, self.clip, self.time, self.camera, self.stage);
             viewer3d::mode_controls(ui, &mut self.mode);
             if !self.asset.skins.is_empty() {
@@ -736,6 +749,8 @@ impl Preview {
             self.consumer.controls(ui,&self.asset);
             self.motion.controls(ui, &self.asset, self.clip, self.time);
             lod_changed = self.lod.controls(ui, &self.asset);
+            if lod_changed { self.density.invalidate(); }
+            density_changed = self.density.update(ui, self.lod.displayed(&self.asset), density);
             ui.collapsing("Preview differences", |ui| {
                 for text in &self.differences {
                     ui.label(text);
@@ -745,17 +760,18 @@ impl Preview {
                 ui.colored_label(egui::Color32::LIGHT_RED, error);
             }
         });
-        if lod_changed {
+        if lod_changed || density_changed {
+            self.selection.invalidate();
             self.inspector.invalidate();
         }
-        if refit || old != (self.clip, self.time) || old_weight != self.weight_joint || lod_changed || old_consumer!=self.consumer
+        if refit || old != (self.clip, self.time) || old_weight != self.weight_joint || lod_changed || density_changed || old_consumer!=self.consumer
         {
             match weights::loaded_frame(
-                self.lod.displayed(&self.asset),
+                self.density.displayed(self.lod.displayed(&self.asset)),
                 self.clip,
                 self.time,
                 self.weight_joint.as_deref(),
-            ).map(|frame|self.consumer.apply(self.lod.displayed(&self.asset),frame)) {
+            ).map(|frame|self.consumer.apply(self.density.displayed(self.lod.displayed(&self.asset)),frame)) {
                 Ok(frame) => {
                     replace_frame(
                         &mut self.frame,
@@ -780,19 +796,30 @@ impl Preview {
                 .default_size(300.)
                 .show(ui, |ui| {
                     self.inspector
-                        .ui(ui, self.lod.displayed(&self.asset), self.clip, self.time);
+                        .ui(ui, self.density.displayed(self.lod.displayed(&self.asset)), self.clip, self.time);
                 });
         }
         egui::CentralPanel::default().show(ui, |ui| {
+            let asset = self.density.displayed(self.lod.displayed(&self.asset));
+            self.selection.select_node(self.inspector.selected());
             let rect = ui.max_rect();
             let response = ui.allocate_rect(rect, egui::Sense::click_and_drag());
             let mut viewer = Viewer::new(self.frame.scene.clone(), self.stage.camera(self.camera))
-                .looks(self.frame.looks.clone())
+                .looks(self.selection.looks(asset, &self.frame))
                 .lighting(self.stage.lighting())
                 .mode(self.mode);
             viewer.navigate(ui, &response, &mut self.orbit);
             self.camera = self.stage.restore_camera(viewer.camera());
+            if response.clicked_by(egui::PointerButton::Primary) {
+                if let Some(at) = response.interact_pointer_pos() {
+                    self.selection.pick(asset, &viewer, rect, at);
+                    self.inspector.select(self.selection.node.clone());
+                    self.inspector_open = true;
+                    ui.ctx().request_repaint();
+                }
+            }
             viewer.paint(ui, rect);
+            self.selection.paint(ui, asset, &viewer, rect);
             if self.consumer.boxes {
                 collision::paint(ui, rect, &viewer.projector(rect), &self.frame.collision_boxes);
             }

@@ -79,7 +79,9 @@ impl Reload {
                     return;
                 }
                 ctx.request_repaint();
-                let (result, reads) = host::recording(|| author::load(&path, &vars));
+                // Keep ordinary preview available for sources without face lineage.
+                let (result, reads) = host::recording(|| author::load_with_faces(&path, &vars)
+                    .or_else(|_| author::load(&path, &vars)));
                 // Discover missing and newly referenced dependencies even on failure.
                 for file in reads.files() {
                     state

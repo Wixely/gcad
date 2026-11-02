@@ -9,6 +9,8 @@ pub(super) struct Inspector {
 }
 
 impl Inspector {
+    pub fn selected(&self) -> Option<String> { self.selected.clone() }
+    pub fn select(&mut self, name: Option<String>) { self.selected = name; }
     pub fn invalidate(&mut self) {
         self.visuals.invalidate();
     }

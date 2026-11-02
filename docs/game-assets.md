@@ -381,6 +381,79 @@ files have their own [provenance notes](../examples/game-assets/maps/README.md).
 
 ## Lighting, turntables and sprite sheets
 
+### Delivery texture density
+
+In **Export game asset**, enable **Normalize texture density on export**, set
+**Pixels/metre** and **Maximum dimension**, then enable **Preview normalized
+textures** to inspect the derived maps. Switching preview off restores source
+textures. Both GLB and FBX/PNG export use the same conversion and settings;
+normalization is off by default. Sprite export continues using the high-resolution
+source asset independently of this delivery preview.
+
+This is a downsample-only, area-weighted density pass per node/material primitive.
+It sums triangle area in the rest-pose world transform (including instance scale)
+and UV triangle area, then chooses image dimensions so
+`sqrt(width * height * UV_area / surface_area_m2)` approaches the target.
+Texture dimensions can differ between parts; their pixels per physical metre
+should be comparable. Source resolution, the dimension cap and pixel rounding can
+prevent reaching the target; preview reports below-target map uses. Each map is
+capped at its source size, so lower-resolution normal maps are not upscaled to
+match colour maps. Choose a lower target if larger parts are already undersampled.
+
+Original images, UVs, meshes, bindings and `.gasset` files remain unchanged. Derived
+materials are shared where dimensions match; differently scaled instances can
+receive separate derived materials. Colour/emission filter in linear light with
+premultiplied alpha, numeric maps remain linear, and filtered normal vectors are
+renormalized. The rest-pose estimate does not track animated scale or deformation.
+It equalizes average density between primitives, not unequal islands inside a
+primitive. Very small output maps can lose narrow islands or padding; inspect the
+preview. Shared-atlas repacking and per-island density correction remain future work.
+
+The first version rejects UV shaders, explicit mip chains and alpha-mask materials
+instead of silently changing their sampling or cutout coverage. Ordinary opaque
+and blended maps are supported. Preview conversion runs in a background worker;
+source reloads and LOD changes invalidate the derived result.
+
+For reproducible command-line delivery:
+
+```sh
+gcad asset-normalize-textures model.gasset new-delivery-directory --pixels-per-metre 512 --max-dimension 2048
+```
+
+The new directory contains `asset.glb` and `density.json`, which records settings,
+source/output sizes and achieved density per node, primitive and map. Existing
+destinations are preserved. The GLB can also be passed to the existing experimental
+FBX helper. No resampled images are written over the source textures.
+
+### Selecting items and faces
+
+The game-asset viewer has **Select: Item / Face** controls. Click the model to
+select; dragging still orbits. Item selection highlights the instance and selects
+its named node in the inspector. Selecting an inspector node also highlights it.
+Click empty space or **Clear selection** to clear it.
+
+Face mode outlines the picked source CAD face within its material primitive. The
+outline is X-ray, so hidden edges can be visible. If source-face lineage is
+unavailable (including generated preview LODs), it selects a single triangle and
+labels it as such. Picking uses the currently displayed pose and turntable camera;
+hidden consumer meshes are excluded. Picking intersects geometry, not texture alpha,
+so transparent image regions can still be picked.
+
+**Copy reference** copies JSON for pasting into modelling instructions. `node` is
+the authored node name (including assembly instance paths); face references also
+contain zero-based `primitive`, `triangle`, optional `source_face` and
+`mesh_sha256`. The hash is lowercase SHA-256 of the compact JSON tuple
+`[positions, triangles, normals, texcoords]` of the prepared, unposed primitive,
+serialized by serde_json. Face indices are guarded references to the current
+geometry, not permanent CAD IDs or selector expressions. Before reusing a face
+reference, verify the node, primitive and geometry fingerprint; do not apply it
+blindly after editing geometry or tessellation. Use the existing guarded
+face-selection authoring workflow for persisted editing operations.
+
+Reloads and preview LOD changes clear face selection; named item selection remains
+if the node still exists. Selection is read-only and does not alter exports. The
+normal CAD viewer retains its existing selection interface.
+
 Game-asset preview has independent light/model angle sliders and looping playback,
 plus a GPU sprite-sheet exporter with arbitrary view angles, lighting angles and
 animation sample times. See [the sprite workflow](game-asset-sprites.md) for the

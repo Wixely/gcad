@@ -11,6 +11,9 @@ use std::{
 };
 
 pub(super) struct Export {
+    density: crate::asset::texel_density::Settings,
+    normalize: bool,
+    preview_density: bool,
     source: PathBuf,
     vars: Vec<(String, f64)>,
     output: String,
@@ -24,6 +27,9 @@ pub(super) struct Export {
 impl Export {
     pub fn new(source: PathBuf, vars: Vec<(String, f64)>) -> Self {
         Self {
+            density: Default::default(),
+            normalize: false,
+            preview_density: false,
             output: source.with_extension("glb").display().to_string(),
             source,
             vars,
@@ -57,6 +63,13 @@ impl Export {
         ui.collapsing("Export game asset", |ui| {
             ui.label("Exports saved source, including materials and clips. Preview pose and visibility do not change the export.");
             ui.add_enabled_ui(self.pending.is_none(), |ui| {
+                ui.checkbox(&mut self.normalize, "Normalize texture density on export");
+                if self.normalize {
+                    ui.add(egui::DragValue::new(&mut self.density.pixels_per_metre).range(1.0..=16384.).prefix("Pixels/metre "));
+                    ui.add(egui::DragValue::new(&mut self.density.max_dimension).range(4..=4096).prefix("Maximum dimension "));
+                    ui.checkbox(&mut self.preview_density, "Preview normalized textures");
+                    ui.label("Downsample only. Uses rest-pose surface area and UV coverage; original textures stay unchanged. Preview and export use these settings.");
+                }
                 ui.horizontal(|ui| {
                     let before = self.fbx;
                     ui.selectable_value(&mut self.fbx, false, "GLB");
@@ -71,6 +84,7 @@ impl Export {
                 }
                 if ui.add_enabled(ready, egui::Button::new("Export saved asset")).clicked() {
                     let source = self.source.clone();
+                    let density = self.normalize.then_some(self.density);
                     let vars = self.vars.clone();
                     let output = PathBuf::from(self.output.trim());
                     let helper = self.fbx.then(|| PathBuf::from(self.helper.trim()));
@@ -81,7 +95,7 @@ impl Export {
                     self.pending = Some(receive);
                     self.status = "Exporting saved asset…".into();
                     std::thread::spawn(move || {
-                        let result = run(&source, &vars, &output, helper.as_deref(), &cancelled);
+                        let result = run_with_density(&source, &vars, &output, helper.as_deref(), &cancelled, density);
                         let _ = send.send(result);
                         ctx.request_repaint();
                     });
@@ -89,6 +103,10 @@ impl Export {
             });
             if !self.status.is_empty() { ui.label(&self.status); }
         });
+    }
+
+    pub fn preview_density(&self) -> Option<crate::asset::texel_density::Settings> {
+        (self.normalize && self.preview_density).then_some(self.density)
     }
 }
 
@@ -119,12 +137,24 @@ impl Drop for Scratch {
     }
 }
 
+#[cfg(test)]
 fn run(
     source: &std::path::Path,
     vars: &[(String, f64)],
     output: &std::path::Path,
     helper: Option<&std::path::Path>,
     cancelled: &AtomicBool,
+) -> Result<PathBuf> {
+    run_with_density(source, vars, output, helper, cancelled, None)
+}
+
+fn run_with_density(
+    source: &std::path::Path,
+    vars: &[(String, f64)],
+    output: &std::path::Path,
+    helper: Option<&std::path::Path>,
+    cancelled: &AtomicBool,
+    density: Option<crate::asset::texel_density::Settings>,
 ) -> Result<PathBuf> {
     ensure!(!output.as_os_str().is_empty(), "Choose an output path");
     ensure!(
@@ -146,7 +176,11 @@ fn run(
         );
     }
     let (asset, reads) = crate::host::recording(|| crate::asset::author::load(source, vars));
-    let bytes = asset?.encode_glb()?;
+    let mut asset = asset?;
+    if let Some(settings) = density {
+        asset.scene = crate::asset::texel_density::normalize(&asset.scene, settings)?.0;
+    }
+    let bytes = asset.encode_glb()?;
     ensure!(
         reads.unchanged(),
         "Source changed during export; try again after saving"
@@ -178,6 +212,18 @@ fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn normalized_export_matches_shared_conversion() {
+        let source=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/game-assets/plate-density.gasset");
+        let output=std::env::temp_dir().join(format!("gcad-density-export-{}.glb",std::process::id()));
+        let settings=crate::asset::texel_density::Settings {pixels_per_metre:64.,max_dimension:64};
+        let mut expected=crate::asset::author::load(&source,&[]).unwrap();
+        expected.scene=crate::asset::texel_density::normalize(&expected.scene,settings).unwrap().0;
+        run_with_density(&source,&[],&output,None,&AtomicBool::new(false),Some(settings)).unwrap();
+        assert_eq!(std::fs::read(&output).unwrap(),expected.encode_glb().unwrap());
+        assert!(run_with_density(&source,&[],&output,None,&AtomicBool::new(false),Some(settings)).is_err());
+        std::fs::remove_file(output).unwrap();
+    }
     #[test]
     fn export_panel_runs_background_export() {
         use egui_kittest::kittest::Queryable as _;

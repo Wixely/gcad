@@ -1,5 +1,10 @@
 # Experimental asset fixtures
 
+`plate-density.gasset` contains two differently scaled instances with diagnostic
+colour/normal maps. Use `asset-normalize-textures` to compare their derived map
+sizes and achieved pixels per metre; originals remain unchanged. See the delivery
+texture density section of `docs/game-assets.md`.
+
 `turntable.sprites.json` is an eight-angle sprite recipe. Run
 `gcad asset-sprites examples/game-assets/plate.gasset examples/game-assets/turntable.sprites.json target/plate-sprites`
 with the game-asset build and a new destination directory. See

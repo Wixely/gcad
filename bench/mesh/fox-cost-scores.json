@@ -1,0 +1,373 @@
+{
+ "gcad": [
+  {
+   "usage": {
+    "prompt": 540914,
+    "completion": 22390,
+    "calls": 32,
+    "images": 17,
+    "seconds": 202.4,
+    "tool_seconds": 4.0,
+    "llm_seconds": 198.4,
+    "turns": 15,
+    "cost": 3.2643
+   },
+   "final": {
+    "anatomy": 7,
+    "brief": 8,
+    "detail": 6,
+    "appeal": 7
+   },
+   "final_total": 28,
+   "step_scores": [
+    17,
+    13,
+    17,
+    28,
+    24,
+    28,
+    27
+   ],
+   "reach": {
+    "n": 4,
+    "image": "/tmp/mb/cost/fox/1/gcad_step4_blender.png",
+    "seconds": 89.4,
+    "calls": 14,
+    "prompt": 126067,
+    "completion": 9491,
+    "cost": 0.8676
+   }
+  },
+  {
+   "usage": {
+    "prompt": 360776,
+    "completion": 21962,
+    "calls": 29,
+    "images": 14,
+    "seconds": 191.6,
+    "tool_seconds": 7.2,
+    "llm_seconds": 184.4,
+    "turns": 12,
+    "cost": 2.3529
+   },
+   "final": {
+    "anatomy": 7,
+    "brief": 8,
+    "detail": 6,
+    "appeal": 7
+   },
+   "final_total": 28,
+   "step_scores": [
+    17,
+    17,
+    26,
+    28,
+    25,
+    15,
+    28
+   ],
+   "reach": {
+    "n": 6,
+    "image": "/tmp/mb/cost/fox/2/gcad_step6_blender.png",
+    "seconds": 127.3,
+    "calls": 22,
+    "prompt": 153608,
+    "completion": 14525,
+    "cost": 1.1312
+   }
+  },
+  {
+   "usage": {
+    "prompt": 465169,
+    "completion": 18863,
+    "calls": 26,
+    "images": 14,
+    "seconds": 182.2,
+    "tool_seconds": 5.4,
+    "llm_seconds": 176.8,
+    "turns": 15,
+    "cost": 2.7974
+   },
+   "final": {
+    "anatomy": 6,
+    "brief": 7,
+    "detail": 5,
+    "appeal": 6
+   },
+   "final_total": 24,
+   "step_scores": [
+    18,
+    20,
+    28,
+    24,
+    25,
+    24
+   ],
+   "reach": {
+    "n": 5,
+    "image": "/tmp/mb/cost/fox/3/gcad_step5_blender.png",
+    "seconds": 94.3,
+    "calls": 16,
+    "prompt": 125330,
+    "completion": 10462,
+    "cost": 0.8882
+   }
+  },
+  {
+   "usage": {
+    "prompt": 414182,
+    "completion": 21595,
+    "calls": 29,
+    "images": 16,
+    "seconds": 1097.5,
+    "tool_seconds": 4.6,
+    "llm_seconds": 1092.9,
+    "turns": 12,
+    "cost": 2.6108
+   },
+   "final": {
+    "anatomy": 7,
+    "brief": 8,
+    "detail": 6,
+    "appeal": 7
+   },
+   "final_total": 28,
+   "step_scores": [
+    16,
+    17,
+    19,
+    20,
+    28,
+    28,
+    28
+   ],
+   "reach": {
+    "n": 5,
+    "image": "/tmp/mb/cost/fox/4/gcad_step5_blender.png",
+    "seconds": 1013.7,
+    "calls": 19,
+    "prompt": 141087,
+    "completion": 11674,
+    "cost": 0.9973
+   }
+  },
+  {
+   "usage": {
+    "prompt": 413039,
+    "completion": 22816,
+    "calls": 29,
+    "images": 13,
+    "seconds": 204.8,
+    "tool_seconds": 4.5,
+    "llm_seconds": 200.3,
+    "turns": 14,
+    "cost": 2.6356
+   },
+   "final": {
+    "anatomy": 6,
+    "brief": 8,
+    "detail": 5,
+    "appeal": 6
+   },
+   "final_total": 25,
+   "step_scores": [
+    17,
+    17,
+    26,
+    25,
+    27,
+    25
+   ],
+   "reach": null
+  }
+ ],
+ "blender": [
+  {
+   "usage": {
+    "prompt": 305926,
+    "completion": 17778,
+    "calls": 32,
+    "images": 13,
+    "seconds": 207.4,
+    "tool_seconds": 3.1,
+    "llm_seconds": 204.3,
+    "turns": 22,
+    "cost": 1.9741,
+    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n4529\n"
+   },
+   "final": {
+    "anatomy": 6,
+    "brief": 7,
+    "detail": 5,
+    "appeal": 6
+   },
+   "final_total": 24,
+   "step_scores": [
+    9,
+    10,
+    9,
+    9,
+    10,
+    10,
+    11,
+    10,
+    10,
+    16,
+    16,
+    22,
+    24,
+    22,
+    24,
+    24,
+    25,
+    24
+   ],
+   "reach": null
+  },
+  {
+   "usage": {
+    "prompt": 207392,
+    "completion": 16815,
+    "calls": 26,
+    "images": 11,
+    "seconds": 191.6,
+    "tool_seconds": 4.6,
+    "llm_seconds": 187.0,
+    "turns": 17,
+    "cost": 1.4573,
+    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n27251\n"
+   },
+   "final": {
+    "anatomy": 6,
+    "brief": 7,
+    "detail": 4,
+    "appeal": 5
+   },
+   "final_total": 22,
+   "step_scores": [
+    5,
+    9,
+    11,
+    11,
+    21,
+    22,
+    24,
+    22,
+    19,
+    20,
+    24,
+    24,
+    22,
+    22
+   ],
+   "reach": null
+  },
+  {
+   "usage": {
+    "prompt": 215483,
+    "completion": 15900,
+    "calls": 22,
+    "images": 8,
+    "seconds": 182.0,
+    "tool_seconds": 2.0,
+    "llm_seconds": 180.0,
+    "turns": 19,
+    "cost": 1.4749,
+    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n5112\n"
+   },
+   "final": {
+    "anatomy": 6,
+    "brief": 7,
+    "detail": 5,
+    "appeal": 6
+   },
+   "final_total": 24,
+   "step_scores": [
+    4,
+    4,
+    4,
+    4,
+    8,
+    7,
+    14,
+    20,
+    22,
+    24,
+    22,
+    22
+   ],
+   "reach": null
+  },
+  {
+   "usage": {
+    "prompt": 246834,
+    "completion": 18700,
+    "calls": 26,
+    "images": 11,
+    "seconds": 237.3,
+    "tool_seconds": 37.2,
+    "llm_seconds": 200.1,
+    "turns": 18,
+    "cost": 1.7017,
+    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n51207\n"
+   },
+   "final": {
+    "anatomy": 6,
+    "brief": 7,
+    "detail": 5,
+    "appeal": 6
+   },
+   "final_total": 24,
+   "step_scores": [
+    5,
+    6,
+    8,
+    10,
+    10,
+    16,
+    12,
+    22,
+    21,
+    21,
+    24,
+    23,
+    24,
+    24
+   ],
+   "reach": null
+  },
+  {
+   "usage": {
+    "prompt": 129739,
+    "completion": 13852,
+    "calls": 19,
+    "images": 9,
+    "seconds": 148.1,
+    "tool_seconds": 2.1,
+    "llm_seconds": 146.0,
+    "turns": 12,
+    "cost": 0.995,
+    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n58157\n"
+   },
+   "final": {
+    "anatomy": 6,
+    "brief": 7,
+    "detail": 4,
+    "appeal": 5
+   },
+   "final_total": 22,
+   "step_scores": [
+    9,
+    10,
+    10,
+    10,
+    22,
+    22,
+    22,
+    22,
+    22
+   ],
+   "reach": null
+  }
+ ]
+}

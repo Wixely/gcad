@@ -609,10 +609,25 @@ pub fn write_obj(mesh: &Mesh) -> String {
 }
 
 pub fn write_obj_with(mesh: &Mesh, materials: bool) -> String {
+    write_obj_body(mesh, materials, &[])
+}
+
+pub fn write_obj_coloured(mesh: &Mesh, colours: &[[f64; 3]]) -> String {
+    write_obj_body(mesh, true, colours)
+}
+
+fn write_obj_body(mesh: &Mesh, materials: bool, colours: &[[f64; 3]]) -> String {
     use std::fmt::Write;
     let mut out = String::new();
-    for p in &mesh.positions {
-        let _ = writeln!(out, "v {} {} {}", p[0], p[1], p[2]);
+    for (i, p) in mesh.positions.iter().enumerate() {
+        match colours.get(i) {
+            Some(c) => {
+                let _ = writeln!(out, "v {} {} {} {:.4} {:.4} {:.4}", p[0], p[1], p[2], c[0], c[1], c[2]);
+            }
+            None => {
+                let _ = writeln!(out, "v {} {} {}", p[0], p[1], p[2]);
+            }
+        }
     }
     let mut by_part: Vec<Vec<[u32; 3]>> = vec![Vec::new(); mesh.parts.len().max(1)];
     let last = by_part.len() - 1;

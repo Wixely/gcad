@@ -207,6 +207,8 @@ fn export_meshes(model: &crate::model::Model, path: &str) -> Result<()> {
             .map(|(name, mesh, colour)| (name, (*mesh).clone(), colour)),
     );
     let mut all = crate::mesh::Mesh::default();
+    let mut vertex_colours: Vec<[f64; 3]> = Vec::new();
+    let shading = model.mesh_shading();
     let mut materials: Vec<(String, Colour, f64)> = Vec::new();
     for (name, mesh, colour) in &bodies {
         let own = model.part_colours_of(name, mesh);
@@ -216,6 +218,13 @@ fn export_meshes(model: &crate::model::Model, path: &str) -> Result<()> {
                 let c = own[k].or(*colour).unwrap_or([0.7, 0.7, 0.7]);
                 materials.push((part.clone(), c, gloss[k]));
             }
+        }
+        match shading.iter().find(|(n, ..)| n == name) {
+            Some((_, _, blended, _)) => vertex_colours.extend(blended),
+            None => vertex_colours.extend(mesh.labels.iter().map(|&l| {
+                let k = l as usize;
+                own.get(k).copied().flatten().or(*colour).unwrap_or([0.7, 0.7, 0.7])
+            })),
         }
         all.merge(mesh);
     }
@@ -246,7 +255,7 @@ fn export_meshes(model: &crate::model::Model, path: &str) -> Result<()> {
                 text.push('\n');
             }
             std::fs::write(&mtl, text)?;
-            let out = format!("mtllib {library}\n{}", crate::mesh::write_obj_with(&all, true));
+            let out = format!("mtllib {library}\n{}", crate::mesh::write_obj_coloured(&all, &vertex_colours));
             std::fs::write(path, out)?
         }
         "stl" => {

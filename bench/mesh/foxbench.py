@@ -11,17 +11,19 @@ import urllib.request
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-BRIEF = (
-    "Model a red fox game character from scratch: standing on four legs, about 40 units long, "
-    "head with pointed ears, long narrow muzzle and a black nose, almond eyes, white cheeks, chest "
-    "and tail tip, dark ears and paws, a long bushy tail. Make it look as good as you can. "
-    "Use the tools to look at your work and fix it. Stop when you are happy with it."
-)
+from briefs import BRIEFS
+
+BRIEF_NAME = os.environ.get("BRIEF", "fox")
+BRIEF = BRIEFS[BRIEF_NAME]["task"]
+PRICE_IN = float(os.environ.get("PRICE_IN", "5"))
+PRICE_OUT = float(os.environ.get("PRICE_OUT", "25"))
 TURNS = int(os.environ.get("TURNS", "24"))
 CFG = json.load(open(os.path.expanduser("~/.pi/agent/models.json")))["providers"]["yalr"]
 MODEL = os.environ.get("MODEL", "code-x-high")
 OUT = os.environ.get("OUT", "/tmp/mb/bmcp/run")
-GCAD = "/home/kieran/git/gcad/target/release/gcad"
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+GCAD = os.environ.get("GCAD", f"{ROOT}/target/release/gcad")
 
 
 def chat(messages, tools):
@@ -56,10 +58,66 @@ class Log:
         self.f.flush()
 
 
-async def agent(name, system, tools, run_tool):
+LOOK = {"mode": "angles", "views": ["three_quarter", "top", "front", "right"], "shading": "material", "max_size": 1200}
+
+IMPORT_OBJ = """import bpy
+for o in list(bpy.data.objects): bpy.data.objects.remove(o, do_unlink=True)
+win = bpy.context.window_manager.windows[0]
+area = [a for a in win.screen.areas if a.type == "VIEW_3D"][0]
+with bpy.context.temp_override(window=win, area=area, screen=win.screen):
+    bpy.ops.wm.obj_import(filepath=%r, forward_axis="Y", up_axis="Z")
+for o in bpy.context.scene.objects:
+    o.select_set(True)
+    if o.type != "MESH" or not o.data.color_attributes:
+        continue
+    attribute = o.data.color_attributes[0].name
+    for slot in o.material_slots:
+        m = slot.material
+        if not m or not m.use_nodes:
+            continue
+        bsdf = next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+        node = m.node_tree.nodes.new("ShaderNodeVertexColor")
+        node.layer_name = attribute
+        m.node_tree.links.new(node.outputs["Color"], bsdf.inputs["Base Color"])
+"""
+
+HIDE_GROUND = "import bpy\nfor o in bpy.data.objects:\n    if o.type=='MESH' and max(o.dimensions)>120: o.hide_set(True)"
+SHOW_ALL = "import bpy\nfor o in bpy.data.objects: o.hide_set(False)"
+
+
+async def look_png(session, path, hide=True):
+    if hide:
+        await session.call_tool("execute_blender_code", {"code": HIDE_GROUND})
+    shot = await session.call_tool("look", LOOK)
+    if hide:
+        await session.call_tool("execute_blender_code", {"code": SHOW_ALL})
+    for c in shot.content:
+        if getattr(c, "type", "") == "image":
+            open(path, "wb").write(base64.b64decode(c.data))
+            return path
+    return None
+
+
+def blender_params():
+    return StdioServerParameters(command="uvx", args=["mcp-for-blender"], env={**os.environ, "DISABLE_TELEMETRY": "1"})
+
+
+async def obj_in_blender(session, obj, png):
+    await session.call_tool("execute_blender_code", {"code": IMPORT_OBJ % obj})
+    return await look_png(session, png, hide=False)
+
+
+def dollars(prompt, completion):
+    return round((prompt * PRICE_IN + completion * PRICE_OUT) / 1e6, 4)
+
+
+async def agent(name, system, tools, run_tool, mutating, snapshot):
     log = Log(name)
     messages = [{"role": "system", "content": system}, {"role": "user", "content": BRIEF}]
     start = time.time()
+    paused = 0.0
+    tool_seconds = 0.0
+    snapshots = []
     for turn in range(TURNS):
         reply = chat(messages, tools)
         u = reply.get("usage", {})
@@ -72,28 +130,48 @@ async def agent(name, system, tools, run_tool):
         if not calls:
             break
         pictures = []
+        edited = False
         for c in calls:
             log.usage["calls"] += 1
             try:
                 args = json.loads(c["function"]["arguments"] or "{}")
             except json.JSONDecodeError:
                 args = {}
+            began = time.time()
             text, images = await run_tool(c["function"]["name"], args)
+            tool_seconds += time.time() - began
+            edited = edited or c["function"]["name"] in mutating
             log.add(turn=turn, tool=c["function"]["name"], result=text[:4000], images=len(images))
             messages.append({"role": "tool", "tool_call_id": c["id"], "content": text[:12000] or "(no text)"})
             pictures.extend(images)
         if pictures:
             log.usage["images"] += len(pictures)
             messages.append({"role": "user", "content": [{"type": "text", "text": "Images from those tool calls:"}] + pictures})
-    log.usage["seconds"] = round(time.time() - start)
+        if edited:
+            began = time.time()
+            image = await snapshot(len(snapshots))
+            paused += time.time() - began
+            snapshots.append({
+                "n": len(snapshots),
+                "image": image,
+                "seconds": round(time.time() - start - paused, 1),
+                "calls": log.usage["calls"],
+                "prompt": log.usage["prompt"],
+                "completion": log.usage["completion"],
+                "cost": dollars(log.usage["prompt"], log.usage["completion"]),
+            })
+    log.usage["seconds"] = round(time.time() - start - paused, 1)
+    log.usage["tool_seconds"] = round(tool_seconds, 1)
+    log.usage["llm_seconds"] = round(log.usage["seconds"] - tool_seconds, 1)
     log.usage["turns"] = turn + 1
+    log.usage["cost"] = dollars(log.usage["prompt"], log.usage["completion"])
+    log.usage["snapshots"] = snapshots
     log.add(usage=log.usage)
     return log.usage
 
 
 async def blender():
-    params = StdioServerParameters(command="uvx", args=["mcp-for-blender"], env={**os.environ, "DISABLE_TELEMETRY": "1"})
-    async with stdio_client(params) as (r, w):
+    async with stdio_client(blender_params()) as (r, w):
         async with ClientSession(r, w) as s:
             await s.initialize()
             await s.call_tool("execute_blender_code", {"code": "import bpy\nfor o in list(bpy.data.objects): bpy.data.objects.remove(o)\nfor m in list(bpy.data.meshes): bpy.data.meshes.remove(m)\nfor m in list(bpy.data.materials): bpy.data.materials.remove(m)"})
@@ -110,7 +188,10 @@ async def blender():
                 return text, images
 
             system = "You are a 3D artist working in Blender through these tools. Build everything with Blender Python. Do not import assets."
-            usage = await agent("blender", system, tools, run)
+            async def snapshot(n):
+                return await look_png(s, f"{OUT}/blender_step{n}.png")
+
+            usage = await agent("blender", system, tools, run, {"execute_blender_code"}, snapshot)
             export = (
                 "import bpy\nbpy.ops.object.select_all(action='SELECT')\n"
                 f"bpy.ops.wm.obj_export(filepath='{OUT}/blender.obj', export_selected_objects=False, export_materials=True)\n"
@@ -119,11 +200,8 @@ async def blender():
             )
             res = await s.call_tool("execute_blender_code", {"code": export})
             usage["export"] = "\n".join(c.text for c in res.content if getattr(c, "type", "") == "text")[-300:]
-            await s.call_tool("execute_blender_code", {"code": "import bpy\nfor o in bpy.data.objects:\n    if o.type=='MESH' and max(o.dimensions)>120: o.hide_set(True)"})
-            shot = await s.call_tool("look", {"mode": "angles", "views": ["three_quarter", "top", "front", "right"], "shading": "material", "max_size": 1200})
-            for c in shot.content:
-                if getattr(c, "type", "") == "image":
-                    open(f"{OUT}/blender_final.png", "wb").write(base64.b64decode(c.data))
+            await s.call_tool("execute_blender_code", {"code": HIDE_GROUND})
+            await look_png(s, f"{OUT}/blender_final.png", hide=False)
             return usage
 
 
@@ -162,7 +240,7 @@ async def gcad():
             return r.stdout, [image_part(base64.b64encode(open(f"{OUT}/gcad_inspect.png", "rb").read()).decode())]
         return f"unknown tool {name}", []
 
-    skill = open("/home/kieran/git/gcad/skills/gcad/SKILL.md").read()
+    skill = open(f"{ROOT}/skills/gcad/SKILL.md").read()
     workflow = skill[skill.index("## Meshes"): skill.index("## Output")]
     system = (
         "You are a 3D artist modelling in gcad, a text CAD. The tools run gcad for you: write_file "
@@ -171,9 +249,22 @@ async def gcad():
         + "\n\nThe format reference for mesh bodies:\n\n"
         + meshes
     )
-    usage = await agent("gcad", system, tools, run)
-    subprocess.run([GCAD, "render", path, f"{OUT}/gcad_final.png"], capture_output=True)
-    subprocess.run([GCAD, "export", path, f"{OUT}/gcad.obj"], capture_output=True)
+    async with stdio_client(blender_params()) as (r, w):
+        async with ClientSession(r, w) as s:
+            await s.initialize()
+
+            async def snapshot(n):
+                step = f"{OUT}/gcad_step{n}"
+                ok = subprocess.run([GCAD, "export", path, step + ".obj"], capture_output=True).returncode == 0
+                subprocess.run([GCAD, "render", path, step + ".png"], capture_output=True)
+                if not ok:
+                    return None
+                return await obj_in_blender(s, step + ".obj", step + "_blender.png")
+
+            usage = await agent("gcad", system, tools, run, {"write_file"}, snapshot)
+            subprocess.run([GCAD, "render", path, f"{OUT}/gcad_final.png"], capture_output=True)
+            subprocess.run([GCAD, "export", path, f"{OUT}/gcad.obj"], capture_output=True)
+            await obj_in_blender(s, f"{OUT}/gcad.obj", f"{OUT}/gcad_in_blender.png")
     return usage
 
 

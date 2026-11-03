@@ -1,0 +1,348 @@
+{
+ "gcad": [
+  {
+   "usage": {
+    "prompt": 393663,
+    "completion": 17880,
+    "calls": 30,
+    "images": 14,
+    "seconds": 1078.4,
+    "tool_seconds": 7.8,
+    "llm_seconds": 1070.6,
+    "turns": 14,
+    "cost": 2.4153
+   },
+   "final": {
+    "anatomy": 7,
+    "brief": 8,
+    "detail": 5,
+    "appeal": 6
+   },
+   "final_total": 26,
+   "step_scores": [
+    18,
+    22,
+    26,
+    25,
+    9,
+    26,
+    9,
+    26
+   ],
+   "reach": null
+  },
+  {
+   "usage": {
+    "prompt": 165362,
+    "completion": 12474,
+    "calls": 17,
+    "images": 6,
+    "seconds": 114.9,
+    "tool_seconds": 2.2,
+    "llm_seconds": 112.7,
+    "turns": 8,
+    "cost": 1.1387
+   },
+   "final": {
+    "anatomy": 6,
+    "brief": 7,
+    "detail": 5,
+    "appeal": 6
+   },
+   "final_total": 24,
+   "step_scores": [
+    19,
+    22,
+    26,
+    24,
+    27
+   ],
+   "reach": null
+  },
+  {
+   "usage": {
+    "prompt": 233555,
+    "completion": 12705,
+    "calls": 18,
+    "images": 6,
+    "seconds": 120.1,
+    "tool_seconds": 2.7,
+    "llm_seconds": 117.4,
+    "turns": 10,
+    "cost": 1.4854
+   },
+   "final": {
+    "anatomy": 6,
+    "brief": 7,
+    "detail": 5,
+    "appeal": 6
+   },
+   "final_total": 24,
+   "step_scores": [
+    22,
+    22,
+    21,
+    21
+   ],
+   "reach": null
+  },
+  {
+   "usage": {
+    "prompt": 319875,
+    "completion": 12933,
+    "calls": 18,
+    "images": 6,
+    "seconds": 1046.4,
+    "tool_seconds": 2.1,
+    "llm_seconds": 1044.3,
+    "turns": 13,
+    "cost": 1.9227
+   },
+   "final": {
+    "anatomy": 7,
+    "brief": 8,
+    "detail": 5,
+    "appeal": 6
+   },
+   "final_total": 26,
+   "step_scores": [
+    20,
+    20,
+    22,
+    4,
+    24,
+    26
+   ],
+   "reach": null
+  },
+  {
+   "usage": {
+    "prompt": 248643,
+    "completion": 12387,
+    "calls": 17,
+    "images": 7,
+    "seconds": 121.4,
+    "tool_seconds": 2.5,
+    "llm_seconds": 118.9,
+    "turns": 11,
+    "cost": 1.5529
+   },
+   "final": {
+    "anatomy": 6,
+    "brief": 7,
+    "detail": 4,
+    "appeal": 5
+   },
+   "final_total": 22,
+   "step_scores": [
+    21,
+    26,
+    26,
+    25,
+    22,
+    25
+   ],
+   "reach": null
+  }
+ ],
+ "blender": [
+  {
+   "usage": {
+    "prompt": 120519,
+    "completion": 14418,
+    "calls": 17,
+    "images": 7,
+    "seconds": 140.0,
+    "tool_seconds": 3.0,
+    "llm_seconds": 137.0,
+    "turns": 12,
+    "cost": 0.963,
+    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n16183\n"
+   },
+   "final": {
+    "anatomy": 7,
+    "brief": 8,
+    "detail": 6,
+    "appeal": 7
+   },
+   "final_total": 28,
+   "step_scores": [
+    8,
+    6,
+    10,
+    14,
+    14,
+    24,
+    28,
+    28,
+    27
+   ],
+   "reach": {
+    "n": 6,
+    "image": "/tmp/mb/cost/penguin/1/blender_step6.png",
+    "seconds": 115.9,
+    "calls": 13,
+    "prompt": 67549,
+    "completion": 12157,
+    "cost": 0.6417
+   }
+  },
+  {
+   "usage": {
+    "prompt": 143075,
+    "completion": 13796,
+    "calls": 20,
+    "images": 9,
+    "seconds": 143.0,
+    "tool_seconds": 2.7,
+    "llm_seconds": 140.3,
+    "turns": 13,
+    "cost": 1.0603,
+    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n6180\n"
+   },
+   "final": {
+    "anatomy": 6,
+    "brief": 7,
+    "detail": 5,
+    "appeal": 6
+   },
+   "final_total": 24,
+   "step_scores": [
+    8,
+    10,
+    15,
+    22,
+    22,
+    22,
+    23,
+    22,
+    25,
+    24
+   ],
+   "reach": null
+  },
+  {
+   "usage": {
+    "prompt": 272770,
+    "completion": 19646,
+    "calls": 28,
+    "images": 13,
+    "seconds": 211.2,
+    "tool_seconds": 5.9,
+    "llm_seconds": 205.3,
+    "turns": 18,
+    "cost": 1.855,
+    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n10519\n"
+   },
+   "final": {
+    "anatomy": 6,
+    "brief": 7,
+    "detail": 5,
+    "appeal": 6
+   },
+   "final_total": 24,
+   "step_scores": [
+    6,
+    6,
+    8,
+    10,
+    14,
+    15,
+    19,
+    22,
+    26,
+    25,
+    28,
+    23,
+    25,
+    25
+   ],
+   "reach": {
+    "n": 10,
+    "image": "/tmp/mb/cost/penguin/3/blender_step10.png",
+    "seconds": 183.5,
+    "calls": 22,
+    "prompt": 149849,
+    "completion": 17711,
+    "cost": 1.192
+   }
+  },
+  {
+   "usage": {
+    "prompt": 479767,
+    "completion": 30071,
+    "calls": 33,
+    "images": 15,
+    "seconds": 309.0,
+    "tool_seconds": 15.8,
+    "llm_seconds": 293.2,
+    "turns": 23,
+    "cost": 3.1506,
+    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n40723\n"
+   },
+   "final": {
+    "anatomy": 7,
+    "brief": 7,
+    "detail": 6,
+    "appeal": 6
+   },
+   "final_total": 26,
+   "step_scores": [
+    5,
+    6,
+    10,
+    10,
+    12,
+    12,
+    24,
+    23,
+    24,
+    22,
+    22,
+    23,
+    24,
+    24,
+    24
+   ],
+   "reach": null
+  },
+  {
+   "usage": {
+    "prompt": 264419,
+    "completion": 23919,
+    "calls": 27,
+    "images": 12,
+    "seconds": 231.4,
+    "tool_seconds": 7.3,
+    "llm_seconds": 224.1,
+    "turns": 17,
+    "cost": 1.9201,
+    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n61142\n"
+   },
+   "final": {
+    "anatomy": 6,
+    "brief": 7,
+    "detail": 5,
+    "appeal": 6
+   },
+   "final_total": 24,
+   "step_scores": [
+    4,
+    6,
+    5,
+    10,
+    8,
+    15,
+    15,
+    22,
+    22,
+    26,
+    26,
+    24,
+    23,
+    22
+   ],
+   "reach": null
+  }
+ ]
+}

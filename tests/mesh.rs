@@ -501,6 +501,23 @@ fn colour_one_part() {
 }
 
 #[test]
+fn obj_export_writes_soft_colours_per_vertex() {
+    let model = build(
+        "body: blob 0,0,0 r=4\nhead: blob 0,0,6 r=2 blend=1\nremesh 0.3\ncolor #ffffff part=head soft=1.5\ncolor #d2691e",
+    );
+    let path = scratch("soft.obj");
+    gcad::export::export_model(&model, std::path::Path::new("soft.gcad"), &path)
+        .expect("exports");
+    let obj = std::fs::read_to_string(&path).expect("obj");
+    let colours: std::collections::HashSet<String> = obj
+        .lines()
+        .filter(|l| l.starts_with("v "))
+        .map(|l| l.split_whitespace().skip(4).collect::<Vec<_>>().join(" "))
+        .collect();
+    assert!(colours.len() > 3, "{} distinct vertex colours", colours.len());
+}
+
+#[test]
 fn colour_unknown_part_lists_the_parts() {
     let error = failure("body: blob 0,0,0 r=4\nremesh 0.5\ncolor red part=tail");
     assert!(

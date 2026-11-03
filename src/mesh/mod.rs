@@ -359,6 +359,80 @@ fn surface_distance(mesh: &Mesh, core: &[bool], limit: f64) -> Vec<f64> {
     distance
 }
 
+impl Mesh {
+    pub fn blend_colours(&self, tints: &[[f64; 3]], soft: &[f64]) -> Vec<[f64; 3]> {
+        let own = |i: usize| {
+            tints
+                .get(self.labels[i] as usize)
+                .copied()
+                .unwrap_or([0.7; 3])
+        };
+        let mut colours: Vec<[f64; 3]> = (0..self.positions.len()).map(own).collect();
+        if soft.iter().all(|w| *w <= 0.0) {
+            return colours;
+        }
+        let around = self.neighbours();
+        for (part, &width) in soft.iter().enumerate() {
+            if width <= 0.0 {
+                continue;
+            }
+            let label = part as u16;
+            let inside = |i: usize| self.labels[i] == label;
+            let border: Vec<bool> = (0..self.positions.len())
+                .map(|i| around[i].iter().any(|&j| inside(i) != inside(j as usize)))
+                .collect();
+            let reach = surface_distance(self, &border, width);
+            let theirs = tints.get(part).copied().unwrap_or([0.7; 3]);
+            let mut across: Vec<Option<[f64; 3]>> = (0..self.positions.len())
+                .map(|i| {
+                    if border[i] {
+                        let other = if inside(i) {
+                            around[i]
+                                .iter()
+                                .map(|&j| j as usize)
+                                .find(|&j| !inside(j))
+                                .map(own)
+                        } else {
+                            Some(own(i))
+                        };
+                        other
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            let mut order: Vec<usize> = (0..self.positions.len())
+                .filter(|&i| reach[i].is_finite())
+                .collect();
+            order.sort_by(|&a, &b| reach[a].total_cmp(&reach[b]));
+            for &i in &order {
+                if across[i].is_some() {
+                    continue;
+                }
+                across[i] = around[i]
+                    .iter()
+                    .map(|&j| j as usize)
+                    .filter(|&j| reach[j] < reach[i] && inside(j) == inside(i))
+                    .find_map(|j| across[j]);
+            }
+            let outside_colour: Vec<[f64; 3]> = (0..self.positions.len())
+                .map(|i| if inside(i) { across[i].unwrap_or(colours[i]) } else { colours[i] })
+                .collect();
+            for i in 0..self.positions.len() {
+                let d = reach[i];
+                if !d.is_finite() || d >= width {
+                    continue;
+                }
+                let side = if inside(i) { 1.0 } else { -1.0 };
+                let t = 0.5 + 0.5 * side * smoothstep(d / width);
+                let other = outside_colour[i];
+                colours[i] = std::array::from_fn(|k| other[k] + (theirs[k] - other[k]) * t);
+            }
+        }
+        colours
+    }
+}
+
 pub fn reflect(p: P3, axis: usize) -> P3 {
     let mut q = p;
     q[axis] = -q[axis];
@@ -562,3 +636,4 @@ pub fn write_obj_with(mesh: &Mesh, materials: bool) -> String {
     }
     out
 }
+

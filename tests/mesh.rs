@@ -560,3 +560,61 @@ fn pinch_with_mirror_pulls_each_side_to_its_own_point() {
     let right = mesh.positions.iter().map(|p| p[0]).fold(f64::MIN, f64::max);
     assert!((left + right).abs() < 0.05, "{left} {right}");
 }
+
+#[test]
+fn shell_is_its_own_closed_surface() {
+    let model = build("head: blob 0,0,0 r=5\neye: blob 0,-4.9,1 r=1 mode=shell\nremesh 0.4");
+    let mesh = mesh_of(&model);
+    assert_eq!(mesh.open_edges(), 0);
+    assert!(mesh.parts.contains(&"eye".to_string()));
+    let eye: Vec<_> = mesh
+        .positions
+        .iter()
+        .zip(&mesh.labels)
+        .filter(|(_, l)| mesh.parts[**l as usize] == "eye")
+        .map(|(p, _)| *p)
+        .collect();
+    let worst = eye
+        .iter()
+        .map(|p| (gcad::mesh::length(gcad::mesh::sub(*p, [0.0, -4.9, 1.0])) - 1.0).abs())
+        .fold(0.0, f64::max);
+    assert!(worst < 0.02, "shell vertices sit {worst} off the sphere");
+    near(
+        mesh.volume(),
+        4.0 / 3.0 * PI * 125.0 + 4.0 / 3.0 * PI,
+        0.015,
+    );
+}
+
+#[test]
+fn gloss_goes_to_the_mtl() {
+    let model = build("body: blob 0,0,0 r=4\nnose: blob 0,-4,0 r=0.5 mode=shell\nremesh 0.3\ncolor #111111 part=nose gloss=0.8");
+    let path = scratch("gloss.obj");
+    gcad::export::export_model(&model, std::path::Path::new("gloss.gcad"), &path).expect("exports");
+    let mtl = std::fs::read_to_string(path.replace(".obj", ".mtl")).expect("mtl");
+    assert!(mtl.contains("newmtl nose\nKd 0.0667 0.0667 0.0667\nKs 0.8 0.8 0.8\nNs 802"), "{mtl}");
+    let error = failure("body: blob 0,0,0 r=4\nremesh 0.5\ncolor red part=body gloss=2");
+    assert!(error.contains("gloss goes from 0"), "{error}");
+}
+
+#[test]
+fn soft_colour_fades_across_the_border() {
+    let source = "left: blob -3,0,0 r=3\nright: blob 3,0,0 r=3 blend=1\nremesh 0.2\ncolor #000000\ncolor #ffffff part=right soft=2";
+    let model = build(source);
+    let (_, mesh, colours, _) = model.mesh_shading().into_iter().next().expect("a mesh");
+    let at = |x: f64| {
+        let (i, _) = mesh
+            .positions
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p[2] > 0.0 && p[1].abs() < 0.5)
+            .min_by(|a, b| (a.1[0] - x).abs().total_cmp(&(b.1[0] - x).abs()))
+            .expect("a vertex");
+        colours[i][0]
+    };
+    assert!(at(5.5) > 0.99, "far right {}", at(5.5));
+    assert!(at(-5.5) < 0.01, "far left {}", at(-5.5));
+    let middle = at(0.0);
+    assert!((0.3..0.7).contains(&middle), "at the border {middle}");
+    assert!(at(1.0) > middle && at(1.0) < 0.99, "inside the fade {}", at(1.0));
+}

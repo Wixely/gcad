@@ -237,7 +237,8 @@ after it. Each test checks a volume or bounding box worked out by hand.
 | surface noise | supported | `noise 0.2 size=1 seed=3` | `mesh::noise_is_repeatable_and_bounded` |
 | relax triangles | supported | `relax 10` | `mesh::relax_evens_triangles_without_shrinking` |
 | decimate to a budget | supported | `decimate 5000`, `decimate 25%` | `mesh::decimate_to_a_budget_keeps_the_shape`, `mesh::decimate_by_share_leaves_unselected_triangles`, `mesh::decimate_keeps_part_labels`, `mesh::decimate_keeps_the_border_between_parts_fine` |
-| colour a part | supported | `color #ffffff part=chest` | `mesh::colour_one_part`, `mesh::colour_unknown_part_lists_the_parts` |
+| colour a part | supported | `color #ffffff part=chest gloss=0.8` | `mesh::colour_one_part`, `mesh::colour_unknown_part_lists_the_parts`, `mesh::gloss_goes_to_the_mtl`, `mesh::soft_colour_fades_across_the_border` |
+| a separate closed shell | supported | `eye_l: blob 1,-5,2 r=0.5 mode=shell` | `mesh::shell_is_its_own_closed_surface` |
 | a game-ready fox | supported | `examples/mesh/fox.gcad` | `mesh::fox_example_fits_a_game_budget` |
 | inspect a view to place detail | supported | `gcad inspect f.gcad out.png --part head --view right --pick 300,412` | `inspect_view::pick_returns_the_surface_point_and_normal`, `inspect_view::pixel_and_world_agree_in_every_view`, `inspect_view::part_frames_just_that_part`, `inspect_view::marks_say_when_the_surface_hides_them`, `inspect_view::unknown_part_lists_the_parts`, `inspect_view::solids_show_too` |
 | import a mesh | supported | `import file.obj mesh` | `mesh::mesh_import_obj` |

@@ -36,7 +36,8 @@ fn mesh_combine(args: &Args<'_>) -> Result<Combine> {
         None | Some("add") => Ok(Combine::Add),
         Some("cut") => Ok(Combine::Cut),
         Some("intersect") => Ok(Combine::Intersect),
-        Some(other) => bail!("mode must be add, cut or intersect, got `{other}`"),
+        Some("shell") => Ok(Combine::Shell),
+        Some(other) => bail!("mode must be add, cut, intersect or shell, got `{other}`"),
     }
 }
 
@@ -89,7 +90,13 @@ impl Model {
         out
     }
 
-    pub(crate) fn colour_mesh_part(&mut self, part: &str, colour: [f64; 3]) -> Result<String> {
+    pub(crate) fn colour_mesh_part(
+        &mut self,
+        part: &str,
+        colour: [f64; 3],
+        gloss: Option<f64>,
+        soft: Option<f64>,
+    ) -> Result<String> {
         let mesh = self
             .current_mesh()?
             .ok_or_else(|| anyhow!("`color part=` colours a part of a mesh body"))?;
@@ -101,6 +108,12 @@ impl Model {
         }
         self.part_colours
             .insert((self.body_name(), part.to_string()), colour);
+        if let Some(g) = gloss {
+            self.part_gloss.insert((self.body_name(), part.to_string()), g);
+        }
+        if let Some(w) = soft {
+            self.part_soft.insert((self.body_name(), part.to_string()), w);
+        }
         Ok(format!(
             "part `{part}` is {:.2},{:.2},{:.2}",
             colour[0], colour[1], colour[2]
@@ -114,6 +127,44 @@ impl Model {
                 self.part_colours
                     .get(&(body.to_string(), p.clone()))
                     .copied()
+            })
+            .collect()
+    }
+
+    pub fn part_gloss_of(&self, body: &str, mesh: &Mesh) -> Vec<f64> {
+        mesh.parts
+            .iter()
+            .map(|p| {
+                self.part_gloss
+                    .get(&(body.to_string(), p.clone()))
+                    .copied()
+                    .unwrap_or(0.0)
+            })
+            .collect()
+    }
+
+    pub fn mesh_shading(&self) -> Vec<(String, Arc<Mesh>, Vec<[f64; 3]>, Vec<f64>)> {
+        self.mesh_tints()
+            .into_iter()
+            .map(|(name, mesh, tints)| {
+                let gloss = self.part_gloss_of(&name, &mesh);
+                let soft: Vec<f64> = mesh
+                    .parts
+                    .iter()
+                    .map(|p| {
+                        self.part_soft
+                            .get(&(name.clone(), p.clone()))
+                            .copied()
+                            .unwrap_or(0.0)
+                    })
+                    .collect();
+                let colours = mesh.blend_colours(&tints, &soft);
+                let shine = mesh
+                    .labels
+                    .iter()
+                    .map(|&l| gloss.get(l as usize).copied().unwrap_or(0.0))
+                    .collect();
+                (name, mesh, colours, shine)
             })
             .collect()
     }

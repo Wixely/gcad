@@ -405,7 +405,7 @@ Blocking out, before `remesh`:
 
 | operation | parameters | does |
 |---|---|---|
-| `blob` | `x,y,z` `r=` `blend=` `mode=add\|cut\|intersect` `rx=` `ry=` `rz=` | an ellipsoid centred on the point, of radius `r` or radii `rx,ry,rz` along x, y and z, turned by `rx`, `ry`, `rz` degrees about x, then y, then z. `blend` is how far its surface melts into what is already there, as a smooth fillet of about that size (0, a sharp join, unless given). `mode=cut` carves it out and `mode=intersect` keeps only what it shares |
+| `blob` | `x,y,z` `r=` `blend=` `mode=add\|cut\|intersect\|shell` `rx=` `ry=` `rz=` | an ellipsoid centred on the point, of radius `r` or radii `rx,ry,rz` along x, y and z, turned by `rx`, `ry`, `rz` degrees about x, then y, then z. `blend` is how far its surface melts into what is already there, as a smooth fillet of about that size (0, a sharp join, unless given). `mode=cut` carves it out and `mode=intersect` keeps only what it shares. `mode=shell` keeps it a closed surface of its own, meshed finer than the body so it stays crisp however small: eyeballs, pupils, noses, claws, inner ears, anything that sits on the body rather than grows out of it |
 | `limb` | `x,y,z x,y,z ...` `r=` `blend=` `mode=` | a tube through two or more joints with rounded ends, its radius `r` at every joint or one radius per joint (`r=2,1.6,1.3`), tapering smoothly between them. Arms, legs, tails, horns, necks |
 | `mirror` | `x\|y\|z` `of=label` `offset=` | adds the mirror image of one labelled blob or limb (or of every one, without `of`) across the plane through `offset` (0) square to the axis. A part named `..._l` comes back `..._r` and the other way round |
 | `remesh` | `cell` | turns the blockout into a closed mesh with triangles about `cell` across, a 120th of its size unless given. Each vertex belongs to the part (the label of the blob or limb) nearest it, so later lines can select `head` or `arm_l`. A sculpting line before any `remesh` remeshes at the default cell first |
@@ -428,7 +428,7 @@ Sculpting, after `remesh` or `import`:
 | `relax` | `passes` | evens out the triangles of the selection by sliding vertices along the surface, so the shape stays where `smooth` would shrink it |
 | `decimate` | `triangles` or `share%` | merges triangles in the selection until the whole mesh has `triangles` of them (or keeps that share of the selection's), choosing the merges that change the shape least and never tearing the surface. Parts keep their names. The last step for a game asset: `select all` then `decimate 5000` |
 | `import` | `file.obj mesh` or `file.stl mesh` | starts the body from a mesh file; an OBJ's `o` and `g` groups become its parts |
-| `color` | as for solids, and `part=name` | colours the whole mesh, or with `part=` one part of it: a white bib, dark socks, black eyes. OBJ export writes the colours to an `.mtl` beside it |
+| `color` | as for solids, and `part=name` `gloss=` | colours the whole mesh, or with `part=` one part of it: a white bib, dark socks, black eyes. `gloss` from 0 (matte, the default) to 1 (wet) makes the part shine: 0.8 for eyes and noses, 0.3 for claws. `soft=` fades the part's colour into its neighbours over that distance either side of the border instead of a hard edge: fur markings, a pale belly, dark socks. OBJ export writes colour and shine to an `.mtl` beside it |
 
 The mesh starts as fine as `remesh` made it, the same everywhere. Make detail where it goes
 rather than everywhere: a coarse `remesh`, then `select` the face and `refine` it before

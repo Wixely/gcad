@@ -474,11 +474,26 @@ impl Model {
     }
 
     pub(crate) fn op_color(&mut self, line: &Line) -> Result<String> {
-        let args = Args::new(line, &["colour"], &["opacity", "part"], false)?;
+        let args = Args::new(line, &["colour"], &["opacity", "part", "gloss", "soft"], false)?;
         let colour = self.colour_of(args.text("colour")?)?;
         let opacity = opacity_of(&args, &self.scope)?;
+        let gloss = args.optional_number("gloss", &self.scope)?;
+        if let Some(g) = gloss
+            && !(0.0..=1.0).contains(&g)
+        {
+            bail!("gloss goes from 0 (matte) to 1 (wet), got {g}");
+        }
+        let soft = args.optional_number("soft", &self.scope)?;
+        if let Some(s) = soft
+            && s < 0.0
+        {
+            bail!("soft must be 0 or more, got {s}");
+        }
         if let Some(part) = args.values.get("part") {
-            return self.colour_mesh_part(part, colour);
+            return self.colour_mesh_part(part, colour, gloss, soft);
+        }
+        if gloss.is_some() || soft.is_some() {
+            bail!("`gloss=` and `soft=` go with `part=` on a mesh body");
         }
         let name = self.body_name();
         self.colours.insert(name.clone(), colour);

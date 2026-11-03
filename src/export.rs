@@ -207,13 +207,14 @@ fn export_meshes(model: &crate::model::Model, path: &str) -> Result<()> {
             .map(|(name, mesh, colour)| (name, (*mesh).clone(), colour)),
     );
     let mut all = crate::mesh::Mesh::default();
-    let mut materials: Vec<(String, Colour)> = Vec::new();
+    let mut materials: Vec<(String, Colour, f64)> = Vec::new();
     for (name, mesh, colour) in &bodies {
         let own = model.part_colours_of(name, mesh);
+        let gloss = model.part_gloss_of(name, mesh);
         for (k, part) in mesh.parts.iter().enumerate() {
-            if !materials.iter().any(|(m, _)| m == part) {
+            if !materials.iter().any(|(m, _, _)| m == part) {
                 let c = own[k].or(*colour).unwrap_or([0.7, 0.7, 0.7]);
-                materials.push((part.clone(), c));
+                materials.push((part.clone(), c, gloss[k]));
             }
         }
         all.merge(mesh);
@@ -226,14 +227,23 @@ fn export_meshes(model: &crate::model::Model, path: &str) -> Result<()> {
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_default();
             let mut text = String::new();
-            for (name, c) in &materials {
+            for (name, c, gloss) in &materials {
                 let round = |v: f64| format!("{:.4}", v).trim_end_matches('0').trim_end_matches('.').to_string();
                 text.push_str(&format!(
-                    "newmtl {name}\nKd {} {} {}\n\n",
+                    "newmtl {name}\nKd {} {} {}\n",
                     round(c[0]),
                     round(c[1]),
                     round(c[2])
                 ));
+                if *gloss > 0.0 {
+                    text.push_str(&format!(
+                        "Ks {g} {g} {g}\nNs {}\nPr {}\n",
+                        round(10.0 + 990.0 * gloss),
+                        round(1.0 - gloss),
+                        g = round(*gloss)
+                    ));
+                }
+                text.push('\n');
             }
             std::fs::write(&mtl, text)?;
             let out = format!("mtllib {library}\n{}", crate::mesh::write_obj_with(&all, true));

@@ -59,12 +59,14 @@ impl Light {
         }
     }
 
-    fn shade(&self, normal: Vector3, tint: [f64; 3]) -> [f64; 3] {
+    fn shade(&self, normal: Vector3, tint: [f64; 3], shine: f64) -> [f64; 3] {
         let facing = normal.dot(self.toward_eye).max(0.0);
         let key = normal.dot(self.key).max(0.0);
         let diffuse = self.floor + (1.0 - self.floor) * (0.5 * facing + 0.5 * key);
-        let gloss = 0.2 * (1.0 - self.floor) * normal.dot(self.half).max(0.0).powi(30);
-        tint.map(|c| 255.0 * (c * diffuse + gloss))
+        let spread = 30.0 + 170.0 * shine;
+        let strength = 0.2 + 0.8 * shine;
+        let gloss = strength * (1.0 - self.floor) * normal.dot(self.half).max(0.0).powf(spread);
+        tint.map(|c| (255.0 * (c * diffuse + gloss)).min(255.0))
     }
 }
 
@@ -94,6 +96,7 @@ impl Canvas {
         p: [(f64, f64, f64); 3],
         tints: [[f64; 3]; 3],
         normals: [Vector3; 3],
+        shine: f64,
         light: &Light,
     ) {
         let low = |f: fn(&(f64, f64, f64)) -> f64| {
@@ -144,7 +147,7 @@ impl Canvas {
                 };
                 let tint =
                     [0, 1, 2].map(|k| w0 * tints[0][k] + w1 * tints[1][k] + w2 * tints[2][k]);
-                self.colour[index] = light.shade(normal, tint);
+                self.colour[index] = light.shade(normal, tint, shine);
             }
         }
     }
@@ -278,7 +281,12 @@ pub fn render_coloured(parts: &[(&Solid, Option<[f64; 3]>)], path: &str) -> Resu
     render_with_meshes(parts, &[], path)
 }
 
-type ColouredMesh = (String, std::sync::Arc<crate::mesh::Mesh>, Vec<[f64; 3]>);
+type ColouredMesh = (
+    String,
+    std::sync::Arc<crate::mesh::Mesh>,
+    Vec<[f64; 3]>,
+    Vec<f64>,
+);
 
 pub fn render_with_meshes(
     parts: &[(&Solid, Option<[f64; 3]>)],
@@ -309,18 +317,14 @@ pub fn render_with_meshes(
             triangles.push((corners, [tint; 3]));
         }
     }
-    for (_, mesh, tints) in meshes {
+    let mut shine: Vec<f64> = vec![0.0; triangles.len()];
+    for (_, mesh, tints, glosses) in meshes {
         let base = positions.len();
         let at = |p: crate::mesh::P3| Point3::new(p[0], p[1], p[2]);
         positions.extend(mesh.positions.iter().map(|&p| at(p)));
         let vertex_normals = mesh.vertex_normals();
         let fallback = [150.0 / 255.0, 175.0 / 255.0, 205.0 / 255.0];
-        let tint_of = |i: u32| {
-            tints
-                .get(mesh.labels[i as usize] as usize)
-                .copied()
-                .unwrap_or(fallback)
-        };
+        let tint_of = |i: u32| tints.get(i as usize).copied().unwrap_or(fallback);
         for t in &mesh.triangles {
             let corners = t.map(|i| i as usize + base);
             normals.push(t.map(|i| {
@@ -328,6 +332,7 @@ pub fn render_with_meshes(
                 Vector3::new(n[0], n[1], n[2])
             }));
             triangles.push((corners, t.map(tint_of)));
+            shine.push(glosses.get(t[0] as usize).copied().unwrap_or(0.0));
         }
     }
     let edges: Vec<Vec<Point3>> = solids
@@ -340,7 +345,7 @@ pub fn render_with_meshes(
         .chain(
             meshes
                 .iter()
-                .filter_map(|(_, mesh, _)| {
+                .filter_map(|(_, mesh, _, _)| {
                     let (lo, hi) = mesh.bounds()?;
                     Some([
                         Point3::new(lo[0], lo[1], lo[2]),
@@ -358,6 +363,8 @@ pub fn render_with_meshes(
         lines: &[],
         floor: 0.3,
         edges_on_surface: true,
+        shine: &shine,
+        outline: !parts.is_empty(),
     };
     draw_lit(&scene, bounds).save(path)?;
     Ok(())
@@ -454,6 +461,8 @@ fn draw_smooth(
         lines,
         floor,
         edges_on_surface: false,
+        shine: &[],
+        outline: true,
     };
     draw_lit(&scene, bounds)
 }
@@ -466,6 +475,8 @@ struct Scene<'a> {
     lines: &'a [Line],
     floor: f64,
     edges_on_surface: bool,
+    shine: &'a [f64],
+    outline: bool,
 }
 
 fn draw_view(scene: &Scene, view: &View, center: Vector3) -> Canvas {
@@ -500,7 +511,7 @@ fn draw_view(scene: &Scene, view: &View, center: Vector3) -> Canvas {
     };
     let light = Light::new(view, scene.floor);
     let mut canvas = Canvas::new();
-    for ((corners, tints), normals) in scene.triangles.iter().zip(scene.normals) {
+    for (k, ((corners, tints), normals)) in scene.triangles.iter().zip(scene.normals).enumerate() {
         let Some(flat) = face_normal(positions, *corners) else {
             continue;
         };
@@ -513,10 +524,13 @@ fn draw_view(scene: &Scene, view: &View, center: Vector3) -> Canvas {
             corners.map(|i| to_pixel(projected[i])),
             *tints,
             normals.map(|n| n * toward),
+            scene.shine.get(k).copied().unwrap_or(0.0),
             &light,
         );
     }
-    canvas.silhouettes(1.0 / scale);
+    if scene.outline {
+        canvas.silhouettes(1.0 / scale);
+    }
     let bias = depth_range * 0.006;
     for polyline in scene.edges {
         polyline.windows(2).for_each(|pair| {

@@ -7,6 +7,7 @@ pub enum Combine {
     Add,
     Cut,
     Intersect,
+    Shell,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -198,6 +199,7 @@ pub fn field(primitives: &[Primitive], p: P3) -> f64 {
             Combine::Add => smooth_union(e, d, prim.blend),
             Combine::Cut => smooth_cut(d, e, prim.blend),
             Combine::Intersect => smooth_intersect(d, e, prim.blend),
+            Combine::Shell => d,
         }
     })
 }
@@ -225,6 +227,34 @@ fn gradient(primitives: &[Primitive], p: P3, h: f64) -> P3 {
 pub const MAX_CELLS: usize = 400;
 
 pub fn remesh(primitives: &[Primitive], cell: f64) -> Result<Mesh> {
+    let body: Vec<Primitive> = primitives
+        .iter()
+        .filter(|p| p.combine != Combine::Shell)
+        .cloned()
+        .collect();
+    let mut mesh = if body.iter().any(|p| p.combine == Combine::Add) {
+        remesh_field(&body, cell)?
+    } else {
+        Mesh::default()
+    };
+    for shell in primitives.iter().filter(|p| p.combine == Combine::Shell) {
+        let (lo, hi) = shell.shape.bounds();
+        let size = (0..3).map(|k| hi[k] - lo[k]).fold(0.0, f64::max);
+        let fine = cell.min(size / 24.0).max(size / 160.0);
+        let own = Primitive {
+            combine: Combine::Add,
+            blend: 0.0,
+            ..shell.clone()
+        };
+        mesh.merge(&remesh_field(&[own], fine)?);
+    }
+    if mesh.triangles.is_empty() {
+        bail!("there is nothing to mesh: add a `blob` or `limb` first");
+    }
+    Ok(mesh)
+}
+
+fn remesh_field(primitives: &[Primitive], cell: f64) -> Result<Mesh> {
     if primitives.iter().all(|p| p.combine != Combine::Add) {
         bail!("there is nothing to mesh: add a `blob` or `limb` first");
     }

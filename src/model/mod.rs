@@ -129,6 +129,8 @@ pub struct Model {
     pub mesh_body: MeshBody,
     pub mesh_bodies: Vec<(String, std::sync::Arc<crate::mesh::Mesh>)>,
     pub part_colours: HashMap<(String, String), [f64; 3]>,
+    pub part_gloss: HashMap<(String, String), f64>,
+    pub part_soft: HashMap<(String, String), f64>,
 }
 
 #[derive(Clone)]

@@ -422,29 +422,47 @@ note "Ø12 silver steel, 131 long|Break all edges 0.5" place=20,20
 ## Meshes
 
 Characters, creatures and other organic game assets are mesh bodies, not solids. Never write
-triangles. Block the shape out with labelled `blob` and `limb` lines that `blend` into each
-other, `mirror x of=` the left-side parts, `remesh`, then sculpt: `select` a part by its label
-(or `sphere=`/`box=` with `falloff=`), then `move`, `scale`, `rotate`, `inflate`, `smooth`.
+triangles. Build them in three passes and look between every step.
 
-- Label every blob and limb (`head:`, `arm_l:`). The labels become the mesh's parts, and
-  selecting a part by name is far more reliable than guessing coordinates from a picture.
-- Model side parts on +x as `_l` and `mirror x of=` them; `select ... mirror=x` then edits
-  both sides with one line.
-- Read what each sculpting line reports: `moved 0 vertices` means the selection missed.
-- Detail costs triangles only where you `refine`: keep `remesh` coarse, `select` the face and
-  `refine 0.1` it before `crease`, `pinch` or `noise` there. A line that needs a finer mesh
-  says so.
-- End a game asset with `select all` and `decimate 5000` (or the budget it has), behind a
-  variable (`if budget>0 decimate budget`) so the full detail stays available for renders.
-- Small features are their own labelled blobs (eyes, toes, nose), not dents. A blob gets its own
-  colour with `color ... part=` and stays sharp through `decimate`.
-- Never guess where fine detail goes. `gcad inspect file.gcad v.png --part head --view right`
-  draws the part with a coordinate grid and part names; `--pick x,y` on that picture prints the
-  surface point, part and normal under a pixel. Write `select sphere=`, `crease` and `pinch` with
-  the picked numbers, then `gcad inspect ... --line N` to see the selection outlined and check it.
-- `gcad render` after the blockout and again after sculpting, and compare the four views with
-  what you meant. Fix the blockout first; sculpting only nudges.
-- Export with `gcad export file.gcad out.obj`: each part is its own `g` group.
+**1. Blockout.** Labelled `blob` and `limb` lines that `blend` into each other: torso, chest,
+hips, neck, head, muzzle, jaw, limbs with a joint per bend, tail. Model the +x side as `_l`
+and `mirror x of=` it. Get the silhouette right in `gcad render` before anything else:
+proportions are most of the result and sculpting only nudges.
+
+**2. Features as shells.** Eyes, pupils, noses, inner ears, claws, teeth: anything that sits
+on the body is its own `mode=shell` blob. A shell is meshed finer than the body, stays crisp at
+any size and gets its own `color ... part=` and `gloss=`. An eye is three shells: a white or
+amber eyeball, a dark pupil in front of it (`gloss=0.9`), an eyelid crease above. A nose is a
+dark `gloss=0.8` shell. Never make eyes by denting the body: dents read as smudges.
+
+**3. Sculpt and colour.** `select` a part by label, then `move`, `scale`, `rotate`, `inflate`,
+`pinch`, `crease`; `refine` a region before fine work. Colour every part that should differ
+(white chest, dark paws). Fur markings fade, so give them `soft=` (`color #f4efe6 part=chest
+soft=1.5`); hard borders read as stuck-on patches. Markings are their own parts: make a
+`bib`, `sock_l` or `tail_tip` blob that blends into the body and colour that.
+
+Proportions decide most of the result. Legs are long and thin (a fox's leg is as long as its
+body is deep, and about a fifth as thick), the body is slim, paws are small and not boots,
+heads are narrow wedges. Check the side view against those before detailing.
+
+Look between every step, not only at the end:
+- `gcad render file.gcad out.png` for the whole model.
+- `gcad inspect file.gcad out.png --part head --view front|right|top` for any detail: a
+  grid, part names and the surface. Check the face from the front and the side every time
+  it changes, at the size the detail is; a whole-body render hides anything under a few
+  percent of its size.
+- `--pick x,y` on an inspect picture prints the surface point and part under a pixel. Use the
+  numbers for `at=` of shells and for `select sphere=`, `crease` and `pinch`. Never guess
+  coordinates for small features.
+- `--line N` shows what line N selected; `moved 0 vertices` in `gcad check` means a miss.
+
+Spend the budget. A model you looked at three times is a blockout; one you looked at fifteen
+times, fixing what each look showed, is an asset. Stop only when a close-up of the face, a
+side view and a three-quarter view all look right.
+
+- End a game asset with `select all` and `decimate 5000` (or its budget) behind a variable
+  (`if budget>0 decimate budget`) so full detail stays available for renders.
+- Export with `gcad export file.gcad out.obj`: each part is its own `g` group with an `.mtl`.
 
 ## Output
 

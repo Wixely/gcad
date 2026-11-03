@@ -431,6 +431,10 @@ other, `mirror x of=` the left-side parts, `remesh`, then sculpt: `select` a par
 - Model side parts on +x as `_l` and `mirror x of=` them; `select ... mirror=x` then edits
   both sides with one line.
 - Read what each sculpting line reports: `moved 0 vertices` means the selection missed.
+- Detail costs triangles only where you `refine`: keep `remesh` coarse, `select` the face and
+  `refine 0.1` it before `crease`, `pinch` or `noise` there. A line that needs a finer mesh
+  says so.
+- End a game asset with `select all` and `decimate 5000` (or the budget it has).
 - `gcad render` after the blockout and again after sculpting, and compare the four views with
   what you meant. Fix the blockout first; sculpting only nudges.
 - Export with `gcad export file.gcad out.obj`: each part is its own `g` group.
@@ -481,6 +485,8 @@ gcad bom asm.gasm --csv
 - `examples/assemblies/linkage.gasm`: a four-bar linkage, a closed loop of joints.
 - `examples/mesh/creature.gcad`: a creature blocked out of blobs and limbs, mirrored, remeshed
   and sculpted by part name.
+- `examples/mesh/fox.gcad`: a fox refined around the face, creased, textured and decimated to a
+  5000 triangle game budget.
 - `examples/robot/arm.gasm`: a 34-part robot arm. Every joint is a motor on its axis driving a
   planetary reducer whose ring is cut into the housing; suns and planets are coupled at their
   ratios and the planets are patterned. The gripper is two racks on one pinion. Copy its

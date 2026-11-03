@@ -6,7 +6,10 @@ use crate::parse::Line;
 use anyhow::{Context, Result, anyhow, bail};
 use std::sync::Arc;
 
-pub const MESH_OPERATIONS: &[&str] = &["blob", "limb", "remesh", "select", "inflate", "smooth"];
+pub const MESH_OPERATIONS: &[&str] = &[
+    "blob", "limb", "remesh", "select", "inflate", "smooth", "refine", "crease", "pinch",
+    "flatten", "noise", "relax", "decimate",
+];
 
 type Named = (String, Vec<Region>, f64, Option<usize>);
 
@@ -451,6 +454,183 @@ impl Model {
         let before = self.sculpted("smooth")?.clone();
         let moved = self.sculpted("smooth")?.smooth(&selection, passes as usize);
         self.sculpt_summary(moved, &before)
+    }
+
+    fn topology_summary(&mut self, op: &str, before: usize) -> Result<String> {
+        let selection = self.selection_for(op)?;
+        let mesh = self.mesh_body.mesh.as_ref().expect("sculpted");
+        let (mean, longest) = mesh.edge_lengths(&selection);
+        let open = match mesh.open_edges() {
+            0 => String::new(),
+            n => format!(", {n} open edges"),
+        };
+        Ok(format!(
+            "{} triangles (was {before}); edges in the selection {mean:.3} on average, {longest:.3} at most; volume {:.3}{open}",
+            mesh.triangles.len(),
+            mesh.volume()
+        ))
+    }
+
+    fn coarse_note(&self, selection: &Selection, size: f64) -> String {
+        let mesh = self.mesh_body.mesh.as_ref().expect("sculpted");
+        let (mean, _) = mesh.edge_lengths(selection);
+        if mean > size {
+            format!(
+                "; edges here are {mean:.2} long, more than {size:.2}, so `refine {:.2}` first for a sharper result",
+                size / 2.0
+            )
+        } else {
+            String::new()
+        }
+    }
+
+    pub(crate) fn op_refine(&mut self, line: &Line) -> Result<String> {
+        let args = Args::new(line, &["edge"], &[], false)?;
+        let edge = positive(args.number("edge", &self.scope)?, "edge length")?;
+        let selection = self.selection_for("refine")?;
+        let before = self.sculpted("refine")?.triangles.len();
+        let (mean, _) = self.sculpted("refine")?.edge_lengths(&selection);
+        let rounds = ((mean / edge).log2().ceil().max(0.0) as usize + 1).min(8);
+        let mesh = self.sculpted("refine")?;
+        mesh.refine_to(&selection, edge, rounds);
+        if mesh.triangles.len() > 4_000_000 {
+            bail!(
+                "`refine {edge}` makes {} triangles; refine a smaller selection or a longer edge",
+                mesh.triangles.len()
+            );
+        }
+        self.topology_summary("refine", before)
+    }
+
+    pub(crate) fn op_crease(&mut self, line: &Line) -> Result<String> {
+        let args = Args::new(line, &["from", "to"], &["depth", "width"], false)?;
+        let a = point3(args.text("from")?, &self.scope)?;
+        let b = point3(args.text("to")?, &self.scope)?;
+        let depth = args.optional_number("depth", &self.scope)?.unwrap_or(0.3);
+        let width = positive(
+            args.optional_number("width", &self.scope)?.unwrap_or(0.5),
+            "width",
+        )?;
+        let selection = self.selection_for("crease")?;
+        let note = self.coarse_note(&selection, width);
+        let before = self.sculpted("crease")?.clone();
+        let moved = self.sculpted("crease")?.crease(
+            &selection,
+            ([a.x, a.y, a.z], [b.x, b.y, b.z]),
+            depth,
+            width,
+        );
+        Ok(self.sculpt_summary(moved, &before)? + &note)
+    }
+
+    pub(crate) fn op_pinch(&mut self, line: &Line) -> Result<String> {
+        let args = Args::new(line, &["strength"], &["toward"], false)?;
+        let strength = args.number("strength", &self.scope)?;
+        if !(-1.0..=1.0).contains(&strength) {
+            bail!("pinch strength goes from -1 (spread) to 1 (all the way), got {strength}");
+        }
+        let selection = self.selection_for("pinch")?;
+        let toward = match args.values.get("toward") {
+            Some(text) => {
+                let p = point3(text, &self.scope)?;
+                [p.x, p.y, p.z]
+            }
+            None => selection.centre,
+        };
+        let before = self.sculpted("pinch")?.clone();
+        let moved = self.sculpted("pinch")?.pinch(&selection, toward, strength);
+        self.sculpt_summary(moved, &before)
+    }
+
+    pub(crate) fn op_flatten(&mut self, line: &Line) -> Result<String> {
+        let args = Args::new(line, &[], &["at", "normal"], false)?;
+        let plane = match (args.values.get("at"), args.values.get("normal")) {
+            (Some(at), Some(normal)) => {
+                let o = point3(at, &self.scope)?;
+                let n = super::args::direction(normal, &self.scope)?;
+                if n.x == 0.0 && n.y == 0.0 && n.z == 0.0 {
+                    bail!("`normal` must not be zero");
+                }
+                Some(([o.x, o.y, o.z], [n.x, n.y, n.z]))
+            }
+            (None, None) => None,
+            _ => bail!(
+                "give both `at=x,y,z` and `normal=`, or neither to fit a plane to the selection"
+            ),
+        };
+        let selection = self.selection_for("flatten")?;
+        let before = self.sculpted("flatten")?.clone();
+        let moved = self.sculpted("flatten")?.flatten(&selection, plane);
+        self.sculpt_summary(moved, &before)
+    }
+
+    pub(crate) fn op_noise(&mut self, line: &Line) -> Result<String> {
+        let args = Args::new(line, &["amplitude"], &["size", "seed"], false)?;
+        let amplitude = args.number("amplitude", &self.scope)?;
+        let size = positive(
+            args.optional_number("size", &self.scope)?.unwrap_or(1.0),
+            "size",
+        )?;
+        let seed = args.optional_number("seed", &self.scope)?.unwrap_or(1.0);
+        if seed < 0.0 || seed.fract() != 0.0 {
+            bail!("`seed` is a whole number, got {seed}");
+        }
+        let selection = self.selection_for("noise")?;
+        let note = self.coarse_note(&selection, size / 2.0);
+        let before = self.sculpted("noise")?.clone();
+        let moved = self
+            .sculpted("noise")?
+            .noise(&selection, amplitude, size, seed as u32);
+        Ok(self.sculpt_summary(moved, &before)? + &note)
+    }
+
+    pub(crate) fn op_relax(&mut self, line: &Line) -> Result<String> {
+        let args = Args::new(line, &["passes"], &[], false)?;
+        let passes = args.optional_number("passes", &self.scope)?.unwrap_or(1.0);
+        if passes < 1.0 || passes.fract() != 0.0 || passes > 200.0 {
+            bail!("`relax` takes a whole number of passes from 1 to 200, got {passes}");
+        }
+        let selection = self.selection_for("relax")?;
+        let before = self.sculpted("relax")?.clone();
+        let moved = self.sculpted("relax")?.relax(&selection, passes as usize);
+        self.sculpt_summary(moved, &before)
+    }
+
+    pub(crate) fn op_decimate(&mut self, line: &Line) -> Result<String> {
+        let args = Args::new(line, &["triangles"], &[], false)?;
+        let text = args.text("triangles")?;
+        let selection = self.selection_for("decimate")?;
+        let mesh = self.sculpted("decimate")?;
+        let before = mesh.triangles.len();
+        let target = match text.strip_suffix('%') {
+            Some(share) => {
+                let share: f64 = crate::parse::eval(share, &self.scope)?;
+                if !(0.0..100.0).contains(&share) || share == 0.0 {
+                    bail!("keep between 0% and 100% of the triangles, got {share}%");
+                }
+                (before as f64 * share / 100.0).round() as usize
+            }
+            None => {
+                let n = args.number("triangles", &self.scope)?;
+                if n < 4.0 || n.fract() != 0.0 {
+                    bail!(
+                        "`decimate` takes a whole number of triangles (at least 4) or a share like 25%"
+                    );
+                }
+                n as usize
+            }
+        };
+        let mesh = self.sculpted("decimate")?;
+        mesh.decimate(&selection, target);
+        let after = mesh.triangles.len();
+        let note = if after > target {
+            format!(
+                "; stopped at {after}, the rest cannot go without tearing the surface or leaving the selection"
+            )
+        } else {
+            String::new()
+        };
+        Ok(self.topology_summary("decimate", before)? + &note)
     }
 
     pub(crate) fn mesh_mirror(&mut self, axis: usize, at: f64, of: Option<&str>) -> Result<String> {

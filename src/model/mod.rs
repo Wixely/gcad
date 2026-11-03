@@ -569,6 +569,13 @@ pub const OPERATIONS: &[&str] = &[
     "select",
     "inflate",
     "smooth",
+    "refine",
+    "crease",
+    "pinch",
+    "flatten",
+    "noise",
+    "relax",
+    "decimate",
 ];
 
 const PROFILE_OPS: &[&str] = &[
@@ -577,26 +584,8 @@ const PROFILE_OPS: &[&str] = &[
 ];
 
 const MESH_SAFE: &[&str] = &[
-    "let",
-    "blob",
-    "limb",
-    "remesh",
-    "select",
-    "inflate",
-    "smooth",
-    "move",
-    "rotate",
-    "scale",
-    "mirror",
-    "body",
-    "color",
-    "material",
-    "materials",
-    "if",
-    "include",
-    "plane",
-    "axis",
-    "point",
+    "let", "move", "rotate", "scale", "mirror", "body", "color", "material", "materials", "if",
+    "include", "plane", "axis", "point", "import",
 ];
 
 impl Model {
@@ -701,7 +690,10 @@ impl Model {
     }
 
     fn apply_op(&mut self, line: &Line) -> Result<String> {
-        if self.has_mesh() && !MESH_SAFE.contains(&line.op.as_str()) {
+        if self.has_mesh()
+            && !MESH_SAFE.contains(&line.op.as_str())
+            && !MESH_OPERATIONS.contains(&line.op.as_str())
+        {
             self.mesh_op(&line.op)?;
         }
         match line.op.as_str() {
@@ -789,6 +781,13 @@ impl Model {
             "select" => self.op_select(line),
             "inflate" => self.op_inflate(line),
             "smooth" => self.op_smooth(line),
+            "refine" => self.op_refine(line),
+            "crease" => self.op_crease(line),
+            "pinch" => self.op_pinch(line),
+            "flatten" => self.op_flatten(line),
+            "noise" => self.op_noise(line),
+            "relax" => self.op_relax(line),
+            "decimate" => self.op_decimate(line),
             other => bail!(
                 "unknown operation `{other}`; operations are {}",
                 OPERATIONS.join(", ")

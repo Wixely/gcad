@@ -1,3 +1,5 @@
+pub mod decimate;
+pub mod sculpt;
 pub mod sdf;
 
 use anyhow::{Context, Result, anyhow, bail};

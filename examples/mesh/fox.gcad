@@ -1,0 +1,40 @@
+
+torso: blob 0,0,18 r=6,11,6
+chest: blob 0,-7,19 r=5.5,5,5.5 blend=2
+neck: limb 0,-8,22 0,-11,26 r=3.8,3.5 blend=2
+head: blob 0,-12,28 r=5.5,5,5 blend=2
+cheek_l: blob 3.5,-13,26 r=2.5,2.5,2 blend=1.5
+mirror x of=cheek_l
+snout: limb 0,-15,27 0,-22,25.5 r=2.8,1.2 blend=1.5
+nose: blob 0,-22.8,25.6 r=0.9 blend=0.4
+ear_l: limb 2.8,-11,31.5 3.8,-10.5,36 4.3,-10,39.5 r=1.9,1.2,0.25 blend=1
+mirror x of=ear_l
+
+leg_front_l: limb 3.5,-7,15 3.6,-8,8 3.5,-8.5,2 r=2.2,1.6,1.4 blend=1.5
+paw_front_l: blob 3.5,-9.5,1.2 r=1.8,2.4,1.2 blend=0.8
+leg_back_l: limb 3.8,7,16 4,9,9 3.8,7.5,2 r=2.8,1.8,1.4 blend=1.8
+paw_back_l: blob 3.8,6.5,1.2 r=1.8,2.4,1.2 blend=0.8
+mirror x of=leg_front_l
+mirror x of=paw_front_l
+mirror x of=leg_back_l
+mirror x of=paw_back_l
+
+tail: limb 0,10,19 0,16,22 0,20,28 0,19,33 r=1.5,3.5,3.5,1.5 blend=2
+
+remesh 0.3
+fluff: select tail falloff=2
+inflate 0.8
+noise 0.25 size=0.8 seed=3
+ears: select ear_l,ear_r falloff=1
+scale 1,0.7,1
+face: select head,snout,cheek_l,cheek_r falloff=1
+refine 0.12
+eyes: select sphere=2.5,-16.5,30 r=1.2 mirror=x falloff=0.6
+inflate -0.4
+mouth: select sphere=0,-19,25 r=3 falloff=0.5
+crease 1.5,-20,25 -1.5,-20,25 depth=0.25 width=0.3
+paws: select paw_front_l,paw_front_r,paw_back_l,paw_back_r
+flatten at=0,0,0 normal=z
+select all
+decimate 5000
+color #d2691e

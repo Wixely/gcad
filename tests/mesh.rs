@@ -227,3 +227,214 @@ fn creature_example() {
     assert_eq!(mesh.open_edges(), 0);
     near(mesh.volume(), 2652.355, 0.001);
 }
+
+fn coarse_ball() -> &'static str {
+    "ball: blob 0,0,0 r=10\nremesh 1.5"
+}
+
+#[test]
+fn refine_hits_the_edge_length_and_stays_closed() {
+    let model = build(&format!("{}\nselect all\nrefine 0.5", coarse_ball()));
+    let mesh = mesh_of(&model);
+    assert_eq!(mesh.open_edges(), 0);
+    let longest = mesh
+        .triangles
+        .iter()
+        .flat_map(|t| (0..3).map(move |k| (t[k], t[(k + 1) % 3])))
+        .map(|(a, b)| {
+            gcad::mesh::length(gcad::mesh::sub(
+                mesh.positions[a as usize],
+                mesh.positions[b as usize],
+            ))
+        })
+        .fold(0.0, f64::max);
+    assert!(longest <= 0.5, "longest edge {longest}");
+}
+
+#[test]
+fn refine_only_inside_the_selection() {
+    let before = mesh_of(&build(coarse_ball()));
+    let model = build(&format!(
+        "{}\nselect sphere=0,0,10 r=3\nrefine 0.3",
+        coarse_ball()
+    ));
+    let mesh = mesh_of(&model);
+    assert_eq!(mesh.open_edges(), 0);
+    let below = |m: &gcad::mesh::Mesh| {
+        m.triangles
+            .iter()
+            .filter(|t| t.iter().all(|&i| m.positions[i as usize][2] < 0.0))
+            .count()
+    };
+    assert_eq!(below(&mesh), below(&before));
+    assert!(mesh.triangles.len() > before.triangles.len() * 2);
+}
+
+#[test]
+fn refine_follows_the_curve() {
+    let model = build("ball: blob 0,0,0 r=10\nremesh 4\nselect all\nrefine 0.4");
+    let mesh = mesh_of(&model);
+    let worst = mesh
+        .positions
+        .iter()
+        .map(|p| (gcad::mesh::length(*p) - 10.0).abs())
+        .fold(0.0, f64::max);
+    assert!(worst < 0.25, "a new vertex sits {worst} off the sphere");
+}
+
+#[test]
+fn crease_cuts_a_groove_of_the_given_depth() {
+    let start = mesh_of(&build("slab: blob 0,0,0 r=10,10,3\nremesh 0.25"));
+    let model = build(
+        "slab: blob 0,0,0 r=10,10,3\nremesh 0.25\nselect all\ncrease -5,0,3 5,0,3 depth=0.4 width=0.8",
+    );
+    let mesh = mesh_of(&model);
+    let deepest = start
+        .positions
+        .iter()
+        .zip(&mesh.positions)
+        .map(|(a, b)| a[2] - b[2])
+        .fold(0.0, f64::max);
+    assert!((deepest - 0.4).abs() < 0.03, "deepest {deepest}");
+    let far = start
+        .positions
+        .iter()
+        .zip(&mesh.positions)
+        .filter(|(a, _)| a[1].abs() > 0.9)
+        .map(|(a, b)| gcad::mesh::length(gcad::mesh::sub(*a, *b)))
+        .fold(0.0, f64::max);
+    assert_eq!(far, 0.0);
+}
+
+#[test]
+fn pinch_draws_vertices_together_along_the_surface() {
+    let start = mesh_of(&build(coarse_ball()));
+    let model = build(&format!(
+        "{}\nselect sphere=0,0,10 r=4\npinch 0.5 toward=0,0,10",
+        coarse_ball()
+    ));
+    let mesh = mesh_of(&model);
+    let (mut before, mut after) = (0.0, 0.0);
+    for (a, b) in start.positions.iter().zip(&mesh.positions) {
+        let to_tip = |p: &[f64; 3]| gcad::mesh::length(gcad::mesh::sub(*p, [0.0, 0.0, 10.0]));
+        if to_tip(a) < 4.0 {
+            before += to_tip(a);
+            after += to_tip(b);
+        }
+    }
+    near(after / before, 0.5, 0.05);
+}
+
+#[test]
+fn flatten_onto_a_plane() {
+    let model = build(
+        "ball: blob 0,0,0 r=5\nremesh 0.2\nselect box=-10,-10,3,10,10,10\nflatten at=0,0,3 normal=z",
+    );
+    let (_, hi) = extent(&model);
+    assert!((hi[2] - 3.0).abs() < 1.0e-9, "top {}", hi[2]);
+    let h = 2.0;
+    let cap = PI * h * h * (3.0 * 5.0 - h) / 3.0;
+    near(mesh_volume(&model), 4.0 / 3.0 * PI * 125.0 - cap, 0.01);
+}
+
+#[test]
+fn noise_is_repeatable_and_bounded() {
+    let source = "ball: blob 0,0,0 r=5\nremesh 0.2\nselect all\nnoise 0.3 size=1 seed=7";
+    let (a, b) = (mesh_of(&build(source)), mesh_of(&build(source)));
+    assert_eq!(a.positions, b.positions);
+    let off = a
+        .positions
+        .iter()
+        .map(|p| (gcad::mesh::length(*p) - 5.0).abs())
+        .fold(0.0, f64::max);
+    assert!(off > 0.05 && off < 0.35, "{off}");
+    let other = mesh_of(&build(
+        "ball: blob 0,0,0 r=5\nremesh 0.2\nselect all\nnoise 0.3 size=1 seed=8",
+    ));
+    assert_ne!(a.positions, other.positions);
+}
+
+#[test]
+fn relax_evens_triangles_without_shrinking() {
+    let lumpy =
+        "ball: blob 0,0,0 r=5\nremesh 0.4\nselect sphere=0,0,5 r=3\nrefine 0.15\nselect all";
+    let start = mesh_of(&build(lumpy));
+    let model = build(&format!("{lumpy}\nrelax 20"));
+    let mesh = mesh_of(&model);
+    near(mesh.volume(), start.volume(), 0.01);
+    let spread = |m: &gcad::mesh::Mesh| {
+        let lengths: Vec<f64> = m
+            .triangles
+            .iter()
+            .flat_map(|t| (0..3).map(move |k| (t[k], t[(k + 1) % 3])))
+            .map(|(a, b)| {
+                gcad::mesh::length(gcad::mesh::sub(
+                    m.positions[a as usize],
+                    m.positions[b as usize],
+                ))
+            })
+            .collect();
+        let mean = lengths.iter().sum::<f64>() / lengths.len() as f64;
+        (lengths.iter().map(|l| (l - mean).powi(2)).sum::<f64>() / lengths.len() as f64).sqrt()
+            / mean
+    };
+    assert!(
+        spread(&mesh) < spread(&start),
+        "{} vs {}",
+        spread(&mesh),
+        spread(&start)
+    );
+}
+
+#[test]
+fn decimate_to_a_budget_keeps_the_shape() {
+    let model = build("ball: blob 0,0,0 r=10\nremesh 0.3\nselect all\ndecimate 2000");
+    let mesh = mesh_of(&model);
+    assert!(
+        mesh.triangles.len() <= 2000 && mesh.triangles.len() > 1900,
+        "{}",
+        mesh.triangles.len()
+    );
+    assert_eq!(mesh.open_edges(), 0);
+    near(mesh.volume(), 4.0 / 3.0 * PI * 1000.0, 0.02);
+}
+
+#[test]
+fn decimate_by_share_leaves_unselected_triangles() {
+    let source = "body: blob 0,0,0 r=5\nhead: blob 0,0,8 r=3 blend=1\nremesh 0.25";
+    let start = mesh_of(&build(source));
+    let model = build(&format!("{source}\nselect body\ndecimate 25%"));
+    let mesh = mesh_of(&model);
+    assert_eq!(mesh.open_edges(), 0);
+    let high = |m: &gcad::mesh::Mesh| {
+        m.triangles
+            .iter()
+            .filter(|t| t.iter().all(|&i| m.positions[i as usize][2] > 7.0))
+            .count()
+    };
+    assert_eq!(high(&mesh), high(&start));
+    assert!(mesh.triangles.len() < start.triangles.len() * 7 / 10);
+}
+
+#[test]
+fn decimate_keeps_part_labels() {
+    let model = build(
+        "body: blob 0,0,0 r=5\nhead: blob 0,0,8 r=3 blend=1\nremesh 0.25\nselect all\ndecimate 1500\nselect head\nmove 0,0,2",
+    );
+    let (_, hi) = extent(&model);
+    assert!(hi[2] > 12.5, "{}", hi[2]);
+}
+
+#[test]
+fn fox_example_fits_a_game_budget() {
+    let source = std::fs::read_to_string(format!(
+        "{}/examples/mesh/fox.gcad",
+        env!("CARGO_MANIFEST_DIR")
+    ))
+    .expect("example exists");
+    let mesh = mesh_of(&build(&source));
+    assert_eq!(mesh.triangles.len(), 5000);
+    assert_eq!(mesh.open_edges(), 0);
+    assert_eq!(mesh.parts.len(), 19);
+    near(mesh.volume(), 4366.462, 0.002);
+}

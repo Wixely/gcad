@@ -420,8 +420,19 @@ Sculpting, after `remesh` or `import`:
 | `rotate` | `angle` `axis=x\|y\|z\|name` `about=x,y,z` | turns the selection about the axis through `about`, the selection's centre unless given; right-handed, so `rotate 30 axis=z` turns +x toward +y |
 | `inflate` | `by` | pushes the selection out along the surface by `by` (negative pulls it in): fatter limbs, a puffed chest, eye sockets |
 | `smooth` | `passes` | relaxes the selection's surface, 1 pass unless given; 5 to 20 takes out lumps |
+| `refine` | `edge` | splits the selection's triangles until no edge in it is longer than `edge`, placing new vertices on the curve of the surface rather than on the flat triangles. The rest of the mesh keeps its triangles and stays joined. Detail smaller than about two edges cannot be sculpted, so refine where the detail goes (a face, hands) before creasing or adding noise there |
+| `crease` | `x,y,z x,y,z` `depth=` `width=` | cuts a groove along the line between the two points, `depth` deep (0.3, negative raises a ridge) and `width` wide (0.5) on each side, rounded at the bottom: mouths, eyelids, fingers, folds |
+| `pinch` | `strength` `toward=x,y,z` | draws the selection along the surface toward a point (the selection's centre unless given), `strength` 1 all the way and negative spreading it out: sharper tips, tighter creases |
+| `flatten` | `at=x,y,z normal=` | presses the selection onto a plane, the one through `at` square to `normal`, or one fitted to the selection when neither is given: soles, cut faces, flat backs |
+| `noise` | `amplitude` `size=` `seed=` | pushes the selection in and out along the surface by up to about `amplitude`, in lumps about `size` across (1), the same for the same `seed`: fur, bark, rock, skin |
+| `relax` | `passes` | evens out the triangles of the selection by sliding vertices along the surface, so the shape stays where `smooth` would shrink it |
+| `decimate` | `triangles` or `share%` | merges triangles in the selection until the whole mesh has `triangles` of them (or keeps that share of the selection's), choosing the merges that change the shape least and never tearing the surface. Parts keep their names. The last step for a game asset: `select all` then `decimate 5000` |
 | `import` | `file.obj mesh` or `file.stl mesh` | starts the body from a mesh file; an OBJ's `o` and `g` groups become its parts |
 | `color` | as for solids | |
+
+The mesh starts as fine as `remesh` made it, the same everywhere. Make detail where it goes
+rather than everywhere: a coarse `remesh`, then `select` the face and `refine` it before
+creasing it, and `decimate` at the end to the triangle budget of the game.
 
 Each sculpting line reports how many vertices it moved, the most any one moved, and the
 new volume, so a line that missed its target shows up as `moved 0 vertices`. A body is a

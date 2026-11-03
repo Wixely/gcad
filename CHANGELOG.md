@@ -4,6 +4,14 @@ All notable changes to gcad are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.1] - 2026-11-03
+
+### Added
+- OBJ export writes per-vertex colours, so soft colour borders survive in other renderers.
+
+### Fixed
+- Release build: `Cargo.lock` now locks `egui_bench` from crates.io.
+
 ## [0.6.0] - 2026-11-03
 
 ### Added

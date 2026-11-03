@@ -1168,6 +1168,8 @@ dependencies = [
 [[package]]
 name = "egui_bench"
 version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4522405040393cfbc2addb9996dead2b81701e8ef89c1e95f86594ac17551ea7"
 dependencies = [
  "bytemuck",
  "egui",
@@ -1616,7 +1618,7 @@ dependencies = [
 
 [[package]]
 name = "gcad"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "anyhow",
  "bitcode",

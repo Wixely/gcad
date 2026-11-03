@@ -1,4 +1,4 @@
-use super::{Mesh, P3, Selection, add, dot, length, normalized, scale, sub};
+use super::{Mesh, P3, Selection, add, dot, length, normalized, on_far_side, reflect, scale, sub};
 use std::collections::HashMap;
 
 fn edge(a: u32, b: u32) -> (u32, u32) {
@@ -121,9 +121,18 @@ impl Mesh {
             if w <= 0.0 {
                 continue;
             }
+            let (a, ab) = match on_far_side(selection, *p) {
+                Some(axis) => (reflect(a, axis), reflect(ab, axis)),
+                None => (a, ab),
+            };
             let t = (dot(sub(*p, a), ab) / l2).clamp(0.0, 1.0);
-            let nearest = add(a, scale(ab, t));
-            let d = length(sub(*p, nearest));
+            let off = sub(*p, add(a, scale(ab, t)));
+            let n = normals[i];
+            let height = dot(off, n);
+            if height.abs() > 2.0 * width {
+                continue;
+            }
+            let d = length(sub(off, scale(n, height)));
             if d >= width {
                 continue;
             }
@@ -145,7 +154,11 @@ impl Mesh {
             if w <= 0.0 {
                 continue;
             }
-            let pull = sub(toward, *p);
+            let target = match on_far_side(selection, *p) {
+                Some(axis) => reflect(toward, axis),
+                None => toward,
+            };
+            let pull = sub(target, *p);
             let n = normals[i];
             let along = sub(pull, scale(n, dot(pull, n)));
             *p = add(*p, scale(along, (strength * w).clamp(-1.0, 1.0)));
@@ -154,7 +167,7 @@ impl Mesh {
         moved
     }
 
-    pub fn flatten(&mut self, selection: &Selection, plane: Option<(P3, P3)>) -> usize {
+    pub fn flatten(&mut self, selection: &Selection, plane: Option<(P3, P3)>, cut: bool) -> usize {
         let (origin, normal) = plane.unwrap_or_else(|| self.fit_plane(selection));
         let n = normalized(normal);
         let mut moved = 0;
@@ -164,6 +177,9 @@ impl Mesh {
                 continue;
             }
             let h = dot(sub(*p, origin), n);
+            if cut && h >= 0.0 {
+                continue;
+            }
             *p = sub(*p, scale(n, h * w));
             moved += 1;
         }

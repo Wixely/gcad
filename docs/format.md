@@ -421,14 +421,14 @@ Sculpting, after `remesh` or `import`:
 | `inflate` | `by` | pushes the selection out along the surface by `by` (negative pulls it in): fatter limbs, a puffed chest, eye sockets |
 | `smooth` | `passes` | relaxes the selection's surface, 1 pass unless given; 5 to 20 takes out lumps |
 | `refine` | `edge` | splits the selection's triangles until no edge in it is longer than `edge`, placing new vertices on the curve of the surface rather than on the flat triangles. The rest of the mesh keeps its triangles and stays joined. Detail smaller than about two edges cannot be sculpted, so refine where the detail goes (a face, hands) before creasing or adding noise there |
-| `crease` | `x,y,z x,y,z` `depth=` `width=` | cuts a groove along the line between the two points, `depth` deep (0.3, negative raises a ridge) and `width` wide (0.5) on each side, rounded at the bottom: mouths, eyelids, fingers, folds |
+| `crease` | `x,y,z x,y,z` `depth=` `width=` | cuts a groove along the line between the two points, `depth` deep (0.3, negative raises a ridge) and `width` wide (0.5) on each side, rounded at the bottom: mouths, eyelids, fingers, folds. The line only has to run near the surface, within twice `width`; the groove follows the surface under it. With `select ... mirror=x` the line is mirrored for the other side too |
 | `pinch` | `strength` `toward=x,y,z` | draws the selection along the surface toward a point (the selection's centre unless given), `strength` 1 all the way and negative spreading it out: sharper tips, tighter creases |
-| `flatten` | `at=x,y,z normal=` | presses the selection onto a plane, the one through `at` square to `normal`, or one fitted to the selection when neither is given: soles, cut faces, flat backs |
+| `flatten` | `cut` `at=x,y,z normal=` | presses the selection onto a plane, the one through `at` square to `normal`, or one fitted to the selection when neither is given. With `cut` only what lies behind the plane (against `normal`) moves onto it and the rest stays, so `flatten cut at=0,0,0.2 normal=z` gives paws a flat sole without crushing them |
 | `noise` | `amplitude` `size=` `seed=` | pushes the selection in and out along the surface by up to about `amplitude`, in lumps about `size` across (1), the same for the same `seed`: fur, bark, rock, skin |
 | `relax` | `passes` | evens out the triangles of the selection by sliding vertices along the surface, so the shape stays where `smooth` would shrink it |
 | `decimate` | `triangles` or `share%` | merges triangles in the selection until the whole mesh has `triangles` of them (or keeps that share of the selection's), choosing the merges that change the shape least and never tearing the surface. Parts keep their names. The last step for a game asset: `select all` then `decimate 5000` |
 | `import` | `file.obj mesh` or `file.stl mesh` | starts the body from a mesh file; an OBJ's `o` and `g` groups become its parts |
-| `color` | as for solids | |
+| `color` | as for solids, and `part=name` | colours the whole mesh, or with `part=` one part of it: a white bib, dark socks, black eyes. OBJ export writes the colours to an `.mtl` beside it |
 
 The mesh starts as fine as `remesh` made it, the same everywhere. Make detail where it goes
 rather than everywhere: a coarse `remesh`, then `select` the face and `refine` it before

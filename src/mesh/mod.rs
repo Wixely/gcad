@@ -380,7 +380,7 @@ pub fn apply(m: &[[f64; 3]; 3], v: P3) -> P3 {
     [dot(m[0], v), dot(m[1], v), dot(m[2], v)]
 }
 
-fn on_far_side(selection: &Selection, p: P3) -> Option<usize> {
+pub fn on_far_side(selection: &Selection, p: P3) -> Option<usize> {
     selection
         .mirror
         .filter(|&axis| p[axis] * selection.centre[axis] < 0.0)
@@ -531,6 +531,10 @@ pub fn from_triangles(points: Vec<[P3; 3]>) -> Mesh {
 }
 
 pub fn write_obj(mesh: &Mesh) -> String {
+    write_obj_with(mesh, false)
+}
+
+pub fn write_obj_with(mesh: &Mesh, materials: bool) -> String {
     use std::fmt::Write;
     let mut out = String::new();
     for p in &mesh.positions {
@@ -548,6 +552,9 @@ pub fn write_obj(mesh: &Mesh) -> String {
         }
         if let Some(name) = mesh.parts.get(k) {
             let _ = writeln!(out, "g {name}");
+            if materials {
+                let _ = writeln!(out, "usemtl {name}");
+            }
         }
         for t in tris {
             let _ = writeln!(out, "f {} {} {}", t[0] + 1, t[1] + 1, t[2] + 1);

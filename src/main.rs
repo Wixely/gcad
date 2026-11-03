@@ -624,7 +624,7 @@ fn main() -> Result<()> {
             finished(&run)?;
             let parts = run.model.exploded_parts(if explode { 1.0 } else { 0.0 });
             let parts: Vec<_> = parts.iter().map(|(s, c)| (s, *c)).collect();
-            let meshes = run.model.coloured_meshes();
+            let meshes = run.model.mesh_tints();
             render::render_with_meshes(&parts, &meshes, &output)
         }
         Command::View { file, select, line } => {

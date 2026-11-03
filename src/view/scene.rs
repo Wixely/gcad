@@ -467,7 +467,7 @@ fn describe_source(source: &crate::model::Source) -> String {
 fn mesh_surfaces(
     mesh: &crate::mesh::Mesh,
     body: usize,
-    colour: V3,
+    tints: &[V3],
     selected: Option<(&[f64], V3)>,
     out: &mut Vec<Surface>,
     info: &mut Vec<FaceInfo>,
@@ -504,6 +504,7 @@ fn mesh_surfaces(
             mesh.parts.get(part).map_or("mesh", |p| p.as_str()),
             triangles.len()
         );
+        let colour = tints.get(part).copied().unwrap_or(BODY);
         for (highlit, tint) in [(false, colour), (true, selected.map_or(colour, |(_, c)| c))] {
             let mut surface = Surface {
                 colour: tint,
@@ -537,7 +538,7 @@ pub fn build(
     marked_colour: V3,
 ) -> Scene {
     let mut scene = build_solids(model, highlights, marked, marked_colour);
-    let meshes = model.coloured_meshes();
+    let meshes = model.mesh_tints();
     if meshes.is_empty() {
         return scene;
     }
@@ -549,9 +550,13 @@ pub fn build(
     let (solid_centre, solid_radius) = (solid_mesh.centre, solid_mesh.radius);
     let mut surfaces = solid_mesh.surfaces;
     let mut bounds: Option<(crate::mesh::P3, crate::mesh::P3)> = None;
-    for (name, mesh, colour) in &meshes {
+    for (name, mesh, tints) in &meshes {
         let body = scene.parts.len();
-        let colour = colour.map_or(BODY, |c| c.map(|v| v as f32));
+        let tints: Vec<V3> = tints.iter().map(|c| c.map(|v| v as f32)).collect();
+        let colour = model
+            .colours
+            .get(name)
+            .map_or(BODY, |c| c.map(|v| v as f32));
         let is_current = *name == current;
         let selected = selection
             .filter(|s| is_current && s.weights.len() == mesh.positions.len())
@@ -564,7 +569,7 @@ pub fn build(
         mesh_surfaces(
             mesh,
             body,
-            colour,
+            &tints,
             selected,
             &mut surfaces,
             &mut scene.faces,

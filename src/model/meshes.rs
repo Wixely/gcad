@@ -89,6 +89,50 @@ impl Model {
         out
     }
 
+    pub(crate) fn colour_mesh_part(&mut self, part: &str, colour: [f64; 3]) -> Result<String> {
+        let mesh = self
+            .current_mesh()?
+            .ok_or_else(|| anyhow!("`color part=` colours a part of a mesh body"))?;
+        if !mesh.parts.iter().any(|p| p == part) {
+            bail!(
+                "the mesh has no part `{part}`; its parts are {}",
+                mesh.parts.join(", ")
+            );
+        }
+        self.part_colours
+            .insert((self.body_name(), part.to_string()), colour);
+        Ok(format!(
+            "part `{part}` is {:.2},{:.2},{:.2}",
+            colour[0], colour[1], colour[2]
+        ))
+    }
+
+    pub fn part_colours_of(&self, body: &str, mesh: &Mesh) -> Vec<Option<[f64; 3]>> {
+        mesh.parts
+            .iter()
+            .map(|p| {
+                self.part_colours
+                    .get(&(body.to_string(), p.clone()))
+                    .copied()
+            })
+            .collect()
+    }
+
+    pub fn mesh_tints(&self) -> Vec<(String, Arc<Mesh>, Vec<[f64; 3]>)> {
+        self.coloured_meshes()
+            .into_iter()
+            .map(|(name, mesh, colour)| {
+                let base = colour.unwrap_or([150.0 / 255.0, 175.0 / 255.0, 205.0 / 255.0]);
+                let tints = self
+                    .part_colours_of(&name, &mesh)
+                    .into_iter()
+                    .map(|c| c.unwrap_or(base))
+                    .collect();
+                (name, mesh, tints)
+            })
+            .collect()
+    }
+
     pub fn coloured_meshes(&self) -> Vec<(String, Arc<Mesh>, Option<[f64; 3]>)> {
         self.meshes()
             .into_iter()
@@ -543,7 +587,12 @@ impl Model {
     }
 
     pub(crate) fn op_flatten(&mut self, line: &Line) -> Result<String> {
-        let args = Args::new(line, &[], &["at", "normal"], false)?;
+        let args = Args::new(line, &["cut"], &["at", "normal"], false)?;
+        let cut = match args.values.get("cut").copied() {
+            None => false,
+            Some("cut") => true,
+            Some(other) => bail!("`flatten` takes `cut`, got `{other}`"),
+        };
         let plane = match (args.values.get("at"), args.values.get("normal")) {
             (Some(at), Some(normal)) => {
                 let o = point3(at, &self.scope)?;
@@ -560,7 +609,12 @@ impl Model {
         };
         let selection = self.selection_for("flatten")?;
         let before = self.sculpted("flatten")?.clone();
-        let moved = self.sculpted("flatten")?.flatten(&selection, plane);
+        if cut && plane.is_none() {
+            bail!(
+                "`flatten cut` needs the plane: `at=x,y,z normal=`, the normal pointing out of what stays"
+            );
+        }
+        let moved = self.sculpted("flatten")?.flatten(&selection, plane, cut);
         self.sculpt_summary(moved, &before)
     }
 

@@ -434,7 +434,11 @@ other, `mirror x of=` the left-side parts, `remesh`, then sculpt: `select` a par
 - Detail costs triangles only where you `refine`: keep `remesh` coarse, `select` the face and
   `refine 0.1` it before `crease`, `pinch` or `noise` there. A line that needs a finer mesh
   says so.
-- End a game asset with `select all` and `decimate 5000` (or the budget it has).
+- End a game asset with `select all` and `decimate 5000` (or the budget it has), behind a
+  variable (`if budget>0 decimate budget`) so the full detail stays available for renders.
+- Small features are their own labelled blobs (eyes, toes, nose), not dents. A blob gets its own
+  colour with `color ... part=` and stays sharp through `decimate`.
+- Judge detail close up: a whole-body render hides anything under a few percent of its size.
 - `gcad render` after the blockout and again after sculpting, and compare the four views with
   what you meant. Fix the blockout first; sculpting only nudges.
 - Export with `gcad export file.gcad out.obj`: each part is its own `g` group.
@@ -485,8 +489,8 @@ gcad bom asm.gasm --csv
 - `examples/assemblies/linkage.gasm`: a four-bar linkage, a closed loop of joints.
 - `examples/mesh/creature.gcad`: a creature blocked out of blobs and limbs, mirrored, remeshed
   and sculpted by part name.
-- `examples/mesh/fox.gcad`: a fox refined around the face, creased, textured and decimated to a
-  5000 triangle game budget.
+- `examples/mesh/fox.gcad`: a fox with real anatomy (thighs, hocks, toes, cupped ears, almond
+  eyes, cheek ruffs), part colours, and `--set budget=8000` for a game-ready mesh.
 - `examples/robot/arm.gasm`: a 34-part robot arm. Every joint is a motor on its axis driving a
   planetary reducer whose ring is cut into the housing; suns and planets are coupled at their
   ratios and the planets are patterned. The gripper is two racks on one pinion. Copy its

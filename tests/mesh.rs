@@ -432,9 +432,131 @@ fn fox_example_fits_a_game_budget() {
         env!("CARGO_MANIFEST_DIR")
     ))
     .expect("example exists");
-    let mesh = mesh_of(&build(&source));
-    assert_eq!(mesh.triangles.len(), 5000);
+    let lines = gcad::parse::parse_program(&source).expect("parses");
+    let run = gcad::model::run_with(&[("budget".to_string(), 8000.0)], &lines);
+    if let Some((line, Err(error))) = run.steps.last() {
+        panic!("line {} `{}`: {error:#}", line.number, line.text);
+    }
+    let mesh = mesh_of(&run.model);
+    assert_eq!(mesh.triangles.len(), 8000);
     assert_eq!(mesh.open_edges(), 0);
-    assert_eq!(mesh.parts.len(), 19);
-    near(mesh.volume(), 4366.462, 0.002);
+    assert_eq!(mesh.parts.len(), 38);
+    assert!(mesh.parts.iter().any(|p| p == "toe2_r"));
+}
+
+#[test]
+fn flatten_cut_trues_a_sole_without_crushing_the_paw() {
+    let source =
+        "paw: blob 0,0,2 r=2,3,2\nremesh 0.15\nselect all\nflatten at=0,0,0.6 normal=z cut";
+    let start = mesh_of(&build("paw: blob 0,0,2 r=2,3,2\nremesh 0.15"));
+    let mesh = mesh_of(&build(source));
+    let (lo, hi) = mesh.bounds().expect("vertices");
+    assert!((lo[2] - 0.6).abs() < 1.0e-9, "sole at {}", lo[2]);
+    assert!(
+        (hi[2] - start.bounds().expect("vertices").1[2]).abs() < 1.0e-9,
+        "top {}",
+        hi[2]
+    );
+    let untouched = start
+        .positions
+        .iter()
+        .zip(&mesh.positions)
+        .filter(|(p, _)| p[2] > 0.6)
+        .all(|(p, q)| p == q);
+    assert!(untouched);
+}
+
+#[test]
+fn crease_drawn_just_off_the_surface_still_cuts() {
+    let model = build(
+        "slab: blob 0,0,0 r=10,10,3\nremesh 0.25\nselect all\ncrease -5,0,3.6 5,0,3.6 depth=0.4 width=0.8",
+    );
+    let start = mesh_of(&build("slab: blob 0,0,0 r=10,10,3\nremesh 0.25"));
+    let mesh = mesh_of(&model);
+    let deepest = start
+        .positions
+        .iter()
+        .zip(&mesh.positions)
+        .map(|(a, b)| a[2] - b[2])
+        .fold(0.0, f64::max);
+    assert!((deepest - 0.4).abs() < 0.03, "deepest {deepest}");
+}
+
+#[test]
+fn colour_one_part() {
+    let model = build(
+        "body: blob 0,0,0 r=4\nhead: blob 0,0,6 r=2 blend=1\nremesh 0.3\ncolor #ffffff part=head\ncolor #d2691e",
+    );
+    let path = scratch("coloured.obj");
+    gcad::export::export_model(&model, std::path::Path::new("coloured.gcad"), &path)
+        .expect("exports");
+    let obj = std::fs::read_to_string(&path).expect("obj");
+    let mtl = std::fs::read_to_string(path.replace(".obj", ".mtl")).expect("mtl beside it");
+    assert!(
+        obj.contains("mtllib coloured.mtl") && obj.contains("usemtl head"),
+        "{obj:.200}"
+    );
+    assert!(mtl.contains("newmtl head\nKd 1 1 1"), "{mtl}");
+    assert!(mtl.contains("newmtl body\nKd 0.8235"), "{mtl}");
+}
+
+#[test]
+fn colour_unknown_part_lists_the_parts() {
+    let error = failure("body: blob 0,0,0 r=4\nremesh 0.5\ncolor red part=tail");
+    assert!(
+        error.contains("no part `tail`") && error.contains("body"),
+        "{error}"
+    );
+}
+
+#[test]
+fn decimate_keeps_the_border_between_parts_fine() {
+    let source = "left: blob -3,0,0 r=3,3,3\nright: blob 3,0,0 r=3,3,3 blend=1\nremesh 0.15";
+    let before = mesh_of(&build(source));
+    let model = build(&format!("{source}\nselect all\ndecimate 1500"));
+    let mesh = mesh_of(&model);
+    let border = |m: &gcad::mesh::Mesh| {
+        m.triangles
+            .iter()
+            .filter(|t| {
+                let l = t.map(|i| m.labels[i as usize]);
+                l[0] != l[1] || l[1] != l[2]
+            })
+            .count()
+    };
+    let kept = border(&mesh) as f64 / border(&before) as f64;
+    let overall = mesh.triangles.len() as f64 / before.triangles.len() as f64;
+    assert!(
+        kept > overall * 4.0,
+        "kept {kept:.3} of the border against {overall:.3} overall"
+    );
+    let wandered = mesh
+        .positions
+        .iter()
+        .zip(&mesh.labels)
+        .filter(|(p, l)| (p[0] < 0.0) != (mesh.parts[**l as usize] == "left") && p[0].abs() > 0.05)
+        .count();
+    assert_eq!(
+        wandered, 0,
+        "vertices whose part is the other side of the border"
+    );
+}
+
+#[test]
+fn pinch_with_mirror_pulls_each_side_to_its_own_point() {
+    let source = "body: blob 0,0,0 r=8,3,3\nremesh 0.25";
+    let start = mesh_of(&build(source));
+    let mesh = mesh_of(&build(&format!(
+        "{source}\nselect sphere=8,0,0 r=1.5 mirror=x falloff=0.5\npinch 0.5"
+    )));
+    let most = start
+        .positions
+        .iter()
+        .zip(&mesh.positions)
+        .map(|(a, b)| gcad::mesh::length(gcad::mesh::sub(*a, *b)))
+        .fold(0.0, f64::max);
+    assert!(most < 1.0, "a vertex moved {most}");
+    let left = mesh.positions.iter().map(|p| p[0]).fold(f64::MAX, f64::min);
+    let right = mesh.positions.iter().map(|p| p[0]).fold(f64::MIN, f64::max);
+    assert!((left + right).abs() < 0.05, "{left} {right}");
 }

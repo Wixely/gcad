@@ -128,6 +128,7 @@ pub struct Model {
     pub sim: Option<Box<crate::sim::Spec>>,
     pub mesh_body: MeshBody,
     pub mesh_bodies: Vec<(String, std::sync::Arc<crate::mesh::Mesh>)>,
+    pub part_colours: HashMap<(String, String), [f64; 3]>,
 }
 
 #[derive(Clone)]

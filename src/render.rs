@@ -278,7 +278,7 @@ pub fn render_coloured(parts: &[(&Solid, Option<[f64; 3]>)], path: &str) -> Resu
     render_with_meshes(parts, &[], path)
 }
 
-type ColouredMesh = (String, std::sync::Arc<crate::mesh::Mesh>, Option<[f64; 3]>);
+type ColouredMesh = (String, std::sync::Arc<crate::mesh::Mesh>, Vec<[f64; 3]>);
 
 pub fn render_with_meshes(
     parts: &[(&Solid, Option<[f64; 3]>)],
@@ -309,19 +309,25 @@ pub fn render_with_meshes(
             triangles.push((corners, [tint; 3]));
         }
     }
-    for (_, mesh, colour) in meshes {
+    for (_, mesh, tints) in meshes {
         let base = positions.len();
         let at = |p: crate::mesh::P3| Point3::new(p[0], p[1], p[2]);
         positions.extend(mesh.positions.iter().map(|&p| at(p)));
         let vertex_normals = mesh.vertex_normals();
-        let tint = colour.unwrap_or([150.0 / 255.0, 175.0 / 255.0, 205.0 / 255.0]);
+        let fallback = [150.0 / 255.0, 175.0 / 255.0, 205.0 / 255.0];
+        let tint_of = |i: u32| {
+            tints
+                .get(mesh.labels[i as usize] as usize)
+                .copied()
+                .unwrap_or(fallback)
+        };
         for t in &mesh.triangles {
             let corners = t.map(|i| i as usize + base);
             normals.push(t.map(|i| {
                 let n = vertex_normals[i as usize];
                 Vector3::new(n[0], n[1], n[2])
             }));
-            triangles.push((corners, [tint; 3]));
+            triangles.push((corners, t.map(tint_of)));
         }
     }
     let edges: Vec<Vec<Point3>> = solids

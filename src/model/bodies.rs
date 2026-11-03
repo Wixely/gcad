@@ -474,9 +474,12 @@ impl Model {
     }
 
     pub(crate) fn op_color(&mut self, line: &Line) -> Result<String> {
-        let args = Args::new(line, &["colour"], &["opacity"], false)?;
+        let args = Args::new(line, &["colour"], &["opacity", "part"], false)?;
         let colour = self.colour_of(args.text("colour")?)?;
         let opacity = opacity_of(&args, &self.scope)?;
+        if let Some(part) = args.values.get("part") {
+            return self.colour_mesh_part(part, colour);
+        }
         let name = self.body_name();
         self.colours.insert(name.clone(), colour);
         self.opacities.insert(name.clone(), opacity);

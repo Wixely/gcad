@@ -91,6 +91,23 @@ impl Mesh {
                 quadric[i as usize] = plus(&quadric[i as usize], &q);
             }
         }
+        for &t in &self.triangles {
+            for k in 0..3 {
+                let (a, b, c) = (t[k], t[(k + 1) % 3], t[(k + 2) % 3]);
+                if self.labels[a as usize] == self.labels[b as usize] {
+                    continue;
+                }
+                let [pa, pb, pc] = [a, b, c].map(|i| self.positions[i as usize]);
+                let face = cross(sub(pb, pa), sub(pc, pa));
+                let edge = sub(pb, pa);
+                let side = normalized(cross(edge, face));
+                let weight = dot(edge, edge) * 4.0;
+                let q = plane_quadric(side, -dot(side, pa), weight);
+                for i in [a, b] {
+                    quadric[i as usize] = plus(&quadric[i as usize], &q);
+                }
+            }
+        }
         let mut around: Vec<HashSet<u32>> = vec![HashSet::new(); n];
         for (f, t) in self.triangles.iter().enumerate() {
             for &i in t {
@@ -167,6 +184,9 @@ impl Mesh {
                 continue;
             }
             let q = plus(&quadric[a as usize], &quadric[b as usize]);
+            if self.labels[a as usize] != self.labels[b as usize] {
+                continue;
+            }
             let p = optimum(&q, self.positions[a as usize], self.positions[b as usize]);
             let flips = [a, b].iter().any(|&v| {
                 around[v as usize].iter().any(|&f| {

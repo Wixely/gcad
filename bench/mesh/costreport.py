@@ -31,7 +31,8 @@ def score_run(d, side):
             reach = s
             break
     final = judge.rate(final_image(d, side))
-    return {"usage": {k: v for k, v in usage.items() if k != "snapshots"}, "final": final, "final_total": total(final), "step_scores": scores, "reach": reach}
+    slim = {k: v for k, v in usage.items() if k not in ("snapshots", "request_log", "tool_log", "http_log")}
+    return {"usage": slim, "stalls": [r for r in usage["request_log"] if r["seconds"] > 120], "final": final, "final_total": total(final), "step_scores": scores, "reach": reach}
 
 
 def main():
@@ -46,8 +47,8 @@ def main():
         n = len(runs)
         mean = lambda f: sum(f(r) for r in runs) / max(n, 1)
         hit = [r for r in runs if r["reach"]]
-        print(side, "n", n, "seconds", round(mean(lambda r: r["usage"]["seconds"])), "calls", round(mean(lambda r: r["usage"]["calls"]), 1),
-              "prompt", round(mean(lambda r: r["usage"]["prompt"])), "completion", round(mean(lambda r: r["usage"]["completion"])),
+        print(side, "n", n, "seconds", round(mean(lambda r: r["usage"]["seconds"])), "calls", round(mean(lambda r: r["usage"]["tool_calls"]), 1), "requests", round(mean(lambda r: r["usage"]["requests"]), 1),
+              "uncached", round(mean(lambda r: r["usage"]["uncached"])), "cached", round(mean(lambda r: r["usage"]["cached"])), "output", round(mean(lambda r: r["usage"]["output"])),
               "cost", round(mean(lambda r: r["usage"]["cost"]), 3), "score", round(mean(lambda r: r["final_total"]), 1),
               f"reached{TARGET}", len(hit), "of", n)
         if hit:

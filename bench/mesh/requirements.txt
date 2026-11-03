@@ -4,3 +4,6 @@ scipy
 trimesh
 fast-simplification
 tiktoken
+pydantic-ai-slim[openai,mcp]
+httpx
+pytest

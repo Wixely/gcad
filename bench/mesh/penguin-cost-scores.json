@@ -2,16 +2,41 @@
  "gcad": [
   {
    "usage": {
-    "prompt": 393663,
-    "completion": 17880,
-    "calls": 30,
-    "images": 14,
-    "seconds": 1078.4,
-    "tool_seconds": 7.8,
-    "llm_seconds": 1070.6,
-    "turns": 14,
-    "cost": 2.4153
+    "input": 164596,
+    "cached": 138206,
+    "uncached": 26390,
+    "output": 9033,
+    "reasoning": 0,
+    "model_seconds": 85.3,
+    "tool_seconds": 3.0,
+    "snapshot_seconds": 3.2,
+    "cost": 0.3139,
+    "requests": 9,
+    "tool_calls": 14,
+    "http_attempts": 9,
+    "http_errors": 0,
+    "seconds": 86.1,
+    "stopped": null,
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 0,
+     "seconds": 15.74,
+     "input": 5790,
+     "cached": 5581,
+     "uncached": 209,
+     "output": 1407,
+     "reasoning": 0,
+     "tool_calls": 2,
+     "cost": 0.03009
+    },
+    "system_prompt_chars": 12374
    },
+   "stalls": [],
    "final": {
     "anatomy": 7,
     "brief": 8,
@@ -22,82 +47,48 @@
    "step_scores": [
     18,
     22,
-    26,
-    25,
-    9,
-    26,
-    9,
-    26
-   ],
-   "reach": null
-  },
-  {
-   "usage": {
-    "prompt": 165362,
-    "completion": 12474,
-    "calls": 17,
-    "images": 6,
-    "seconds": 114.9,
-    "tool_seconds": 2.2,
-    "llm_seconds": 112.7,
-    "turns": 8,
-    "cost": 1.1387
-   },
-   "final": {
-    "anatomy": 6,
-    "brief": 7,
-    "detail": 5,
-    "appeal": 6
-   },
-   "final_total": 24,
-   "step_scores": [
-    19,
-    22,
-    26,
     24,
-    27
+    22
    ],
    "reach": null
   },
   {
    "usage": {
-    "prompt": 233555,
-    "completion": 12705,
-    "calls": 18,
-    "images": 6,
-    "seconds": 120.1,
-    "tool_seconds": 2.7,
-    "llm_seconds": 117.4,
-    "turns": 10,
-    "cost": 1.4854
+    "input": 270132,
+    "cached": 221759,
+    "uncached": 48373,
+    "output": 12916,
+    "reasoning": 0,
+    "model_seconds": 114.7,
+    "tool_seconds": 4.6,
+    "snapshot_seconds": 5.2,
+    "cost": 0.4962,
+    "requests": 10,
+    "tool_calls": 18,
+    "http_attempts": 10,
+    "http_errors": 0,
+    "seconds": 115.5,
+    "stopped": null,
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 0,
+     "seconds": 18.35,
+     "input": 5790,
+     "cached": 0,
+     "uncached": 5790,
+     "output": 1545,
+     "reasoning": 0,
+     "tool_calls": 2,
+     "cost": 0.05406
+    },
+    "system_prompt_chars": 12374
    },
-   "final": {
-    "anatomy": 6,
-    "brief": 7,
-    "detail": 5,
-    "appeal": 6
-   },
-   "final_total": 24,
-   "step_scores": [
-    22,
-    22,
-    21,
-    21
-   ],
-   "reach": null
-  },
-  {
-   "usage": {
-    "prompt": 319875,
-    "completion": 12933,
-    "calls": 18,
-    "images": 6,
-    "seconds": 1046.4,
-    "tool_seconds": 2.1,
-    "llm_seconds": 1044.3,
-    "turns": 13,
-    "cost": 1.9227
-   },
+   "stalls": [],
    "final": {
     "anatomy": 7,
     "brief": 8,
@@ -106,10 +97,11 @@
    },
    "final_total": 26,
    "step_scores": [
+    18,
     20,
-    20,
-    22,
-    4,
+    25,
+    24,
+    24,
     24,
     26
    ],
@@ -117,16 +109,41 @@
   },
   {
    "usage": {
-    "prompt": 248643,
-    "completion": 12387,
-    "calls": 17,
-    "images": 7,
-    "seconds": 121.4,
-    "tool_seconds": 2.5,
-    "llm_seconds": 118.9,
-    "turns": 11,
-    "cost": 1.5529
+    "input": 409885,
+    "cached": 352561,
+    "uncached": 57324,
+    "output": 17431,
+    "reasoning": 0,
+    "model_seconds": 161.6,
+    "tool_seconds": 5.0,
+    "snapshot_seconds": 5.1,
+    "cost": 0.6484,
+    "requests": 14,
+    "tool_calls": 27,
+    "http_attempts": 14,
+    "http_errors": 0,
+    "seconds": 162.6,
+    "stopped": null,
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 4,
+     "seconds": 20.72,
+     "input": 18385,
+     "cached": 16755,
+     "uncached": 1630,
+     "output": 2222,
+     "reasoning": 0,
+     "tool_calls": 3,
+     "cost": 0.05431
+    },
+    "system_prompt_chars": 12374
    },
+   "stalls": [],
    "final": {
     "anatomy": 6,
     "brief": 7,
@@ -135,12 +152,119 @@
    },
    "final_total": 22,
    "step_scores": [
-    21,
-    26,
+    18,
     26,
     25,
+    21,
+    25,
     22,
-    25
+    22
+   ],
+   "reach": null
+  },
+  {
+   "usage": {
+    "input": 229582,
+    "cached": 190539,
+    "uncached": 39043,
+    "output": 12051,
+    "reasoning": 0,
+    "model_seconds": 106.5,
+    "tool_seconds": 2.8,
+    "snapshot_seconds": 3.0,
+    "cost": 0.4353,
+    "requests": 10,
+    "tool_calls": 18,
+    "http_attempts": 10,
+    "http_errors": 0,
+    "seconds": 107.0,
+    "stopped": null,
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 2,
+     "seconds": 15.86,
+     "input": 15991,
+     "cached": 9968,
+     "uncached": 6023,
+     "output": 1777,
+     "reasoning": 0,
+     "tool_calls": 2,
+     "cost": 0.06163
+    },
+    "system_prompt_chars": 12374
+   },
+   "stalls": [],
+   "final": {
+    "anatomy": 7,
+    "brief": 8,
+    "detail": 6,
+    "appeal": 6
+   },
+   "final_total": 27,
+   "step_scores": [
+    21,
+    25,
+    26,
+    26
+   ],
+   "reach": null
+  },
+  {
+   "usage": {
+    "input": 332424,
+    "cached": 286603,
+    "uncached": 45821,
+    "output": 16850,
+    "reasoning": 0,
+    "model_seconds": 147.6,
+    "tool_seconds": 5.3,
+    "snapshot_seconds": 4.5,
+    "cost": 0.5776,
+    "requests": 12,
+    "tool_calls": 23,
+    "http_attempts": 12,
+    "http_errors": 0,
+    "seconds": 148.6,
+    "stopped": null,
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 3,
+     "seconds": 18.83,
+     "input": 16457,
+     "cached": 14660,
+     "uncached": 1797,
+     "output": 2071,
+     "reasoning": 0,
+     "tool_calls": 2,
+     "cost": 0.05154
+    },
+    "system_prompt_chars": 12374
+   },
+   "stalls": [],
+   "final": {
+    "anatomy": 7,
+    "brief": 8,
+    "detail": 6,
+    "appeal": 6
+   },
+   "final_total": 27,
+   "step_scores": [
+    19,
+    16,
+    23,
+    26,
+    23,
+    27
    ],
    "reach": null
   }
@@ -148,177 +272,347 @@
  "blender": [
   {
    "usage": {
-    "prompt": 120519,
-    "completion": 14418,
-    "calls": 17,
-    "images": 7,
-    "seconds": 140.0,
-    "tool_seconds": 3.0,
-    "llm_seconds": 137.0,
-    "turns": 12,
-    "cost": 0.963,
-    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n16183\n"
+    "input": 383975,
+    "cached": 353023,
+    "uncached": 30952,
+    "output": 22460,
+    "reasoning": 0,
+    "model_seconds": 1132.2,
+    "tool_seconds": 6.0,
+    "snapshot_seconds": 6.6,
+    "cost": 0.6436,
+    "requests": 22,
+    "tool_calls": 33,
+    "http_attempts": 22,
+    "http_errors": 0,
+    "seconds": 1134.9,
+    "stopped": null,
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 1,
+     "seconds": 924.51,
+     "input": 3551,
+     "cached": 0,
+     "uncached": 3551,
+     "output": 2394,
+     "reasoning": 0,
+     "tool_calls": 1,
+     "cost": 0.06208
+    },
+    "system_prompt_chars": 2414
    },
+   "stalls": [
+    {
+     "n": 1,
+     "seconds": 924.51,
+     "input": 3551,
+     "cached": 0,
+     "uncached": 3551,
+     "output": 2394,
+     "reasoning": 0,
+     "tool_calls": 1,
+     "cost": 0.06208
+    }
+   ],
    "final": {
     "anatomy": 7,
     "brief": 8,
-    "detail": 6,
-    "appeal": 7
-   },
-   "final_total": 28,
-   "step_scores": [
-    8,
-    6,
-    10,
-    14,
-    14,
-    24,
-    28,
-    28,
-    27
-   ],
-   "reach": {
-    "n": 6,
-    "image": "/tmp/mb/cost/penguin/1/blender_step6.png",
-    "seconds": 115.9,
-    "calls": 13,
-    "prompt": 67549,
-    "completion": 12157,
-    "cost": 0.6417
-   }
-  },
-  {
-   "usage": {
-    "prompt": 143075,
-    "completion": 13796,
-    "calls": 20,
-    "images": 9,
-    "seconds": 143.0,
-    "tool_seconds": 2.7,
-    "llm_seconds": 140.3,
-    "turns": 13,
-    "cost": 1.0603,
-    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n6180\n"
-   },
-   "final": {
-    "anatomy": 6,
-    "brief": 7,
     "detail": 5,
-    "appeal": 6
-   },
-   "final_total": 24,
-   "step_scores": [
-    8,
-    10,
-    15,
-    22,
-    22,
-    22,
-    23,
-    22,
-    25,
-    24
-   ],
-   "reach": null
-  },
-  {
-   "usage": {
-    "prompt": 272770,
-    "completion": 19646,
-    "calls": 28,
-    "images": 13,
-    "seconds": 211.2,
-    "tool_seconds": 5.9,
-    "llm_seconds": 205.3,
-    "turns": 18,
-    "cost": 1.855,
-    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n10519\n"
-   },
-   "final": {
-    "anatomy": 6,
-    "brief": 7,
-    "detail": 5,
-    "appeal": 6
-   },
-   "final_total": 24,
-   "step_scores": [
-    6,
-    6,
-    8,
-    10,
-    14,
-    15,
-    19,
-    22,
-    26,
-    25,
-    28,
-    23,
-    25,
-    25
-   ],
-   "reach": {
-    "n": 10,
-    "image": "/tmp/mb/cost/penguin/3/blender_step10.png",
-    "seconds": 183.5,
-    "calls": 22,
-    "prompt": 149849,
-    "completion": 17711,
-    "cost": 1.192
-   }
-  },
-  {
-   "usage": {
-    "prompt": 479767,
-    "completion": 30071,
-    "calls": 33,
-    "images": 15,
-    "seconds": 309.0,
-    "tool_seconds": 15.8,
-    "llm_seconds": 293.2,
-    "turns": 23,
-    "cost": 3.1506,
-    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n40723\n"
-   },
-   "final": {
-    "anatomy": 7,
-    "brief": 7,
-    "detail": 6,
     "appeal": 6
    },
    "final_total": 26,
    "step_scores": [
     5,
-    6,
-    10,
-    10,
-    12,
-    12,
-    24,
-    23,
-    24,
+    5,
+    8,
+    8,
+    8,
+    13,
+    13,
+    13,
+    13,
+    14,
+    20,
+    20,
+    26,
     22,
-    22,
-    23,
-    24,
-    24,
-    24
+    25,
+    25,
+    26,
+    25
    ],
    "reach": null
   },
   {
    "usage": {
-    "prompt": 264419,
-    "completion": 23919,
-    "calls": 27,
-    "images": 12,
-    "seconds": 231.4,
-    "tool_seconds": 7.3,
-    "llm_seconds": 224.1,
-    "turns": 17,
-    "cost": 1.9201,
-    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n61142\n"
+    "input": 529524,
+    "cached": 491035,
+    "uncached": 38489,
+    "output": 31259,
+    "reasoning": 0,
+    "model_seconds": 314.4,
+    "tool_seconds": 7.9,
+    "snapshot_seconds": 5.8,
+    "cost": 0.8773,
+    "requests": 24,
+    "tool_calls": 40,
+    "http_attempts": 24,
+    "http_errors": 0,
+    "seconds": 319.1,
+    "stopped": null,
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 1,
+     "seconds": 30.99,
+     "input": 3437,
+     "cached": 3346,
+     "uncached": 91,
+     "output": 2923,
+     "reasoning": 0,
+     "tool_calls": 2,
+     "cost": 0.05949
+    },
+    "system_prompt_chars": 2414
    },
+   "stalls": [],
+   "final": {
+    "anatomy": 7,
+    "brief": 8,
+    "detail": 5,
+    "appeal": 6
+   },
+   "final_total": 26,
+   "step_scores": [
+    5,
+    5,
+    5,
+    9,
+    9,
+    10,
+    8,
+    12,
+    12,
+    15,
+    16,
+    20,
+    23,
+    22,
+    25,
+    26,
+    26,
+    26
+   ],
+   "reach": null
+  },
+  {
+   "usage": {
+    "input": 486039,
+    "cached": 445660,
+    "uncached": 40379,
+    "output": 29185,
+    "reasoning": 0,
+    "model_seconds": 1191.3,
+    "tool_seconds": 9.1,
+    "snapshot_seconds": 6.5,
+    "cost": 0.8343,
+    "requests": 24,
+    "tool_calls": 35,
+    "http_attempts": 24,
+    "http_errors": 0,
+    "seconds": 1196.5,
+    "stopped": null,
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 4,
+     "seconds": 918.17,
+     "input": 6659,
+     "cached": 0,
+     "uncached": 6659,
+     "output": 1703,
+     "reasoning": 0,
+     "tool_calls": 2,
+     "cost": 0.0607
+    },
+    "system_prompt_chars": 2414
+   },
+   "stalls": [
+    {
+     "n": 4,
+     "seconds": 918.17,
+     "input": 6659,
+     "cached": 0,
+     "uncached": 6659,
+     "output": 1703,
+     "reasoning": 0,
+     "tool_calls": 2,
+     "cost": 0.0607
+    }
+   ],
+   "final": {
+    "anatomy": 7,
+    "brief": 8,
+    "detail": 5,
+    "appeal": 6
+   },
+   "final_total": 26,
+   "step_scores": [
+    4,
+    6,
+    9,
+    8,
+    13,
+    9,
+    13,
+    13,
+    20,
+    21,
+    26,
+    26,
+    22,
+    26,
+    24,
+    26,
+    28,
+    27,
+    28
+   ],
+   "reach": {
+    "n": 16,
+    "image": "/tmp/mb/cost2/penguin/3/blender_step16.png",
+    "seconds": 1168.5,
+    "calls": 31,
+    "cost": 0.755
+   }
+  },
+  {
+   "usage": {
+    "input": 317945,
+    "cached": 293550,
+    "uncached": 24395,
+    "output": 21592,
+    "reasoning": 0,
+    "model_seconds": 223.2,
+    "tool_seconds": 6.0,
+    "snapshot_seconds": 5.8,
+    "cost": 0.5881,
+    "requests": 20,
+    "tool_calls": 30,
+    "http_attempts": 20,
+    "http_errors": 0,
+    "seconds": 226.8,
+    "stopped": null,
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 1,
+     "seconds": 31.83,
+     "input": 3623,
+     "cached": 3346,
+     "uncached": 277,
+     "output": 2887,
+     "reasoning": 0,
+     "tool_calls": 2,
+     "cost": 0.05952
+    },
+    "system_prompt_chars": 2414
+   },
+   "stalls": [],
+   "final": {
+    "anatomy": 7,
+    "brief": 7,
+    "detail": 5,
+    "appeal": 6
+   },
+   "final_total": 25,
+   "step_scores": [
+    5,
+    8,
+    8,
+    12,
+    14,
+    15,
+    9,
+    12,
+    20,
+    22,
+    24,
+    25,
+    26,
+    25,
+    24,
+    23,
+    25
+   ],
+   "reach": null
+  },
+  {
+   "usage": {
+    "input": 144215,
+    "cached": 113322,
+    "uncached": 30893,
+    "output": 17111,
+    "reasoning": 0,
+    "model_seconds": 1083.0,
+    "tool_seconds": 3.8,
+    "snapshot_seconds": 3.1,
+    "cost": 0.4884,
+    "requests": 13,
+    "tool_calls": 19,
+    "http_attempts": 13,
+    "http_errors": 0,
+    "seconds": 1085.4,
+    "stopped": null,
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 9,
+     "seconds": 918.81,
+     "input": 16203,
+     "cached": 0,
+     "uncached": 16203,
+     "output": 1835,
+     "reasoning": 0,
+     "tool_calls": 2,
+     "cost": 0.10151
+    },
+    "system_prompt_chars": 2414
+   },
+   "stalls": [
+    {
+     "n": 9,
+     "seconds": 918.81,
+     "input": 16203,
+     "cached": 0,
+     "uncached": 16203,
+     "output": 1835,
+     "reasoning": 0,
+     "tool_calls": 2,
+     "cost": 0.10151
+    }
+   ],
    "final": {
     "anatomy": 6,
     "brief": 7,
@@ -327,19 +621,14 @@
    },
    "final_total": 24,
    "step_scores": [
-    4,
-    6,
+    5,
     5,
     10,
     8,
-    15,
-    15,
+    12,
+    13,
+    21,
     22,
-    22,
-    26,
-    26,
-    24,
-    23,
     22
    ],
    "reach": null

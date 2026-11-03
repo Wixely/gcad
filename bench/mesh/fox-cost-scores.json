@@ -2,16 +2,41 @@
  "gcad": [
   {
    "usage": {
-    "prompt": 540914,
-    "completion": 22390,
-    "calls": 32,
-    "images": 17,
-    "seconds": 202.4,
-    "tool_seconds": 4.0,
-    "llm_seconds": 198.4,
-    "turns": 15,
-    "cost": 3.2643
+    "input": 639063,
+    "cached": 559045,
+    "uncached": 80018,
+    "output": 29619,
+    "reasoning": 0,
+    "model_seconds": 236.3,
+    "tool_seconds": 9.4,
+    "snapshot_seconds": 6.8,
+    "cost": 1.0243,
+    "requests": 17,
+    "tool_calls": 33,
+    "http_attempts": 17,
+    "http_errors": 0,
+    "seconds": 238.4,
+    "stopped": null,
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 6,
+     "seconds": 24.39,
+     "input": 27848,
+     "cached": 20286,
+     "uncached": 7562,
+     "output": 2850,
+     "reasoning": 0,
+     "tool_calls": 2,
+     "cost": 0.09131
+    },
+    "system_prompt_chars": 12374
    },
+   "stalls": [],
    "final": {
     "anatomy": 7,
     "brief": 8,
@@ -21,148 +46,509 @@
    "final_total": 28,
    "step_scores": [
     17,
-    13,
-    17,
     28,
-    24,
-    28,
-    27
-   ],
-   "reach": {
-    "n": 4,
-    "image": "/tmp/mb/cost/fox/1/gcad_step4_blender.png",
-    "seconds": 89.4,
-    "calls": 14,
-    "prompt": 126067,
-    "completion": 9491,
-    "cost": 0.8676
-   }
-  },
-  {
-   "usage": {
-    "prompt": 360776,
-    "completion": 21962,
-    "calls": 29,
-    "images": 14,
-    "seconds": 191.6,
-    "tool_seconds": 7.2,
-    "llm_seconds": 184.4,
-    "turns": 12,
-    "cost": 2.3529
-   },
-   "final": {
-    "anatomy": 7,
-    "brief": 8,
-    "detail": 6,
-    "appeal": 7
-   },
-   "final_total": 28,
-   "step_scores": [
-    17,
-    17,
-    26,
-    28,
+    27,
     25,
+    14,
     15,
+    28,
     28
    ],
    "reach": {
-    "n": 6,
-    "image": "/tmp/mb/cost/fox/2/gcad_step6_blender.png",
-    "seconds": 127.3,
-    "calls": 22,
-    "prompt": 153608,
-    "completion": 14525,
-    "cost": 1.1312
+    "n": 3,
+    "image": "/tmp/mb/cost2/fox/1/gcad_step3_blender.png",
+    "seconds": 75.4,
+    "calls": 11,
+    "cost": 0.2641
    }
   },
   {
    "usage": {
-    "prompt": 465169,
-    "completion": 18863,
-    "calls": 26,
-    "images": 14,
-    "seconds": 182.2,
-    "tool_seconds": 5.4,
-    "llm_seconds": 176.8,
-    "turns": 15,
-    "cost": 2.7974
+    "input": 504391,
+    "cached": 408292,
+    "uncached": 96099,
+    "output": 20376,
+    "reasoning": 0,
+    "model_seconds": 1078.8,
+    "tool_seconds": 8.3,
+    "snapshot_seconds": 6.1,
+    "cost": 0.8736,
+    "requests": 15,
+    "tool_calls": 26,
+    "http_attempts": 15,
+    "http_errors": 0,
+    "seconds": 1081.4,
+    "stopped": null,
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 9,
+     "seconds": 915.46,
+     "input": 37863,
+     "cached": 0,
+     "uncached": 37863,
+     "output": 2066,
+     "reasoning": 0,
+     "tool_calls": 3,
+     "cost": 0.19277
+    },
+    "system_prompt_chars": 12374
    },
+   "stalls": [
+    {
+     "n": 9,
+     "seconds": 915.46,
+     "input": 37863,
+     "cached": 0,
+     "uncached": 37863,
+     "output": 2066,
+     "reasoning": 0,
+     "tool_calls": 3,
+     "cost": 0.19277
+    }
+   ],
    "final": {
-    "anatomy": 6,
+    "anatomy": 7,
+    "brief": 8,
+    "detail": 6,
+    "appeal": 7
+   },
+   "final_total": 28,
+   "step_scores": [
+    9,
+    14,
+    27,
+    28,
+    28,
+    25,
+    26
+   ],
+   "reach": {
+    "n": 5,
+    "image": "/tmp/mb/cost2/fox/2/gcad_step5_blender.png",
+    "seconds": 1022.0,
+    "calls": 20,
+    "cost": 0.5778
+   }
+  },
+  {
+   "usage": {
+    "input": 553410,
+    "cached": 493180,
+    "uncached": 60230,
+    "output": 23770,
+    "reasoning": 0,
+    "model_seconds": 202.2,
+    "tool_seconds": 8.9,
+    "snapshot_seconds": 6.1,
+    "cost": 0.8149,
+    "requests": 16,
+    "tool_calls": 29,
+    "http_attempts": 16,
+    "http_errors": 0,
+    "seconds": 204.8,
+    "stopped": null,
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 5,
+     "seconds": 25.07,
+     "input": 22333,
+     "cached": 20539,
+     "uncached": 1794,
+     "output": 2763,
+     "reasoning": 0,
+     "tool_calls": 3,
+     "cost": 0.06654
+    },
+    "system_prompt_chars": 12374
+   },
+   "stalls": [],
+   "final": {
+    "anatomy": 7,
+    "brief": 8,
+    "detail": 6,
+    "appeal": 7
+   },
+   "final_total": 28,
+   "step_scores": [
+    17,
+    17,
+    24,
+    25,
+    16,
+    24,
+    28
+   ],
+   "reach": {
+    "n": 10,
+    "image": "/tmp/mb/cost2/fox/3/gcad_step10_blender.png",
+    "seconds": 193.0,
+    "calls": 28,
+    "cost": 0.7455
+   }
+  },
+  {
+   "usage": {
+    "input": 385478,
+    "cached": 334315,
+    "uncached": 51163,
+    "output": 20732,
+    "reasoning": 0,
+    "model_seconds": 181.7,
+    "tool_seconds": 8.4,
+    "snapshot_seconds": 5.7,
+    "cost": 0.6862,
+    "requests": 12,
+    "tool_calls": 25,
+    "http_attempts": 12,
+    "http_errors": 0,
+    "seconds": 183.3,
+    "stopped": null,
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 6,
+     "seconds": 27.05,
+     "input": 36452,
+     "cached": 28691,
+     "uncached": 7761,
+     "output": 3050,
+     "reasoning": 0,
+     "tool_calls": 3,
+     "cost": 0.09778
+    },
+    "system_prompt_chars": 12374
+   },
+   "stalls": [],
+   "final": {
+    "anatomy": 7,
+    "brief": 8,
+    "detail": 6,
+    "appeal": 7
+   },
+   "final_total": 28,
+   "step_scores": [
+    17,
+    16,
+    16,
+    17,
+    24,
+    25,
+    25
+   ],
+   "reach": null
+  },
+  {
+   "usage": {
+    "input": 443779,
+    "cached": 388419,
+    "uncached": 55360,
+    "output": 22431,
+    "reasoning": 0,
+    "model_seconds": 200.8,
+    "tool_seconds": 12.3,
+    "snapshot_seconds": 7.5,
+    "cost": 0.7477,
+    "requests": 15,
+    "tool_calls": 25,
+    "http_attempts": 15,
+    "http_errors": 0,
+    "seconds": 204.5,
+    "stopped": null,
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 0,
+     "seconds": 25.83,
+     "input": 5778,
+     "cached": 5774,
+     "uncached": 4,
+     "output": 2313,
+     "reasoning": 0,
+     "tool_calls": 2,
+     "cost": 0.04743
+    },
+    "system_prompt_chars": 12374
+   },
+   "stalls": [],
+   "final": {
+    "anatomy": 7,
+    "brief": 8,
+    "detail": 6,
+    "appeal": 7
+   },
+   "final_total": 28,
+   "step_scores": [
+    17,
+    17,
+    23,
+    24,
+    23,
+    26
+   ],
+   "reach": null
+  }
+ ],
+ "blender": [
+  {
+   "usage": {
+    "input": 489796,
+    "cached": 453299,
+    "uncached": 36497,
+    "output": 22523,
+    "reasoning": 0,
+    "model_seconds": 234.5,
+    "tool_seconds": 11.1,
+    "snapshot_seconds": 7.6,
+    "cost": 0.6871,
+    "requests": 24,
+    "tool_calls": 45,
+    "http_attempts": 24,
+    "http_errors": 0,
+    "seconds": 240.2,
+    "stopped": "UsageLimitExceeded('The next request would exceed the request_limit of 24. Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits')",
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 1,
+     "seconds": 24.55,
+     "input": 3534,
+     "cached": 3399,
+     "uncached": 135,
+     "output": 2459,
+     "reasoning": 0,
+     "tool_calls": 2,
+     "cost": 0.0504
+    },
+    "system_prompt_chars": 2414
+   },
+   "stalls": [],
+   "final": {
+    "anatomy": 5,
+    "brief": 7,
+    "detail": 5,
+    "appeal": 5
+   },
+   "final_total": 22,
+   "step_scores": [
+    10,
+    10,
+    10,
+    10,
+    10,
+    11,
+    14,
+    14,
+    13,
+    12,
+    14,
+    14,
+    12,
+    14,
+    17,
+    21,
+    21,
+    22,
+    26,
+    23,
+    23,
+    22
+   ],
+   "reach": null
+  },
+  {
+   "usage": {
+    "input": 404652,
+    "cached": 371798,
+    "uncached": 32854,
+    "output": 22642,
+    "reasoning": 0,
+    "model_seconds": 231.9,
+    "tool_seconds": 8.4,
+    "snapshot_seconds": 7.7,
+    "cost": 0.6586,
+    "requests": 24,
+    "tool_calls": 37,
+    "http_attempts": 24,
+    "http_errors": 0,
+    "seconds": 236.7,
+    "stopped": "UsageLimitExceeded('The next request would exceed the request_limit of 24. Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits')",
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 16,
+     "seconds": 26.03,
+     "input": 20434,
+     "cached": 18391,
+     "uncached": 2043,
+     "output": 3149,
+     "reasoning": 0,
+     "tool_calls": 1,
+     "cost": 0.07483
+    },
+    "system_prompt_chars": 2414
+   },
+   "stalls": [],
+   "final": {
+    "anatomy": 7,
     "brief": 7,
     "detail": 5,
     "appeal": 6
    },
-   "final_total": 24,
+   "final_total": 25,
    "step_scores": [
+    4,
+    9,
+    13,
+    10,
+    10,
+    10,
+    10,
+    10,
+    13,
+    12,
+    12,
+    16,
+    16,
+    16,
     18,
-    20,
-    28,
+    17,
     24,
-    25,
-    24
+    23,
+    23,
+    21,
+    24,
+    23
    ],
-   "reach": {
-    "n": 5,
-    "image": "/tmp/mb/cost/fox/3/gcad_step5_blender.png",
-    "seconds": 94.3,
-    "calls": 16,
-    "prompt": 125330,
-    "completion": 10462,
-    "cost": 0.8882
-   }
+   "reach": null
   },
   {
    "usage": {
-    "prompt": 414182,
-    "completion": 21595,
-    "calls": 29,
-    "images": 16,
-    "seconds": 1097.5,
-    "tool_seconds": 4.6,
-    "llm_seconds": 1092.9,
-    "turns": 12,
-    "cost": 2.6108
+    "input": 413093,
+    "cached": 380243,
+    "uncached": 32850,
+    "output": 25257,
+    "reasoning": 0,
+    "model_seconds": 253.4,
+    "tool_seconds": 99.1,
+    "snapshot_seconds": 5.8,
+    "cost": 0.7126,
+    "requests": 24,
+    "tool_calls": 31,
+    "http_attempts": 24,
+    "http_errors": 0,
+    "seconds": 351.0,
+    "stopped": "UsageLimitExceeded('The next request would exceed the request_limit of 24. Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits')",
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 1,
+     "seconds": 29.04,
+     "input": 3534,
+     "cached": 3334,
+     "uncached": 200,
+     "output": 2838,
+     "reasoning": 0,
+     "tool_calls": 1,
+     "cost": 0.05823
+    },
+    "system_prompt_chars": 2414
    },
+   "stalls": [],
    "final": {
     "anatomy": 7,
     "brief": 8,
-    "detail": 6,
-    "appeal": 7
+    "detail": 5,
+    "appeal": 6
    },
-   "final_total": 28,
+   "final_total": 26,
    "step_scores": [
-    16,
+    4,
+    11,
+    10,
+    10,
+    12,
+    12,
+    12,
+    12,
+    10,
+    13,
+    12,
+    14,
     17,
-    19,
-    20,
-    28,
-    28,
-    28
+    22,
+    26,
+    26,
+    24
    ],
-   "reach": {
-    "n": 5,
-    "image": "/tmp/mb/cost/fox/4/gcad_step5_blender.png",
-    "seconds": 1013.7,
-    "calls": 19,
-    "prompt": 141087,
-    "completion": 11674,
-    "cost": 0.9973
-   }
+   "reach": null
   },
   {
    "usage": {
-    "prompt": 413039,
-    "completion": 22816,
-    "calls": 29,
-    "images": 13,
-    "seconds": 204.8,
-    "tool_seconds": 4.5,
-    "llm_seconds": 200.3,
-    "turns": 14,
-    "cost": 2.6356
+    "input": 451604,
+    "cached": 414059,
+    "uncached": 37545,
+    "output": 21917,
+    "reasoning": 0,
+    "model_seconds": 234.5,
+    "tool_seconds": 6.9,
+    "snapshot_seconds": 6.3,
+    "cost": 0.6714,
+    "requests": 23,
+    "tool_calls": 37,
+    "http_attempts": 23,
+    "http_errors": 0,
+    "seconds": 238.6,
+    "stopped": null,
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 1,
+     "seconds": 26.98,
+     "input": 3534,
+     "cached": 3334,
+     "uncached": 200,
+     "output": 2708,
+     "reasoning": 0,
+     "tool_calls": 2,
+     "cost": 0.05563
+    },
+    "system_prompt_chars": 2414
    },
+   "stalls": [],
    "final": {
     "anatomy": 6,
     "brief": 8,
@@ -171,203 +557,105 @@
    },
    "final_total": 25,
    "step_scores": [
-    17,
-    17,
-    26,
-    25,
-    27,
-    25
-   ],
-   "reach": null
-  }
- ],
- "blender": [
-  {
-   "usage": {
-    "prompt": 305926,
-    "completion": 17778,
-    "calls": 32,
-    "images": 13,
-    "seconds": 207.4,
-    "tool_seconds": 3.1,
-    "llm_seconds": 204.3,
-    "turns": 22,
-    "cost": 1.9741,
-    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n4529\n"
-   },
-   "final": {
-    "anatomy": 6,
-    "brief": 7,
-    "detail": 5,
-    "appeal": 6
-   },
-   "final_total": 24,
-   "step_scores": [
     9,
-    10,
-    9,
-    9,
-    10,
     10,
     11,
     10,
     10,
-    16,
-    16,
-    22,
-    24,
-    22,
-    24,
-    24,
-    25,
-    24
-   ],
-   "reach": null
-  },
-  {
-   "usage": {
-    "prompt": 207392,
-    "completion": 16815,
-    "calls": 26,
-    "images": 11,
-    "seconds": 191.6,
-    "tool_seconds": 4.6,
-    "llm_seconds": 187.0,
-    "turns": 17,
-    "cost": 1.4573,
-    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n27251\n"
-   },
-   "final": {
-    "anatomy": 6,
-    "brief": 7,
-    "detail": 4,
-    "appeal": 5
-   },
-   "final_total": 22,
-   "step_scores": [
-    5,
-    9,
     11,
-    11,
-    21,
-    22,
-    24,
-    22,
-    19,
-    20,
-    24,
-    24,
-    22,
-    22
-   ],
-   "reach": null
-  },
-  {
-   "usage": {
-    "prompt": 215483,
-    "completion": 15900,
-    "calls": 22,
-    "images": 8,
-    "seconds": 182.0,
-    "tool_seconds": 2.0,
-    "llm_seconds": 180.0,
-    "turns": 19,
-    "cost": 1.4749,
-    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n5112\n"
-   },
-   "final": {
-    "anatomy": 6,
-    "brief": 7,
-    "detail": 5,
-    "appeal": 6
-   },
-   "final_total": 24,
-   "step_scores": [
-    4,
-    4,
-    4,
-    4,
-    8,
-    7,
-    14,
-    20,
-    22,
-    24,
-    22,
-    22
-   ],
-   "reach": null
-  },
-  {
-   "usage": {
-    "prompt": 246834,
-    "completion": 18700,
-    "calls": 26,
-    "images": 11,
-    "seconds": 237.3,
-    "tool_seconds": 37.2,
-    "llm_seconds": 200.1,
-    "turns": 18,
-    "cost": 1.7017,
-    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n51207\n"
-   },
-   "final": {
-    "anatomy": 6,
-    "brief": 7,
-    "detail": 5,
-    "appeal": 6
-   },
-   "final_total": 24,
-   "step_scores": [
-    5,
-    6,
-    8,
-    10,
-    10,
-    16,
     12,
-    22,
-    21,
-    21,
+    11,
+    10,
+    11,
+    13,
+    16,
+    16,
     24,
-    23,
+    28,
+    28,
     24,
     24
    ],
-   "reach": null
+   "reach": {
+    "n": 14,
+    "image": "/tmp/mb/cost2/fox/4/blender_step14.png",
+    "seconds": 206.4,
+    "calls": 31,
+    "cost": 0.5674
+   }
   },
   {
    "usage": {
-    "prompt": 129739,
-    "completion": 13852,
-    "calls": 19,
-    "images": 9,
-    "seconds": 148.1,
-    "tool_seconds": 2.1,
-    "llm_seconds": 146.0,
-    "turns": 12,
-    "cost": 0.995,
-    "export": "Code executed successfully: Info: File exported successfully\nInfo: Saved \"blender.blend\"\n58157\n"
+    "input": 359778,
+    "cached": 333274,
+    "uncached": 26504,
+    "output": 18945,
+    "reasoning": 0,
+    "model_seconds": 204.8,
+    "tool_seconds": 5.9,
+    "snapshot_seconds": 6.7,
+    "cost": 0.5516,
+    "requests": 24,
+    "tool_calls": 35,
+    "http_attempts": 24,
+    "http_errors": 0,
+    "seconds": 208.7,
+    "stopped": "UsageLimitExceeded('The next request would exceed the request_limit of 24. Consider raising the limit, or see the docs on usage limits for budget-aware patterns: https://pydantic.dev/docs/ai/core-concepts/agent/#usage-limits')",
+    "prices": {
+     "input": 4.0,
+     "cache_read": 0.2,
+     "output": 20.0,
+     "source": "Anthropic list price for Claude Opus 5.5 (platform.claude.com pricing), $ per million tokens"
+    },
+    "slowest_request": {
+     "n": 5,
+     "seconds": 34.41,
+     "input": 7701,
+     "cached": 6826,
+     "uncached": 875,
+     "output": 3647,
+     "reasoning": 0,
+     "tool_calls": 1,
+     "cost": 0.07781
+    },
+    "system_prompt_chars": 2414
    },
+   "stalls": [],
    "final": {
     "anatomy": 6,
     "brief": 7,
-    "detail": 4,
-    "appeal": 5
+    "detail": 5,
+    "appeal": 6
    },
-   "final_total": 22,
+   "final_total": 24,
    "step_scores": [
-    9,
+    8,
+    8,
+    10,
+    11,
+    10,
+    11,
+    11,
     10,
     10,
-    10,
-    22,
-    22,
-    22,
-    22,
-    22
+    13,
+    13,
+    13,
+    14,
+    16,
+    24,
+    24,
+    24,
+    25,
+    28
    ],
-   "reach": null
+   "reach": {
+    "n": 18,
+    "image": "/tmp/mb/cost2/fox/5/blender_step18.png",
+    "seconds": 208.8,
+    "calls": 35,
+    "cost": 0.5516
+   }
   }
  ]
 }

@@ -1753,9 +1753,6 @@ impl App {
                         }
                     }
                 }
-                if let Some(error) = &self.sim_error {
-                    note(ui, error, FAULT);
-                }
                 if running.is_some() {
                     return;
                 }
@@ -4174,6 +4171,11 @@ fn build_shown(snapshot: &Snapshot, key: SceneKey, vars: &[(String, f64)]) -> Op
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        if let Some(error) = self.sim_error.clone() {
+            if egui_bench::toast::toast(&ctx, "sim-error", &error, egui_bench::toast::Tone::Fault) {
+                self.sim_error = None;
+            }
+        }
         self.dropped(&ctx);
         if let Some(path) = crate::host::take_open() {
             self.browser = None;

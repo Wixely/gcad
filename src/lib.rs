@@ -5,6 +5,7 @@ pub mod export;
 pub mod flow;
 pub mod geometry;
 pub mod host;
+pub mod inspect;
 pub mod mesh;
 pub mod model;
 pub mod nest;

@@ -239,6 +239,7 @@ after it. Each test checks a volume or bounding box worked out by hand.
 | decimate to a budget | supported | `decimate 5000`, `decimate 25%` | `mesh::decimate_to_a_budget_keeps_the_shape`, `mesh::decimate_by_share_leaves_unselected_triangles`, `mesh::decimate_keeps_part_labels`, `mesh::decimate_keeps_the_border_between_parts_fine` |
 | colour a part | supported | `color #ffffff part=chest` | `mesh::colour_one_part`, `mesh::colour_unknown_part_lists_the_parts` |
 | a game-ready fox | supported | `examples/mesh/fox.gcad` | `mesh::fox_example_fits_a_game_budget` |
+| inspect a view to place detail | supported | `gcad inspect f.gcad out.png --part head --view right --pick 300,412` | `inspect_view::pick_returns_the_surface_point_and_normal`, `inspect_view::pixel_and_world_agree_in_every_view`, `inspect_view::part_frames_just_that_part`, `inspect_view::marks_say_when_the_surface_hides_them`, `inspect_view::unknown_part_lists_the_parts`, `inspect_view::solids_show_too` |
 | import a mesh | supported | `import file.obj mesh` | `mesh::mesh_import_obj` |
 | export a mesh with its parts | supported | `gcad export file.gcad out.obj` | `mesh::mesh_export_obj_keeps_parts` |
 | mesh and solid bodies in one file | supported | `body figure` then `blob` | `mesh::mesh_and_solid_bodies_share_a_file`, `mesh::solid_ops_refuse_a_mesh_body` |

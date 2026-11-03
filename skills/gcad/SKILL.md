@@ -438,7 +438,10 @@ other, `mirror x of=` the left-side parts, `remesh`, then sculpt: `select` a par
   variable (`if budget>0 decimate budget`) so the full detail stays available for renders.
 - Small features are their own labelled blobs (eyes, toes, nose), not dents. A blob gets its own
   colour with `color ... part=` and stays sharp through `decimate`.
-- Judge detail close up: a whole-body render hides anything under a few percent of its size.
+- Never guess where fine detail goes. `gcad inspect file.gcad v.png --part head --view right`
+  draws the part with a coordinate grid and part names; `--pick x,y` on that picture prints the
+  surface point, part and normal under a pixel. Write `select sphere=`, `crease` and `pinch` with
+  the picked numbers, then `gcad inspect ... --line N` to see the selection outlined and check it.
 - `gcad render` after the blockout and again after sculpting, and compare the four views with
   what you meant. Fix the blockout first; sculpting only nudges.
 - Export with `gcad export file.gcad out.obj`: each part is its own `g` group.

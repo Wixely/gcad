@@ -441,6 +441,33 @@ and `body name` starts a new body of either kind in the same file. `gcad export`
 file with mesh bodies as `.obj` (each part its own `g` group), `.stl` or `.3mf`; solid
 bodies in it are tessellated alongside. Assemblies take solids only.
 
+### Placing detail by eye
+
+`gcad inspect file.gcad out.png` draws one view large enough to place detail from:
+
+```
+gcad inspect fox.gcad head.png --part head --view right
+gcad inspect fox.gcad head.png --part head --view front --pick 300,412 --mark nose=0,-21.7,25.7
+gcad inspect fox.gcad head.png --line 44 --view front
+```
+
+- The surface is coloured by which way it faces in the picture, red to the right, green up,
+  blue toward you, so creases, dents and bulges show as colour changes even where shading is flat.
+- A world grid with labelled coordinates on both axes, a scale bar, and the axes of the view
+  (`right +y, up +z, toward you +x`) in the title. `--grid` sets the spacing.
+- Part borders as dark lines and each part's name on it, so `select` names can be read off.
+- The selection at that line (`--line N`) as a yellow outline where it is at full strength and
+  an orange one where its falloff ends.
+- `--mark x,y,z` (or `name=x,y,z`) draws a red cross at a point, grey if the surface hides it.
+- `--pick x,y` takes a pixel and prints the surface point under it, the part it is on and the
+  surface normal there. Those numbers go straight into `select sphere=`, `crease` and `pinch`.
+- `--part` frames one part, `--at x,y,z --span` frames any region; `--view` is `front`, `back`,
+  `left`, `right`, `top`, `bottom` or `iso` (iso has no grid: use picks).
+
+It prints how pixels map to world coordinates, so a point can also be worked out by hand. The
+loop for fine detail is: inspect the part, pick the spots, write the line with the picked
+coordinates, inspect again with `--line` on it to see what it selected and moved.
+
 Positions, sizes and the selection are in the same millimetres as everything else, so a
 game asset is best modelled at a known scale, 1 unit to 1 cm for instance, and scaled on
 import.

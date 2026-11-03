@@ -501,15 +501,6 @@ pub(crate) fn clear_round_walls(
     profiles
 }
 
-pub(crate) fn scaled_about_centre(solid: &Solid, factor: f64) -> Solid {
-    let bounds = geometry::bounds(solid);
-    let centre = Point3::from_vec((bounds.min().to_vec() + bounds.max().to_vec()) * 0.5);
-    let about = Matrix4::from_translation(centre.to_vec())
-        * Matrix4::from_scale(factor)
-        * Matrix4::from_translation(-centre.to_vec());
-    builder::transformed(solid, about)
-}
-
 pub(crate) fn clear_flush(tool: &Solid, solid: &Solid) -> Solid {
     let size = geometry::bounds(solid).diameter();
     let margin = size * 5.0e-3;

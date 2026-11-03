@@ -51,6 +51,9 @@ crease 1.6,hy-3.9,hz-2.3 0.3,hy-8,hz-2.45 depth=0.1 width=0.2
 crease -1.6,hy-3.9,hz-2.3 -0.3,hy-8,hz-2.45 depth=0.1 width=0.2
 snout: select muzzle,nose falloff=1
 scale 1,1,0.85
+lips: select sphere=1.7,-18.5,24.6 r=3 mirror=x falloff=0.5
+crease 0.8,-20.55,24.57 1.67,-16.75,24.86 depth=0.25 width=0.22
+crease 1.67,-16.75,24.86 1.82,-15.6,24.3 depth=0.2 width=0.2
 ruff: select cheek_l,cheek_r falloff=0.6
 noise 0.1 size=0.6 seed=2
 tufts: select sphere=4.5,hy+2,hz-3.2 r=1 mirror=x falloff=1

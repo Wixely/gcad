@@ -4,10 +4,18 @@ All notable changes to gcad are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.6.0] - 2026-11-03
 
 ### Added
+- Mesh bodies with blob, limb and remesh ops, and sculpt ops: refine, crease, pinch, flatten, noise, relax and decimate.
+- A fox example built from mesh bodies, with part colours and a mouth placed from picks.
+- `gcad inspect` has a normal view with a grid, marks and picks.
+- Simulation errors show as a toast in the viewer.
+- Soft colour borders in the viewer.
 - `history` in the viewer opens the part or assembly as it was at any earlier commit, read from git into memory, with no checkout. Saving is blocked while viewing a revision. `working copy` goes back.
+
+### Changed
+- Cuts that fail retry with a nudged tool, using the kernel's own nudge retry instead of gcad's merge retry (closes #138).
 
 ## [0.5.3] - 2026-11-01
 

@@ -1,4 +1,5 @@
 pub mod bom;
+pub mod calc;
 pub mod drafting;
 pub mod drawing;
 pub mod export;

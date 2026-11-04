@@ -1,5 +1,8 @@
 # Unified threads UNC and UNF: threads per inch, major diameter in inches and tap drill in inches,
-# from https://en.wikipedia.org/wiki/Unified_Thread_Standard
+# Source 1: https://en.wikipedia.org/wiki/Unified_Thread_Standard (tpi, major, tap drill by drill number or fraction)
+# Source 2: FreeCAD PartDesign Hole.cpp UNC and UNF tables (major and pitch agree on every row; its tap drills are
+#   rounded to 0.05 mm ISO style and are within 0.15 mm of source 1, #6-32 being the widest at 0.13 mm; source 1 is used)
+#   https://raw.githubusercontent.com/FreeCAD/FreeCAD/main/src/Mod/PartDesign/App/FeatureHole.cpp
 # Rows are [name, threads per inch, major inch, tap drill inch, coarse]
 rows = [
   ["#4", 40, 0.1120, 0.089, true], ["#4", 48, 0.1120, 0.094, false],

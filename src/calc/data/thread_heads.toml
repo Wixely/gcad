@@ -1,22 +1,26 @@
-# Socket screw heads, mm. Rows are [major, head diameter dk max, head height k max, bore or seat diameter].
-# iso4762: dk from https://www.roymech.co.uk/Useful_Tables/Screws/cap_screws.htm (M2, M2.5, M14 from the hole op table),
-#   k equals the nominal diameter, counterbore diameter per DIN 974-1 (medium series).
-# iso7380: dk and k from https://engineeringhardware.com/guide/standard/iso-7380-button-head-socket-screws/ ,
-#   counterbore is dk + 1.
-# iso10642: dk and k from https://www.roymech.co.uk/Useful_Tables/Screws/cap_screws.htm and
-#   https://engineeringhardware.com/guide/standard/iso-10642-countersunk-socket-screws/ , countersink 0.2 over dk.
+# Socket screw heads, mm.
+# iso4762 rows are [major, head diameter dk max, head height k, counterbore diameter, counterbore depth].
+#   dk and k: https://www.roymech.co.uk/Useful_Tables/Screws/cap_screws.htm and
+#   https://raw.githubusercontent.com/shaise/FreeCAD_FastenersWB/master/FsData/iso4762def.csv (agree on every row)
+#   counterbore: FreeCAD PartDesign Resources/Hole/iso4762.json (ISO 4762 counterbore, diameter and depth)
+#   https://raw.githubusercontent.com/FreeCAD/FreeCAD/main/src/Mod/PartDesign/Resources/Hole/iso4762.json
+# iso7380 rows are [major, dk, k]: https://engineeringhardware.com/guide/standard/iso-7380-button-head-socket-screws/
+#   and https://raw.githubusercontent.com/shaise/FreeCAD_FastenersWB/master/FsData/iso7380def.csv (agree; M14 and M20
+#   are only in the first source and are left out). The standards give no counterbore, the tool uses dk + 1 and k + 0.4.
+# iso10642 rows are [major, dk theoretical, k]: https://www.roymech.co.uk/Useful_Tables/Screws/cap_screws.htm and
+#   https://raw.githubusercontent.com/shaise/FreeCAD_FastenersWB/master/FsData/iso10642def.csv (agree; M24 is only in
+#   engineeringhardware.com and is left out). The countersink is 0.2 over dk.
 iso4762 = [
-  [2.0, 3.8, 2.0, 4.3], [2.5, 4.5, 2.5, 5.0], [3.0, 5.5, 3.0, 6.0], [4.0, 7.0, 4.0, 8.0],
-  [5.0, 8.5, 5.0, 10.0], [6.0, 10.0, 6.0, 11.0], [8.0, 13.0, 8.0, 15.0], [10.0, 16.0, 10.0, 18.0],
-  [12.0, 18.0, 12.0, 20.0], [14.0, 21.0, 14.0, 24.0], [16.0, 24.0, 16.0, 26.0],
-  [20.0, 30.0, 20.0, 33.0], [24.0, 36.0, 24.0, 40.0],
+  [2.0, 3.8, 2.0, 4.3, 2.1], [2.5, 4.5, 2.5, 5.0, 3.0], [3.0, 5.5, 3.0, 6.0, 3.4], [4.0, 7.0, 4.0, 8.0, 4.4],
+  [5.0, 8.5, 5.0, 10.0, 5.4], [6.0, 10.0, 6.0, 11.0, 6.4], [8.0, 13.0, 8.0, 15.0, 8.6], [10.0, 16.0, 10.0, 18.0, 10.6],
+  [12.0, 18.0, 12.0, 20.0, 12.6], [14.0, 21.0, 14.0, 24.0, 14.6], [16.0, 24.0, 16.0, 26.0, 16.6],
+  [20.0, 30.0, 20.0, 33.0, 20.6], [24.0, 36.0, 24.0, 40.0, 24.8],
 ]
 iso7380 = [
   [3.0, 5.7, 1.65], [4.0, 7.6, 2.2], [5.0, 9.5, 2.75], [6.0, 10.5, 3.3], [8.0, 14.0, 4.4],
-  [10.0, 17.5, 5.5], [12.0, 21.0, 6.6], [14.0, 24.5, 7.7], [16.0, 28.0, 8.8], [20.0, 35.0, 11.0],
+  [10.0, 17.5, 5.5], [12.0, 21.0, 6.6], [16.0, 28.0, 8.8],
 ]
 iso10642 = [
   [3.0, 6.72, 1.86], [4.0, 8.96, 2.48], [5.0, 11.2, 3.1], [6.0, 13.44, 3.72], [8.0, 17.92, 4.96],
-  [10.0, 22.4, 6.2], [12.0, 26.88, 7.44], [14.0, 30.0, 8.4], [16.0, 33.6, 9.3], [20.0, 40.32, 11.2],
-  [24.0, 47.04, 13.0],
+  [10.0, 22.4, 6.2], [12.0, 26.88, 7.44], [14.0, 30.8, 8.4], [16.0, 33.6, 8.8], [20.0, 40.32, 10.16],
 ]

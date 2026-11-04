@@ -15,12 +15,13 @@ const TOLERANCE: &str = include_str!("data/thread_tolerance.toml");
 
 pub const RUNOUT_PITCHES: f64 = 3.0;
 pub const DEFAULT_NUT_FACTOR: f64 = 0.2;
-pub const SOURCES: [&str; 6] = [
+pub const SOURCES: [&str; 7] = [
     "https://www.roymech.co.uk/Useful_Tables/Screws/iso-metric-thread-dimensions/ (ISO 261, ISO 724)",
     "https://www.roymech.co.uk/Useful_Tables/Screws/cap_screws.htm (ISO 4762, ISO 10642)",
     "https://www.roymech.co.uk/Useful_Tables/Screws/Screw_loads.htm (ISO 898-1 proof loads and torque)",
     "https://www.roymech.co.uk/Useful_Tables/Screws/Thread_tol.html (ISO 965-1 tolerance)",
     "https://tabelic.com/threads/thread-engagement-chart/ (minimum engagement)",
+    "https://de.wikipedia.org/wiki/Durchgangsbohrung and FreeCAD PartDesign FeatureHole.cpp (ISO 273, ISO 2306)",
     "https://en.wikipedia.org/wiki/Unified_Thread_Standard and https://en.wikipedia.org/wiki/British_standard_pipe_thread",
 ];
 
@@ -107,15 +108,15 @@ fn all() -> &'static [Thread] {
                 tap_drill: drill * MM_PER_INCH,
                 coarse,
             });
-        let pipe = parse::<Rows<(String, f64, f64)>>(PIPE, "thread_pipe")
+        let pipe = parse::<Rows<(String, f64, f64, f64)>>(PIPE, "thread_pipe")
             .rows
             .into_iter()
-            .map(|(name, tpi, major)| Thread {
+            .map(|(name, tpi, major, tap_drill)| Thread {
                 name,
                 family: Family::Pipe,
                 major,
                 pitch: MM_PER_INCH / tpi,
-                tap_drill: major - 1.28065 * MM_PER_INCH / tpi,
+                tap_drill,
                 coarse: true,
             });
         metric.chain(unified).chain(pipe).collect()
@@ -204,7 +205,7 @@ pub struct Head {
 
 #[derive(Deserialize)]
 struct HeadFile {
-    iso4762: Vec<[f64; 4]>,
+    iso4762: Vec<[f64; 5]>,
     iso7380: Vec<[f64; 3]>,
     iso10642: Vec<[f64; 3]>,
 }
@@ -222,7 +223,7 @@ pub fn heads(thread: &Thread) -> Vec<Head> {
             head_dia: r[1],
             head_height: r[2],
             bore_dia: r[3],
-            bore_depth: r[2] + 0.4,
+            bore_depth: r[4],
         });
     }
     if let Some(r) = file.iso7380.iter().find(|r| at(r[0])) {

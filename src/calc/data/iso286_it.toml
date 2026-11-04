@@ -1,7 +1,8 @@
-# ISO 286-1:2010 standard tolerance grades in micrometres, from the table at https://mechsheet.com/it-grades/
+# ISO 286-1:2010 standard tolerance grades IT5 to IT11 in micrometres.
+# Source 1: https://mechsheet.com/it-grades/   Source 2: https://shopmath.org/charts/iso-tolerances
+# The two agree on every value below.
 # Size bands are above the previous top and up to this one, in mm: 3 6 10 18 30 50 80 120 180 250 315 400 500
 bands = [3, 6, 10, 18, 30, 50, 80, 120, 180, 250, 315, 400, 500]
-IT4 = [3, 4, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20]
 IT5 = [4, 5, 6, 8, 9, 11, 13, 15, 18, 20, 23, 25, 27]
 IT6 = [6, 8, 9, 11, 13, 16, 19, 22, 25, 29, 32, 36, 40]
 IT7 = [10, 12, 15, 18, 21, 25, 30, 35, 40, 46, 52, 57, 63]
@@ -9,4 +10,3 @@ IT8 = [14, 18, 22, 27, 33, 39, 46, 54, 63, 72, 81, 89, 97]
 IT9 = [25, 30, 36, 43, 52, 62, 74, 87, 100, 115, 130, 140, 155]
 IT10 = [40, 48, 58, 70, 84, 100, 120, 140, 160, 185, 210, 230, 250]
 IT11 = [60, 75, 90, 110, 130, 160, 190, 220, 250, 290, 320, 360, 400]
-IT12 = [100, 120, 150, 180, 210, 250, 300, 350, 400, 460, 520, 570, 630]

@@ -1,5 +1,7 @@
 # ISO 286-1:2010 delta (micrometres) added to hole deviations K, M, N up to IT8 and P to Z up to IT7 above 3 mm,
 # from https://mechsheet.com/tolerance/fundamental-deviations/ . Delta is zero at or below 3 mm.
+# Cross-checked for IT6 to IT8 through the roymech.co.uk hole table (K7, M7, N7, P6, P7 and N8 values reproduce).
+# The code only uses grades 6 to 8 for K, M, N and 6 to 7 for P, R, S.
 # Rows are [top of size band in mm, IT3, IT4, IT5, IT6, IT7, IT8]
 rows = [
   [3, 0, 0, 0, 0, 0, 0],

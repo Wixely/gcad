@@ -1,10 +1,11 @@
-# Proof stress Sp in MPa by property class: ISO 898-1:2013 for steel (https://www.roymech.co.uk/Useful_Tables/Screws/Screw_loads.htm),
-# ISO 3506-1 yield (Rp0.2) for stainless A2-70 and A4-70.
+# Proof stress Sp in MPa by property class. Steel: ISO 898-1:2013 proof loads divided by stress areas, from
+# https://www.roymech.co.uk/Useful_Tables/Screws/Screw_loads.htm (4.6: 4.52 kN / 20.1 mm2 = 225, 8.8: 11.6 / 20.1 = 580,
+# 10.9: 16.7 / 20.1 = 830, 12.9: 19.5 / 20.1 = 970). Class 5.8 is left out, no source gave its proof load.
+# Stainless A2-70 and A4-70: ISO 3506-1 Rp0.2 450 MPa from https://www.roymech.co.uk/Useful_Tables/Screws/Strength.htm
 # Torque is T = k * 0.85 * Sp * As * d, the RoyMech estimate (preload at 85 percent of proof load, nut factor k 0.2 dry).
 preload_fraction = 0.85
 [proof]
 "4.6" = 225
-"5.8" = 380
 "8.8" = 580
 "10.9" = 830
 "12.9" = 970

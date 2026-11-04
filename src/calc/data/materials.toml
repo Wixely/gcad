@@ -1,9 +1,16 @@
 # Engineering materials. engagement is the minimum thread engagement as a multiple of the nominal diameter
 # for [class 8.8 or lower, class 10.9 and 12.9], from https://tabelic.com/threads/thread-engagement-chart/
 # (low carbon steel, stainless, wrought aluminium, brass rows; soft plastic row for PLA, PETG, ABS and nylon).
-# density in g/cm3 and tensile strength in MPa: plastics from https://3dprintcalcs.uk/reference/filament-properties/ ,
-# aluminium 6061-T6 and steel 1045 from https://www.engineeringtoolbox.com/engineering-materials-properties-d_1225.html ,
-# stainless 304 and brass C360 typical handbook values.
+# Cross-check of engagement: https://www.rivcut.com/resources/thread-engagement-calculator gives aluminium 6061 2.0,
+# stainless 1.25 (same), steel 1.0 and plastic 2.5 (lower; the table here keeps the more careful tabelic.com value).
+# density g/cm3 and tensile MPa, each from at least two of:
+#   https://www.partmfg.com/3d-printing-filament-properties-table/ , https://3dprintcalcs.uk/reference/filament-properties/ ,
+#   https://en.wikipedia.org/wiki/Polylactic_acid , https://en.wikipedia.org/wiki/Acrylonitrile_butadiene_styrene ,
+#   https://en.wikipedia.org/wiki/Nylon , https://en.wikipedia.org/wiki/6061_aluminium_alloy ,
+#   https://www.engineeringtoolbox.com/engineering-materials-properties-d_1225.html ,
+#   https://www.azom.com/article.aspx?ArticleID=965 , https://en.wikipedia.org/wiki/SAE_304_stainless_steel ,
+#   https://en.wikipedia.org/wiki/Brass (density only; no tensile value was found, so brass has none)
+# Plastic tensile strength varies a lot with print settings; PLA (50 to 72), nylon (52 to 70) use the lower figure.
 # print marks plastics printed in layers, where holes come out small and threads are weak.
 [[material]]
 name = "steel"
@@ -17,7 +24,7 @@ print = false
 name = "aluminium"
 aliases = ["alu", "aluminum", "6061"]
 density = 2.7
-tensile = 270
+tensile = 290
 engagement = [2.0, 2.5]
 print = false
 
@@ -33,7 +40,6 @@ print = false
 name = "brass"
 aliases = ["bronze"]
 density = 8.5
-tensile = 385
 engagement = [1.6, 2.0]
 print = false
 
@@ -49,7 +55,7 @@ print = true
 name = "petg"
 aliases = []
 density = 1.27
-tensile = 50
+tensile = 52
 engagement = [3.0, 3.0]
 print = true
 
@@ -57,7 +63,7 @@ print = true
 name = "abs"
 aliases = []
 density = 1.04
-tensile = 40
+tensile = 43
 engagement = [3.0, 3.0]
 print = true
 
@@ -65,6 +71,6 @@ print = true
 name = "nylon"
 aliases = ["pa", "pa6", "pa12"]
 density = 1.12
-tensile = 70
+tensile = 52
 engagement = [3.0, 3.0]
 print = true

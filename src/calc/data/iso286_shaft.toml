@@ -1,4 +1,6 @@
 # ISO 286-1:2010 shaft fundamental deviations in micrometres, from https://mechsheet.com/tolerance/fundamental-deviations/
+# Cross-checked against the hole table at https://www.roymech.co.uk/Useful_Tables/ISO_Tolerances/ISO_Hole_LIM_1.html
+# (C to G equal in size, K7 M7 N7 P R S after delta) and shopmath.org/charts/iso-tolerances (H7, g6, p6, c11 at 25 mm).
 # c to h are the upper deviation es, k to s the lower deviation ei (k applies to grades 4 to 7 only).
 # Hole deviations follow from these: EI = -es for A to H, ES = -ei (+ delta) for K to S.
 # Rows are [top of size band in mm, then one value per letter]. A band is above the previous top and up to this one.

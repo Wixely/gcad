@@ -16,7 +16,7 @@ pub struct Material {
     pub name: String,
     pub aliases: Vec<String>,
     pub density: f64,
-    pub tensile: f64,
+    pub tensile: Option<f64>,
     pub engagement: [f64; 2],
     pub print: bool,
 }
@@ -58,7 +58,12 @@ pub fn report(material: &Material) -> Report {
         title: format!("material {}", material.name),
         rows: vec![
             ("density".into(), format!("{} g/cm3", material.density)),
-            ("tensile".into(), format!("{} MPa", material.tensile)),
+            (
+                "tensile".into(),
+                material
+                    .tensile
+                    .map_or("not tabulated".into(), |t| format!("{t} MPa")),
+            ),
             (
                 "engagement".into(),
                 format!(

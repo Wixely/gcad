@@ -9,9 +9,10 @@ const SHAFT: &str = include_str!("data/iso286_shaft.toml");
 const DELTA: &str = include_str!("data/iso286_delta.toml");
 const NOTES: &str = include_str!("data/fit_notes.toml");
 
-pub const SOURCES: [&str; 2] = [
+pub const SOURCES: [&str; 3] = [
     "https://mechsheet.com/it-grades/ (ISO 286-1:2010 Table 1)",
     "https://mechsheet.com/tolerance/fundamental-deviations/ (ISO 286-1:2010 Tables 2 and 3)",
+    "https://www.roymech.co.uk/Useful_Tables/ISO_Tolerances/ISO_Hole_LIM_1.html and https://shopmath.org/charts/iso-tolerances (cross-check)",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq)]

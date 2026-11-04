@@ -1,7 +1,10 @@
-# ISO 228 / BSP parallel pipe threads (G), threads per inch and major diameter in mm, from
-# https://en.wikipedia.org/wiki/British_standard_pipe_thread . Minor diameter is major - 1.28065 P.
-# Rows are [name, threads per inch, major mm]
+# ISO 228 / BSP parallel pipe threads (G): threads per inch, major diameter in mm and tap drill in mm.
+# Source 1 (tpi and major): https://en.wikipedia.org/wiki/British_standard_pipe_thread
+# Source 2 (tpi, pitch, major and tap drill): FreeCAD PartDesign Hole.cpp BSP table, ISO 228-1
+#   https://raw.githubusercontent.com/FreeCAD/FreeCAD/main/src/Mod/PartDesign/App/FeatureHole.cpp
+# Majors agree in both. Minor diameter is major - 1.28065 P (G1/4: 11.445, as in source 1).
+# Rows are [name, threads per inch, major mm, tap drill mm]
 rows = [
-  ["G1/8", 28, 9.728], ["G1/4", 19, 13.157], ["G3/8", 19, 16.662], ["G1/2", 14, 20.955],
-  ["G5/8", 14, 22.911], ["G3/4", 14, 26.441], ["G1", 11, 33.249], ["G1-1/4", 11, 41.910],
+  ["G1/8", 28, 9.728, 8.8], ["G1/4", 19, 13.157, 11.8], ["G3/8", 19, 16.662, 15.25], ["G1/2", 14, 20.955, 19.0],
+  ["G5/8", 14, 22.911, 21.0], ["G3/4", 14, 26.441, 24.5], ["G1", 11, 33.249, 30.75], ["G1-1/4", 11, 41.910, 39.5],
 ]

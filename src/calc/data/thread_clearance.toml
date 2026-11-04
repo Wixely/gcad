@@ -1,4 +1,10 @@
-# ISO 273 clearance holes in mm, fine, medium, coarse series. Same values the hole op uses (DIN EN 20273).
+# ISO 273 clearance holes in mm, fine, medium, coarse series.
+# Source 1: https://de.wikipedia.org/wiki/Durchgangsbohrung (table ISO 273 Durchgangsloecher fein, mittel, grob)
+# Source 2: FreeCAD PartDesign Hole.cpp metricHoleDiameters, "ISO metric clearance hole diameters according to ISO 273"
+#   https://raw.githubusercontent.com/FreeCAD/FreeCAD/main/src/Mod/PartDesign/App/FeatureHole.cpp
+# The two agree on every row below. Not used: engineeringtoolbox.com iso-metric-thread-drill-tap-size-d_2045
+# (an older DIN 69 style table, M6 medium 6.5 and M12 14/15) and cq_warehouse clearance_hole_sizes.csv (M12 and above
+# are shifted by 0.5 mm), because both disagree with the two sources above.
 # Rows are [major mm, fine, medium, coarse]
 rows = [
   [2.0, 2.2, 2.4, 2.6], [2.5, 2.7, 2.9, 3.1], [3.0, 3.2, 3.4, 3.6], [4.0, 4.3, 4.5, 4.8],

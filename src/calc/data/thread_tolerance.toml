@@ -1,5 +1,6 @@
 # ISO 965-1 fundamental deviation es of external thread position g in micrometres by pitch in mm
 # (internal position H has EI 0), from https://www.roymech.co.uk/Useful_Tables/Screws/Thread_tol.html
+# Cross-check: ISO 965-1 formula es = -(15 + 11 P) um, rounded (P 1.0 gives -26, P 1.5 gives -32 with rounding up).
 # Medium class: 6H internal, 6g external.
 g = [
   [0.25, -18], [0.35, -19], [0.4, -19], [0.45, -20], [0.5, -20], [0.7, -22], [0.75, -22],

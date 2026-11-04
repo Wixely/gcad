@@ -246,6 +246,187 @@ mod thread_op {
     }
 }
 
+mod pinned_tables {
+    use super::*;
+
+    #[test]
+    fn iso_273_clearance_holes_match_two_sources() {
+        let rows = [
+            ("M2", [2.2, 2.4, 2.6]),
+            ("M3", [3.2, 3.4, 3.6]),
+            ("M6", [6.4, 6.6, 7.0]),
+            ("M8", [8.4, 9.0, 10.0]),
+            ("M10", [10.5, 11.0, 12.0]),
+            ("M12", [13.0, 13.5, 14.5]),
+            ("M16", [17.0, 17.5, 18.5]),
+            ("M20", [21.0, 22.0, 24.0]),
+            ("M24", [25.0, 26.0, 28.0]),
+        ];
+        for (name, expected) in rows {
+            let t = thread::find(name).expect(name);
+            assert_eq!(thread::clearance(&t), Some(expected), "{name}");
+        }
+    }
+
+    #[test]
+    fn socket_head_counterbores_match_freecad_iso_4762() {
+        let rows = [
+            ("M3", 6.0, 3.4),
+            ("M5", 10.0, 5.4),
+            ("M8", 15.0, 8.6),
+            ("M12", 20.0, 12.6),
+            ("M24", 40.0, 24.8),
+        ];
+        for (name, dia, depth) in rows {
+            let t = thread::find(name).expect(name);
+            let head = thread::heads(&t)
+                .into_iter()
+                .find(|h| h.standard == "ISO 4762")
+                .expect(name);
+            near(head.bore_dia, dia, 1e-9);
+            near(head.bore_depth, depth, 1e-9);
+        }
+    }
+
+    #[test]
+    fn countersunk_and_button_heads() {
+        let m8 = thread::find("M8").expect("M8");
+        let heads = thread::heads(&m8);
+        let flat = heads
+            .iter()
+            .find(|h| h.standard == "ISO 10642")
+            .expect("flat");
+        near(flat.head_dia, 17.92, 1e-9);
+        near(flat.head_height, 4.96, 1e-9);
+        let button = heads
+            .iter()
+            .find(|h| h.standard == "ISO 7380")
+            .expect("button");
+        near(button.head_dia, 14.0, 1e-9);
+        near(button.head_height, 4.4, 1e-9);
+    }
+
+    #[test]
+    fn fine_pitch_tap_drills_are_diameter_minus_pitch() {
+        for (name, drill) in [
+            ("M10x1.25", 8.75),
+            ("M12x1.25", 10.75),
+            ("M8x1", 7.0),
+            ("M6x0.75", 5.25),
+        ] {
+            let t = thread::find(name).expect(name);
+            near(t.tap_drill, drill, 1e-9);
+            near(t.tap_drill, t.major - t.pitch, 1e-9);
+        }
+    }
+
+    #[test]
+    fn coarse_tap_drills_match_iso_2306() {
+        for (name, drill) in [
+            ("M2.5", 2.05),
+            ("M5", 4.2),
+            ("M8", 6.8),
+            ("M10", 8.5),
+            ("M12", 10.2),
+            ("M20", 17.5),
+            ("M24", 21.0),
+        ] {
+            near(thread::find(name).expect(name).tap_drill, drill, 1e-9);
+        }
+    }
+
+    #[test]
+    fn pipe_thread_drills_and_pitches() {
+        for (name, drill, pitch) in [
+            ("G1/8", 8.8, 0.907),
+            ("G1/2", 19.0, 1.814),
+            ("G1", 30.75, 2.309),
+        ] {
+            let t = thread::find(name).expect(name);
+            near(t.tap_drill, drill, 1e-9);
+            near(t.pitch, pitch, 1e-3);
+        }
+    }
+
+    #[test]
+    fn unified_drills_are_within_a_sixth_of_a_millimetre_of_freecad() {
+        for (name, drill) in [
+            ("#6-32", 2.72),
+            ("1/4-20", 5.1),
+            ("3/8-16", 8.0),
+            ("1/2-13", 10.8),
+        ] {
+            near(thread::find(name).expect(name).tap_drill, drill, 0.15);
+        }
+    }
+
+    #[test]
+    fn proof_stress_gives_iso_898_proof_loads() {
+        let m10 = thread::find("M10").expect("M10");
+        near(
+            thread::torque(&m10, "8.8", 0.2).expect("t").proof_load_kn,
+            33.7,
+            0.6,
+        );
+        near(
+            thread::torque(&m10, "12.9", 0.2).expect("t").proof_load_kn,
+            56.3,
+            1.0,
+        );
+        near(
+            thread::torque(&m10, "10.9", 0.2).expect("t").newton_metres,
+            81.8,
+            2.0,
+        );
+        assert!(thread::torque(&m10, "5.8", 0.2).is_err());
+    }
+
+    #[test]
+    fn iso_286_limits_at_several_sizes() {
+        let cases: [(&str, f64, f64, f64); 8] = [
+            ("H7", 10.0, 10.0, 10.015),
+            ("g6", 10.0, 9.986, 9.995),
+            ("H7", 50.0, 50.0, 50.025),
+            ("h6", 50.0, 49.984, 50.0),
+            ("F7", 20.0, 20.020, 20.041),
+            ("c11", 25.0, 24.760, 24.890),
+            ("p6", 25.0, 25.022, 25.035),
+            ("H11", 25.0, 25.0, 25.130),
+        ];
+        for (class, nominal, low, high) in cases {
+            let l = fit::limits(class, nominal).expect(class);
+            near(l.min, low, 1e-9);
+            near(l.max, high, 1e-9);
+        }
+    }
+
+    #[test]
+    fn hole_letters_with_delta_match_roymech() {
+        let k7 = fit::limits("K7", 25.0).expect("K7");
+        near(k7.min, 24.985, 1e-9);
+        near(k7.max, 25.006, 1e-9);
+        let m7 = fit::limits("M7", 25.0).expect("M7");
+        near(m7.max, 25.000 + 0.0, 1e-9);
+        let n7 = fit::limits("N7", 50.0).expect("N7");
+        near(n7.max, 49.992, 1e-9);
+    }
+
+    #[test]
+    fn materials_match_their_sources() {
+        for (name, density, tensile) in [
+            ("aluminium", 2.7, Some(290.0)),
+            ("stainless", 8.0, Some(515.0)),
+            ("petg", 1.27, Some(52.0)),
+            ("abs", 1.04, Some(43.0)),
+            ("brass", 8.5, None),
+        ] {
+            let m = materials::find(name).expect(name);
+            near(m.density, density, 1e-9);
+            assert_eq!(m.tensile, tensile, "{name}");
+        }
+    }
+}
+
 mod material_table {
     use super::*;
 

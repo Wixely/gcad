@@ -187,14 +187,14 @@ mod threads {
     fn blind_hole_depth_check() {
         let t = thread::find("M6").expect("M6");
         let alu = materials::find("aluminium").expect("alu");
-        let short = thread::check_depth(&t, &alu, "8.8", 14.0, false);
+        let short = thread::check_depth(&t, alu, "8.8", 14.0, false);
         assert!(!short.ok);
         near(short.usable, 11.0, 1e-9);
         near(short.required, 12.0, 1e-9);
         near(short.needed_depth, 15.0, 1e-9);
-        let long = thread::check_depth(&t, &alu, "8.8", 16.0, false);
+        let long = thread::check_depth(&t, alu, "8.8", 16.0, false);
         assert!(long.ok);
-        let through = thread::check_depth(&t, &alu, "8.8", 12.0, true);
+        let through = thread::check_depth(&t, alu, "8.8", 12.0, true);
         assert!(through.ok);
     }
 

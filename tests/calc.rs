@@ -197,3 +197,30 @@ fn bad_inputs_are_refused() {
     assert!(oring::design(&input(Application::Piston, 50.0, -1.0)).is_err());
     assert!("rubberish".parse::<Material>().is_err());
 }
+
+fn gcad(args: &[&str]) -> (bool, String) {
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_gcad"))
+        .args(args)
+        .output()
+        .expect("runs");
+    let text =
+        String::from_utf8_lossy(&out.stdout).to_string() + &String::from_utf8_lossy(&out.stderr);
+    (out.status.success(), text)
+}
+
+#[test]
+fn calc_oring_prints_a_result_and_a_why_line() {
+    let (ok, text) = gcad(&["calc", "oring", "piston", "50", "--pressure", "10"]);
+    assert!(ok, "{text}");
+    assert!(text.contains("size 1") && text.contains("why:"));
+    assert!(!text.contains("formulas:"));
+    let (_, full) = gcad(&["calc", "oring", "piston", "50", "--formulas"]);
+    assert!(full.contains("formulas:") && full.contains("source:"));
+}
+
+#[test]
+fn calc_oring_refuses_a_bad_application() {
+    let (ok, text) = gcad(&["calc", "oring", "bolt", "50"]);
+    assert!(!ok);
+    assert!(text.contains("face, static, rod or piston"));
+}

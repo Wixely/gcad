@@ -204,6 +204,11 @@ enum Command {
         #[arg(long)]
         line: Option<usize>,
     },
+    /// Design calculators for standard parts, printing a result and a why line
+    Calc {
+        #[command(subcommand)]
+        what: CalcKind,
+    },
     /// Print the format reference: every operation, selector and assembly line
     Docs,
     /// Open the file in a window that rebuilds whenever it is saved
@@ -215,6 +220,35 @@ enum Command {
         /// Show the model as it is after this line
         #[arg(long)]
         line: Option<usize>,
+    },
+}
+
+#[derive(Subcommand)]
+enum CalcKind {
+    /// Pick an o-ring and size its groove: gcad calc oring piston 50 --pressure 10
+    Oring {
+        /// face, static, rod or piston
+        application: gcad::calc::oring::Application,
+        /// Face seal groove diameter, static bore, rod or piston bore diameter, in mm
+        diameter: f64,
+        /// Cross-section in mm (default: from the diameter)
+        #[arg(long)]
+        cs: Option<f64>,
+        /// Working pressure in bar
+        #[arg(long, default_value_t = 0.0)]
+        pressure: f64,
+        /// nitrile, epdm, fkm, polyurethane, silicone or fluorosilicone
+        #[arg(long, default_value = "nitrile")]
+        material: gcad::calc::oring::Material,
+        /// Diametral clearance of the mating parts in mm
+        #[arg(long)]
+        clearance: Option<f64>,
+        /// Check this ring instead of searching: an AS568 dash number like 214 or 40x2.65
+        #[arg(long)]
+        ring: Option<String>,
+        /// Show the formulas and sources
+        #[arg(long)]
+        formulas: bool,
     },
 }
 
@@ -558,6 +592,32 @@ fn main() -> Result<()> {
             )?;
             picture.canvas.save(&output)?;
             print!("{}", picture.report);
+            Ok(())
+        }
+        Command::Calc { what } => {
+            match what {
+                CalcKind::Oring {
+                    application,
+                    diameter,
+                    cs,
+                    pressure,
+                    material,
+                    clearance,
+                    ring,
+                    formulas,
+                } => {
+                    let design = gcad::calc::oring::design(&gcad::calc::oring::Input {
+                        application,
+                        diameter,
+                        cross_section: cs,
+                        pressure_bar: pressure,
+                        material,
+                        clearance,
+                        ring,
+                    })?;
+                    println!("{}", gcad::calc::oring::report(&design).render(formulas));
+                }
+            }
             Ok(())
         }
         Command::Docs => {

@@ -207,7 +207,7 @@ fn span_mm(span: Span) -> (f64, f64) {
 }
 
 pub fn design(input: &Input) -> Result<Design> {
-    if !(input.diameter > 0.0) {
+    if input.diameter.is_nan() || input.diameter <= 0.0 {
         bail!("diameter must be positive, got {}", input.diameter);
     }
     if input.pressure_bar < 0.0 {

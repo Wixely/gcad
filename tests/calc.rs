@@ -1,3 +1,7 @@
+mod common;
+
+use std::f64::consts::PI;
+
 use gcad::calc::tables::{self, Series};
 
 #[test]
@@ -223,4 +227,79 @@ fn calc_oring_refuses_a_bad_application() {
     let (ok, text) = gcad(&["calc", "oring", "bolt", "50"]);
     assert!(!ok);
     assert!(text.contains("face, static, rod or piston"));
+}
+
+mod groove {
+    use super::{common, *};
+    fn annulus(inner: f64, outer: f64, length: f64) -> f64 {
+        PI / 4.0 * (outer * outer - inner * inner) * length
+    }
+
+    #[test]
+    fn face_groove_volume_matches_the_maths() {
+        let model = common::build(
+            "circle 80\nbase: extrude 10\nplane base.end\noring_groove face 40 pressure=10 cs=3.53",
+        );
+        let design = oring::design(&input(Application::StaticFace, 40.0, 10.0)).expect("design");
+        let cut = annulus(
+            design.groove_diameter,
+            design.groove_diameter + 2.0 * design.width,
+            design.depth_mid,
+        );
+        common::assert_volume(&model, PI / 4.0 * 80.0 * 80.0 * 10.0 - cut, 0.0005);
+    }
+
+    #[test]
+    fn piston_groove_volume_matches_the_maths() {
+        let model = common::build(
+            "circle 50\nrod: extrude 30\nplane XY\noring_groove piston 50 offset=10 pressure=10 cs=3.53",
+        );
+        let design = oring::design(&input(Application::Piston, 50.0, 10.0)).expect("design");
+        let cut = annulus(design.groove_diameter, 50.0, design.width);
+        common::assert_volume(&model, PI / 4.0 * 50.0 * 50.0 * 30.0 - cut, 0.0005);
+    }
+
+    #[test]
+    fn rod_groove_cuts_the_bore_wall() {
+        let model = common::build(
+            "circle 80\ngland: extrude 30\nplane gland.end\ncircle 20\nbore: cut thru\nplane XY\noring_groove rod 20 offset=10 pressure=10 cs=3.53",
+        );
+        let design = oring::design(&input(Application::Rod, 20.0, 10.0)).expect("design");
+        let cut = annulus(20.0, design.groove_diameter, design.width);
+        common::assert_volume(&model, annulus(20.0, 80.0, 30.0) - cut, 0.0005);
+    }
+
+    #[test]
+    fn a_groove_the_ring_cannot_fill_is_refused() {
+        let message = common::failure(
+            "circle 80\nbase: extrude 10\nplane base.end\noring_groove face 40 ring=20x3.55",
+        );
+        assert!(message.contains("does not suit"), "{message}");
+    }
+}
+
+#[test]
+fn oring_standard_part_is_a_torus_of_the_listed_size() {
+    let dir = std::path::PathBuf::from(common::scratch("calc_oring_part"));
+    std::fs::create_dir_all(&dir).expect("dir");
+    let file = dir.join("seal.gasm");
+    std::fs::write(&file, "part seal oring:214\npart spare oring:40x2.65\n").expect("write");
+    let (ok, text) = gcad(&["bom", file.to_str().expect("path"), "--csv"]);
+    assert!(ok, "{text}");
+    assert!(
+        text.contains("AS568-214") && text.contains("ISO 3601 40x2.65"),
+        "{text}"
+    );
+    let torus = |id: f64, cs: f64| 2.0 * PI * PI * (id / 2.0 + cs / 2.0) * (cs / 2.0) * (cs / 2.0);
+    let volume = |name: &str| -> f64 {
+        let row = text.lines().find(|l| l.contains(name)).expect("row");
+        row.split(',')
+            .filter_map(|c| c.parse().ok())
+            .fold(0.0, f64::max)
+    };
+    near(volume("AS568-214"), torus(24.99, 3.53), 0.02);
+    near(volume("40x2.65"), torus(40.0, 2.65), 0.02);
+    let (bad, message) = gcad(&["bom", file.to_str().expect("path")]);
+    assert!(bad);
+    drop(message);
 }

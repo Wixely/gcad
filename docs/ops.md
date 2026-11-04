@@ -129,6 +129,10 @@ OCP: `GCAD_OCP_PYTHON=~/git/cadkit/.venv/bin/python cargo test --release -- --ig
 | tap drill and heat-set insert holes | supported | `hole M4 x,y fit=tap`, `hole M3 x,y fit=insert` | `holes::tapped_and_insert_holes_for_a_screw` |
 | counterbore or countersink for a screw | supported | `cbore=M3`, `csink=M4` | `holes::counterbore_and_countersink_for_a_screw` |
 | hole fits | supported | `hole 6 x,y fit=H7` | `holes::hole_fit_limits`, `output::drawing_notes_fits_and_taps` |
+| o-ring sizes | supported | AS568 -004 to -284 and ISO 3601-1 1.8 to 7.0 mm series from `src/calc/data` | `calc::as568_dash_numbers_match_the_handbook`, `calc::as568_inside_diameters_agree_with_the_inch_table`, `calc::iso_sizes_are_found_by_id_and_cross_section`, `calc::every_ring_belongs_to_a_cross_section_group`, `calc::gland_tables_cover_every_cross_section` |
+| o-ring calculator | supported | `gcad calc oring piston 50 --pressure 10 --formulas` | `calc::face_seal_squeeze_matches_the_handbook_range`, `calc::piston_gland_uses_the_reciprocating_depth`, `calc::rod_groove_sits_outside_the_rod`, `calc::stretch_over_three_percent_is_rejected`, `calc::fill_over_eighty_five_percent_is_rejected`, `calc::fill_matches_the_area_ratio`, `calc::back_up_ring_is_flagged_above_the_handbook_pressure`, `calc::silicone_halves_the_allowed_clearance`, `calc::a_wide_gap_asks_for_a_back_up_ring`, `calc::lead_in_chamfer_is_twenty_degrees`, `calc::report_has_a_why_line_formulas_and_sources`, `calc::bad_inputs_are_refused`, `calc::calc_oring_prints_a_result_and_a_why_line`, `calc::calc_oring_refuses_a_bad_application` |
+| o-ring groove | supported | `oring_groove face 40 pressure=10`, `oring_groove piston 50 offset=10` | `calc::face_groove_volume_matches_the_maths`, `calc::piston_groove_volume_matches_the_maths`, `calc::rod_groove_cuts_the_bore_wall`, `calc::a_groove_the_ring_cannot_fill_is_refused` |
+| o-ring standard part | supported | `part seal oring:214`, `oring:40x2.65` | `calc::oring_standard_part_is_a_torus_of_the_listed_size` |
 
 
 ## Enclosures

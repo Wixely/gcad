@@ -11,6 +11,7 @@ pub const KINDS: &[(&str, &str)] = &[
     ("standoff", "hex standoff"),
     ("bearing", "bearing"),
     ("dowel", "ISO 8734"),
+    ("oring", "o-ring"),
 ];
 
 pub const BEARINGS: &[(&str, f64, f64, f64)] = &[
@@ -68,6 +69,23 @@ fn bearing(size: &str) -> Result<Standard> {
     .join("\n");
     Ok(Standard {
         title: format!("{name} bearing {bore}x{outer}x{wide}"),
+        source,
+    })
+}
+
+fn oring(size: &str) -> Result<Standard> {
+    let ring = crate::calc::tables::ring(size).ok_or_else(|| {
+        anyhow!("no standard o-ring `{size}`; write an AS568 dash number like oring:214 or an ISO 3601 size like oring:40x2.65")
+    })?;
+    let source = [
+        "plane XZ".to_string(),
+        format!("circle {} at={},0", ring.cs, ring.id / 2.0 + ring.cs / 2.0),
+        "ring: revolve 360 axis=y".into(),
+        "material nitrile".into(),
+    ]
+    .join("\n");
+    Ok(Standard {
+        title: format!("{} {}x{}", ring.name(), ring.id, ring.cs),
         source,
     })
 }
@@ -142,6 +160,7 @@ pub fn standard(spec: &str) -> Result<Standard> {
     match kind {
         "bearing" => return bearing(size),
         "dowel" => return dowel(size),
+        "oring" => return oring(size),
         _ => {}
     }
     let (m, length) = sized(size, kind)?;

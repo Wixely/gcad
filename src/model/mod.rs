@@ -16,6 +16,7 @@ pub mod materials;
 mod measure;
 mod member;
 mod meshes;
+mod oring;
 mod path;
 mod pattern;
 mod rib;
@@ -529,6 +530,7 @@ pub const OPERATIONS: &[&str] = &[
     "helix",
     "sweep",
     "hole",
+    "oring_groove",
     "boss",
     "lip",
     "groove",
@@ -726,6 +728,7 @@ impl Model {
             "helix" => self.op_helix(line),
             "sweep" => self.op_sweep(line),
             "hole" => self.op_hole(line),
+            "oring_groove" => self.op_oring_groove(line),
             "boss" => self.op_boss(line),
             "lip" => self.op_lip(line, false),
             "groove" => self.op_lip(line, true),

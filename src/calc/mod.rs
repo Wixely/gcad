@@ -14,11 +14,7 @@ impl Report {
     pub fn render(&self, with_formulas: bool) -> String {
         let width = self.rows.iter().map(|(k, _)| k.len()).max().unwrap_or(0);
         let mut out = vec![self.title.clone()];
-        out.extend(
-            self.rows
-                .iter()
-                .map(|(k, v)| format!("  {k:<width$}  {v}")),
-        );
+        out.extend(self.rows.iter().map(|(k, v)| format!("  {k:<width$}  {v}")));
         out.push(format!("why: {}", self.why));
         if with_formulas {
             out.push("formulas:".into());

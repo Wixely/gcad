@@ -104,14 +104,13 @@ pub fn ring(spec: &str) -> Option<&'static Ring> {
     let spec = spec.trim().trim_start_matches(['-', '0']);
     let all = rings();
     if let Ok(dash) = spec.parse::<u32>() {
-        return all
-            .iter()
-            .find(|r| r.series == Series::As568(dash));
+        return all.iter().find(|r| r.series == Series::As568(dash));
     }
     let (id, cs) = spec.split_once(['x', 'X'])?;
     let (id, cs): (f64, f64) = (id.parse().ok()?, cs.parse().ok()?);
-    all.iter()
-        .find(|r| r.series == Series::Iso && (r.id - id).abs() < 1.0e-6 && (r.cs - cs).abs() < 1.0e-6)
+    all.iter().find(|r| {
+        r.series == Series::Iso && (r.id - id).abs() < 1.0e-6 && (r.cs - cs).abs() < 1.0e-6
+    })
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]

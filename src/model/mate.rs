@@ -28,9 +28,9 @@ impl Cylinder {
 
 pub(crate) fn fit_circle(points: &[(f64, f64)]) -> Option<((f64, f64), f64, f64)> {
     let count = points.len().max(1) as f64;
-    let mean = points
-        .iter()
-        .fold((0.0, 0.0), |(sx, sy), &(x, y)| (sx + x / count, sy + y / count));
+    let mean = points.iter().fold((0.0, 0.0), |(sx, sy), &(x, y)| {
+        (sx + x / count, sy + y / count)
+    });
     let mut m = [[0.0f64; 3]; 3];
     let mut rhs = [0.0f64; 3];
     for &(x, y) in points {

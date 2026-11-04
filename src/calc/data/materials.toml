@@ -1,0 +1,70 @@
+# Engineering materials. engagement is the minimum thread engagement as a multiple of the nominal diameter
+# for [class 8.8 or lower, class 10.9 and 12.9], from https://tabelic.com/threads/thread-engagement-chart/
+# (low carbon steel, stainless, wrought aluminium, brass rows; soft plastic row for PLA, PETG, ABS and nylon).
+# density in g/cm3 and tensile strength in MPa: plastics from https://3dprintcalcs.uk/reference/filament-properties/ ,
+# aluminium 6061-T6 and steel 1045 from https://www.engineeringtoolbox.com/engineering-materials-properties-d_1225.html ,
+# stainless 304 and brass C360 typical handbook values.
+# print marks plastics printed in layers, where holes come out small and threads are weak.
+[[material]]
+name = "steel"
+aliases = ["mild steel", "carbon steel"]
+density = 7.85
+tensile = 585
+engagement = [1.25, 1.5]
+print = false
+
+[[material]]
+name = "aluminium"
+aliases = ["alu", "aluminum", "6061"]
+density = 2.7
+tensile = 270
+engagement = [2.0, 2.5]
+print = false
+
+[[material]]
+name = "stainless"
+aliases = ["ss", "304", "316"]
+density = 8.0
+tensile = 515
+engagement = [1.25, 1.5]
+print = false
+
+[[material]]
+name = "brass"
+aliases = ["bronze"]
+density = 8.5
+tensile = 385
+engagement = [1.6, 2.0]
+print = false
+
+[[material]]
+name = "pla"
+aliases = []
+density = 1.24
+tensile = 50
+engagement = [3.0, 3.0]
+print = true
+
+[[material]]
+name = "petg"
+aliases = []
+density = 1.27
+tensile = 50
+engagement = [3.0, 3.0]
+print = true
+
+[[material]]
+name = "abs"
+aliases = []
+density = 1.04
+tensile = 40
+engagement = [3.0, 3.0]
+print = true
+
+[[material]]
+name = "nylon"
+aliases = ["pa", "pa6", "pa12"]
+density = 1.12
+tensile = 70
+engagement = [3.0, 3.0]
+print = true

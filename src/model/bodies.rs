@@ -474,7 +474,12 @@ impl Model {
     }
 
     pub(crate) fn op_color(&mut self, line: &Line) -> Result<String> {
-        let args = Args::new(line, &["colour"], &["opacity", "part", "gloss", "soft"], false)?;
+        let args = Args::new(
+            line,
+            &["colour"],
+            &["opacity", "part", "gloss", "soft"],
+            false,
+        )?;
         let colour = self.colour_of(args.text("colour")?)?;
         let opacity = opacity_of(&args, &self.scope)?;
         let gloss = args.optional_number("gloss", &self.scope)?;

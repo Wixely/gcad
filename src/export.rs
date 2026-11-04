@@ -223,7 +223,11 @@ fn export_meshes(model: &crate::model::Model, path: &str) -> Result<()> {
             Some((_, _, blended, _)) => vertex_colours.extend(blended),
             None => vertex_colours.extend(mesh.labels.iter().map(|&l| {
                 let k = l as usize;
-                own.get(k).copied().flatten().or(*colour).unwrap_or([0.7, 0.7, 0.7])
+                own.get(k)
+                    .copied()
+                    .flatten()
+                    .or(*colour)
+                    .unwrap_or([0.7, 0.7, 0.7])
             })),
         }
         all.merge(mesh);
@@ -237,7 +241,12 @@ fn export_meshes(model: &crate::model::Model, path: &str) -> Result<()> {
                 .unwrap_or_default();
             let mut text = String::new();
             for (name, c, gloss) in &materials {
-                let round = |v: f64| format!("{:.4}", v).trim_end_matches('0').trim_end_matches('.').to_string();
+                let round = |v: f64| {
+                    format!("{:.4}", v)
+                        .trim_end_matches('0')
+                        .trim_end_matches('.')
+                        .to_string()
+                };
                 text.push_str(&format!(
                     "newmtl {name}\nKd {} {} {}\n",
                     round(c[0]),
@@ -255,7 +264,10 @@ fn export_meshes(model: &crate::model::Model, path: &str) -> Result<()> {
                 text.push('\n');
             }
             std::fs::write(&mtl, text)?;
-            let out = format!("mtllib {library}\n{}", crate::mesh::write_obj_coloured(&all, &vertex_colours));
+            let out = format!(
+                "mtllib {library}\n{}",
+                crate::mesh::write_obj_coloured(&all, &vertex_colours)
+            );
             std::fs::write(path, out)?
         }
         "stl" => {

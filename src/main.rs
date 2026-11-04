@@ -250,6 +250,46 @@ enum CalcKind {
         #[arg(long)]
         formulas: bool,
     },
+    /// Thread sizes, drills, heads, torque and hole depth: gcad calc thread M6 --material alu --depth 14
+    Thread {
+        /// M6, M8x1, #8-32, 1/4-20 or G1/4
+        size: String,
+        /// steel, aluminium, stainless, brass, pla, petg, abs or nylon
+        #[arg(long, default_value = "steel")]
+        material: String,
+        /// Strength class of the screw: 8.8, 10.9, 12.9, 4.6, 5.8, A2-70 or A4-70
+        #[arg(long, default_value = "8.8")]
+        class: String,
+        /// Nut factor K in the torque formula
+        #[arg(long, default_value_t = gcad::calc::thread::DEFAULT_NUT_FACTOR)]
+        nut_factor: f64,
+        /// Check a tapped hole of this depth in mm
+        #[arg(long)]
+        depth: Option<f64>,
+        /// The hole goes right through, so there is no tap runout
+        #[arg(long)]
+        through: bool,
+        /// Show the formulas and sources
+        #[arg(long)]
+        formulas: bool,
+    },
+    /// ISO 286 limits for a hole and shaft pair: gcad calc fit H7/g6 25
+    Fit {
+        /// Hole and shaft class, like H7/g6, H7/p6, H11/c11 or F7/h6
+        pair: String,
+        /// Nominal size in mm, up to 500
+        nominal: f64,
+        /// Show the formulas and sources
+        #[arg(long)]
+        formulas: bool,
+    },
+    /// Properties and thread engagement of a material: gcad calc material alu
+    Material {
+        name: String,
+        /// Show the formulas and sources
+        #[arg(long)]
+        formulas: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -616,6 +656,40 @@ fn main() -> Result<()> {
                         ring,
                     })?;
                     println!("{}", gcad::calc::oring::report(&design).render(formulas));
+                }
+                CalcKind::Thread {
+                    size,
+                    material,
+                    class,
+                    nut_factor,
+                    depth,
+                    through,
+                    formulas,
+                } => {
+                    let report = gcad::calc::thread::report(&gcad::calc::thread::Input {
+                        thread: gcad::calc::thread::find(&size)?,
+                        material: gcad::calc::materials::find(&material)?,
+                        class,
+                        nut_factor,
+                        depth,
+                        through,
+                    })?;
+                    println!("{}", report.render(formulas));
+                }
+                CalcKind::Fit {
+                    pair,
+                    nominal,
+                    formulas,
+                } => {
+                    let fit = gcad::calc::fit::fit(&pair, nominal)?;
+                    println!("{}", gcad::calc::fit::report(&fit).render(formulas));
+                }
+                CalcKind::Material { name, formulas } => {
+                    let material = gcad::calc::materials::find(&name)?;
+                    println!(
+                        "{}",
+                        gcad::calc::materials::report(material).render(formulas)
+                    );
                 }
             }
             Ok(())

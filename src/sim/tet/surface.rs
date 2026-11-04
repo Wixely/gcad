@@ -1,10 +1,10 @@
-use sims_tet::{HashMap, HashSet, Welder};
 use super::sizing::SizeField;
 use crate::geometry;
 use crate::select;
 use anyhow::{Result, bail};
 use monstertruck::meshing::prelude::*;
 use monstertruck::modeling::*;
+use sims_tet::{HashMap, HashSet, Welder};
 use spade::handles::FixedVertexHandle;
 use spade::{
     AngleLimit, ConstrainedDelaunayTriangulation, Point2, RefinementParameters, Triangulation,

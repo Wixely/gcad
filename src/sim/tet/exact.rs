@@ -9,7 +9,9 @@ impl sims_tet::Surface for Exact {
     }
 
     fn nearest(&self, p: Point3, hint: Option<Vector2>) -> Option<Vector2> {
-        let (u, v) = self.0.search_nearest_parameter(p, hint.map(|h| (h.x, h.y)), 40)?;
+        let (u, v) = self
+            .0
+            .search_nearest_parameter(p, hint.map(|h| (h.x, h.y)), 40)?;
         Some(Vector2::new(u, v))
     }
 }

@@ -622,8 +622,7 @@ impl State {
                     if normal.dot(toward) >= 0.0 {
                         continue;
                     }
-                    let loop_ =
-                        clip_polygon(&[a, b, c].map(|p| frame.paper(frame.uv(p))), clip);
+                    let loop_ = clip_polygon(&[a, b, c].map(|p| frame.paper(frame.uv(p))), clip);
                     if loop_.len() > 2 {
                         faces.push(loop_);
                     }
@@ -1302,7 +1301,9 @@ impl State {
         let quoted: Vec<&String> = line.positional.iter().filter(|t| !is_target(t)).collect();
         let targets: Vec<&String> = line.positional.iter().filter(|t| is_target(t)).collect();
         if targets.is_empty() {
-            bail!("write `label \"text\" part:faces`, `label \"text\" a:b&c` for an edge or `label \"text\" x,y,z`");
+            bail!(
+                "write `label \"text\" part:faces`, `label \"text\" a:b&c` for an edge or `label \"text\" x,y,z`"
+            );
         }
         let mut found_anchors: Vec<annotate::Anchor2> = Vec::new();
         let mut diameters: Vec<(f64, String)> = Vec::new();
@@ -1375,10 +1376,7 @@ impl State {
         let view = self
             .view_box
             .ok_or_else(|| anyhow!("draw a `view` or `section` first"))?;
-        let own = self
-            .view_geometry
-            .map(|(_, a, b)| a..b)
-            .unwrap_or(0..0);
+        let own = self.view_geometry.map(|(_, a, b)| a..b).unwrap_or(0..0);
         match self.pending.last_mut() {
             Some(last) if last.view == view && last.own == own => last.labels.push(label),
             _ => self.pending.push(PendingView {
@@ -1607,7 +1605,11 @@ impl State {
                 100.0 * stock.used() / stock.area(),
                 (stock.area() - stock.used()) / 1e6,
                 if index + 1 == count {
-                    format!("  |  all stock: {}, {}", layout.bought(), layout.waste_text())
+                    format!(
+                        "  |  all stock: {}, {}",
+                        layout.bought(),
+                        layout.waste_text()
+                    )
                 } else {
                     String::new()
                 }
@@ -2033,12 +2035,7 @@ fn title_block(sheet: &mut Sheet, title: &str, file: &str, index: usize, count: 
             format!("drawn {date}, all sizes in mm"),
         ),
         text(x0 + 112.0, y1 - 9.0, 2.2, "scale".to_string()),
-        text(
-            x0 + 112.0,
-            y1 - 4.0,
-            3.0,
-            scale_text(sheet.scale),
-        ),
+        text(x0 + 112.0, y1 - 4.0, 3.0, scale_text(sheet.scale)),
         text(x0 + 142.0, y1 - 9.0, 2.2, "sheet".to_string()),
         text(x0 + 142.0, y1 - 4.0, 3.0, format!("{index} of {count}")),
     ]);
@@ -2247,7 +2244,7 @@ pub(crate) fn text_width(text: &str, size: f64) -> f64 {
 
 pub fn pdf(sheets: &[Sheet]) -> Vec<u8> {
     use lopdf::content::{Content, Operation};
-    use lopdf::{dictionary, Document, Object, Stream};
+    use lopdf::{Document, Object, Stream, dictionary};
     let pt = 72.0 / 25.4;
     let number = |v: f64| Object::Real(((v * 1000.0).round() / 1000.0) as f32);
     let operation = |name: &str, operands: Vec<Object>| Operation::new(name, operands);
@@ -2281,7 +2278,11 @@ pub fn pdf(sheets: &[Sheet]) -> Vec<u8> {
                         operations.push(operation("RG", vec![number(*r), number(*g), number(*b)]));
                         operations.push(operation("w", vec![number(width * pt)]));
                     }
-                    let pattern = if *dashed { vec![number(5.67), number(2.83)] } else { vec![] };
+                    let pattern = if *dashed {
+                        vec![number(5.67), number(2.83)]
+                    } else {
+                        vec![]
+                    };
                     operations.push(operation("d", vec![Object::Array(pattern), number(0.0)]));
                     for l in loops {
                         for (k, (px, py)) in l.iter().enumerate() {
@@ -2322,10 +2323,7 @@ pub fn pdf(sheets: &[Sheet]) -> Vec<u8> {
                     let (c, s) = (a.cos(), -a.sin());
                     let ox = x + shift * a.cos();
                     let oy = ty + shift * a.sin();
-                    operations.push(operation(
-                        "rg",
-                        vec![number(0.0), number(0.0), number(0.0)],
-                    ));
+                    operations.push(operation("rg", vec![number(0.0), number(0.0), number(0.0)]));
                     operations.push(operation("BT", vec![]));
                     operations.push(operation("Tf", vec!["F1".into(), number(size * pt)]));
                     operations.push(operation(

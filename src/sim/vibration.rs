@@ -20,7 +20,14 @@ pub fn run(spec: &Spec) -> Result<Outcome> {
     let materials = prepared.elastic()?;
     let densities: Vec<f64> = prepared.parts.iter().map(|p| p.density * 1.0e-9).collect();
     let wanted = spec.modes.unwrap_or(6);
-    let found = solve(mesh, &materials, &densities, &spec.supports, wanted, super::fem::gpu())?;
+    let found = solve(
+        mesh,
+        &materials,
+        &densities,
+        &spec.supports,
+        wanted,
+        super::fem::gpu(),
+    )?;
     let readings: Vec<Reading> = found
         .modes
         .iter()

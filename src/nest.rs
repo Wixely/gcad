@@ -247,7 +247,9 @@ pub fn nest(pieces: Vec<Piece>, options: Options) -> Result<Layout> {
         bail!("give at least one stock size");
     }
     if pieces.iter().any(|p| p.edge) && !o.edged {
-        bail!("`edge` parts need edged stock: say the stock's long edges are finished with `edged=1`");
+        bail!(
+            "`edge` parts need edged stock: say the stock's long edges are finished with `edged=1`"
+        );
     }
     for p in &pieces {
         if !o.stocks.iter().any(|&s| fits_stock(p, s, o)) {
@@ -291,44 +293,42 @@ pub fn nest(pieces: Vec<Piece>, options: Options) -> Result<Layout> {
         })
         .collect();
     let mut best: Option<(Vec<Stock>, (f64, usize, f64, usize))> = None;
-    let mut try_all = |sequence: &[usize], best: &mut Option<(Vec<Stock>, (f64, usize, f64, usize))>| {
-        for order in &orders {
-            for split in [
-                Split::Shorter,
-                Split::Longer,
-                Split::RipFirst,
-                Split::CrossFirst,
-            ] {
-                for fit in [Fit::ShortSide, Fit::Area] {
-                    let sheets = pack(&pieces, order, o, split, fit, sequence);
-                    let bought: f64 = sheets.iter().map(Stock::area).sum();
-                    let biggest = sheets
-                        .iter()
-                        .flat_map(|s| &s.free)
-                        .map(|r| r.w * r.h)
-                        .fold(0.0, f64::max);
-                    let cuts: usize = sheets.iter().map(|s| s.cuts.len()).sum();
-                    let score = (bought, sheets.len(), -biggest, cuts);
-                    let better = best.as_ref().is_none_or(|(_, b)| {
-                        score
-                            .0
-                            .total_cmp(&(b.0 - 1.0))
-                            .is_lt()
-                            || ((score.0 - b.0).abs() <= 1.0
-                                && score
-                                    .1
-                                    .cmp(&b.1)
-                                    .then(score.2.total_cmp(&b.2))
-                                    .then(score.3.cmp(&b.3))
-                                    .is_lt())
-                    });
-                    if better {
-                        *best = Some((sheets, score));
+    let mut try_all =
+        |sequence: &[usize], best: &mut Option<(Vec<Stock>, (f64, usize, f64, usize))>| {
+            for order in &orders {
+                for split in [
+                    Split::Shorter,
+                    Split::Longer,
+                    Split::RipFirst,
+                    Split::CrossFirst,
+                ] {
+                    for fit in [Fit::ShortSide, Fit::Area] {
+                        let sheets = pack(&pieces, order, o, split, fit, sequence);
+                        let bought: f64 = sheets.iter().map(Stock::area).sum();
+                        let biggest = sheets
+                            .iter()
+                            .flat_map(|s| &s.free)
+                            .map(|r| r.w * r.h)
+                            .fold(0.0, f64::max);
+                        let cuts: usize = sheets.iter().map(|s| s.cuts.len()).sum();
+                        let score = (bought, sheets.len(), -biggest, cuts);
+                        let better = best.as_ref().is_none_or(|(_, b)| {
+                            score.0.total_cmp(&(b.0 - 1.0)).is_lt()
+                                || ((score.0 - b.0).abs() <= 1.0
+                                    && score
+                                        .1
+                                        .cmp(&b.1)
+                                        .then(score.2.total_cmp(&b.2))
+                                        .then(score.3.cmp(&b.3))
+                                        .is_lt())
+                        });
+                        if better {
+                            *best = Some((sheets, score));
+                        }
                     }
                 }
             }
-        }
-    };
+        };
     let k = o.stocks.len();
     for t in 0..k {
         try_all(&[t], &mut best);
@@ -630,7 +630,11 @@ impl Layout {
             } else {
                 String::new()
             },
-            if self.edged { ", long edges finished" } else { "" },
+            if self.edged {
+                ", long edges finished"
+            } else {
+                ""
+            },
             self.waste_text()
         );
         out += " no  part                      size\n";
@@ -776,7 +780,9 @@ mod tests {
 
     #[test]
     fn edge_pieces_sit_on_a_finished_edge() {
-        let mut pieces: Vec<Piece> = (0..4).map(|i| piece(&format!("s{i}"), 744.0, 380.0)).collect();
+        let mut pieces: Vec<Piece> = (0..4)
+            .map(|i| piece(&format!("s{i}"), 744.0, 380.0))
+            .collect();
         pieces.push(piece("rail", 744.0, 100.0));
         for p in pieces.iter_mut().take(4) {
             p.edge = true;
@@ -804,10 +810,7 @@ mod tests {
 
     #[test]
     fn mixed_stock_buys_the_least_board() {
-        let pieces = vec![
-            piece("big", 2000.0, 1000.0),
-            piece("small", 2000.0, 500.0),
-        ];
+        let pieces = vec![piece("big", 2000.0, 1000.0), piece("small", 2000.0, 500.0)];
         let o = Options {
             stocks: vec![(2440.0, 1220.0), (2440.0, 600.0)],
             gap: 4.0,

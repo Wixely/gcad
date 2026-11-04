@@ -416,7 +416,13 @@ impl Mesh {
                     .find_map(|j| across[j]);
             }
             let outside_colour: Vec<[f64; 3]> = (0..self.positions.len())
-                .map(|i| if inside(i) { across[i].unwrap_or(colours[i]) } else { colours[i] })
+                .map(|i| {
+                    if inside(i) {
+                        across[i].unwrap_or(colours[i])
+                    } else {
+                        colours[i]
+                    }
+                })
                 .collect();
             for i in 0..self.positions.len() {
                 let d = reach[i];
@@ -622,7 +628,11 @@ fn write_obj_body(mesh: &Mesh, materials: bool, colours: &[[f64; 3]]) -> String 
     for (i, p) in mesh.positions.iter().enumerate() {
         match colours.get(i) {
             Some(c) => {
-                let _ = writeln!(out, "v {} {} {} {:.4} {:.4} {:.4}", p[0], p[1], p[2], c[0], c[1], c[2]);
+                let _ = writeln!(
+                    out,
+                    "v {} {} {} {:.4} {:.4} {:.4}",
+                    p[0], p[1], p[2], c[0], c[1], c[2]
+                );
             }
             None => {
                 let _ = writeln!(out, "v {} {} {}", p[0], p[1], p[2]);
@@ -651,4 +661,3 @@ fn write_obj_body(mesh: &Mesh, materials: bool, colours: &[[f64; 3]]) -> String 
     }
     out
 }
-

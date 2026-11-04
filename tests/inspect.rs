@@ -119,27 +119,41 @@ const CASE: &str = "rect 80 50 r=3\nbase: extrude 30\nshell 2 open=base.end\nbod
 fn measure_boxes() {
     let every = summary(&format!("{CASE}measure box"));
     assert!(
-        every.contains("pcb 60.000 x 40.000 x 1.600, [-30.000, -20.000, 2.000]..[30.000, 20.000, 3.600]"),
+        every.contains(
+            "pcb 60.000 x 40.000 x 1.600, [-30.000, -20.000, 2.000]..[30.000, 20.000, 3.600]"
+        ),
         "{every}"
     );
     assert!(every.contains("all 80.000 x 50.000 x 30.000"), "{every}");
     let faces = summary("rect 40 30\nbase: extrude 10\nmeasure box base.end");
-    assert!(faces.contains("base.end 40.000 x 30.000 x 0.000"), "{faces}");
+    assert!(
+        faces.contains("base.end 40.000 x 30.000 x 0.000"),
+        "{faces}"
+    );
 }
 
 #[test]
 fn measure_clearance() {
     let apart = summary(&format!("{CASE}measure clearance main battery"));
     assert!(apart.starts_with("clearance 1.600 from main"), "{apart}");
-    assert!(apart.contains("box gaps x -45.000 y -35.000 z -13.600"), "{apart}");
+    assert!(
+        apart.contains("box gaps x -45.000 y -35.000 z -13.600"),
+        "{apart}"
+    );
     let touching = summary(&format!("{CASE}measure clearance pcb battery"));
-    assert!(touching.starts_with("clearance 0.000, touching"), "{touching}");
+    assert!(
+        touching.starts_with("clearance 0.000, touching"),
+        "{touching}"
+    );
 }
 
 #[test]
 fn measure_space() {
     let text = summary(&format!("{CASE}measure space at=20,0,10"));
-    assert!(text.contains("-x battery, +x main, -y main, +y main, -z pcb, +z open"), "{text}");
+    assert!(
+        text.contains("-x battery, +x main, -y main, +y main, -z pcb, +z open"),
+        "{text}"
+    );
     assert!(
         text.contains("reach from 20.000,0.000,10.000: -x 15.000 battery, +x 18.000 main, -y 23.000 main, +y 23.000 main, -z 6.400 pcb, +z open"),
         "{text}"

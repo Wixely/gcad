@@ -109,10 +109,12 @@ impl Model {
         self.part_colours
             .insert((self.body_name(), part.to_string()), colour);
         if let Some(g) = gloss {
-            self.part_gloss.insert((self.body_name(), part.to_string()), g);
+            self.part_gloss
+                .insert((self.body_name(), part.to_string()), g);
         }
         if let Some(w) = soft {
-            self.part_soft.insert((self.body_name(), part.to_string()), w);
+            self.part_soft
+                .insert((self.body_name(), part.to_string()), w);
         }
         Ok(format!(
             "part `{part}` is {:.2},{:.2},{:.2}",

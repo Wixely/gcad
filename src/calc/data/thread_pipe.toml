@@ -1,0 +1,7 @@
+# ISO 228 / BSP parallel pipe threads (G), threads per inch and major diameter in mm, from
+# https://en.wikipedia.org/wiki/British_standard_pipe_thread . Minor diameter is major - 1.28065 P.
+# Rows are [name, threads per inch, major mm]
+rows = [
+  ["G1/8", 28, 9.728], ["G1/4", 19, 13.157], ["G3/8", 19, 16.662], ["G1/2", 14, 20.955],
+  ["G5/8", 14, 22.911], ["G3/4", 14, 26.441], ["G1", 11, 33.249], ["G1-1/4", 11, 41.910],
+]

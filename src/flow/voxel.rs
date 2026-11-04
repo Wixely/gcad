@@ -1,8 +1,8 @@
 use crate::geometry;
 use monstertruck::modeling::*;
 
-pub use sims_flow::voxel::*;
 use sims_flow::lattice::Domain;
+pub use sims_flow::voxel::*;
 
 pub fn surface(solid: &Solid, spacing: f64) -> (Vec<Point3>, Vec<[usize; 3]>) {
     let tolerance = (spacing * 0.05).min(geometry::mesh_tolerance(solid));

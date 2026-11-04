@@ -1,5 +1,8 @@
+pub mod fit;
+pub mod materials;
 pub mod oring;
 pub mod tables;
+pub mod thread;
 
 #[derive(Debug, Clone, Default)]
 pub struct Report {

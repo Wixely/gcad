@@ -589,8 +589,21 @@ const PROFILE_OPS: &[&str] = &[
 ];
 
 const MESH_SAFE: &[&str] = &[
-    "let", "move", "rotate", "scale", "mirror", "body", "color", "material", "materials", "if",
-    "include", "plane", "axis", "point", "import",
+    "let",
+    "move",
+    "rotate",
+    "scale",
+    "mirror",
+    "body",
+    "color",
+    "material",
+    "materials",
+    "if",
+    "include",
+    "plane",
+    "axis",
+    "point",
+    "import",
 ];
 
 impl Model {

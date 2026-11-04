@@ -506,15 +506,18 @@ fn obj_export_writes_soft_colours_per_vertex() {
         "body: blob 0,0,0 r=4\nhead: blob 0,0,6 r=2 blend=1\nremesh 0.3\ncolor #ffffff part=head soft=1.5\ncolor #d2691e",
     );
     let path = scratch("soft.obj");
-    gcad::export::export_model(&model, std::path::Path::new("soft.gcad"), &path)
-        .expect("exports");
+    gcad::export::export_model(&model, std::path::Path::new("soft.gcad"), &path).expect("exports");
     let obj = std::fs::read_to_string(&path).expect("obj");
     let colours: std::collections::HashSet<String> = obj
         .lines()
         .filter(|l| l.starts_with("v "))
         .map(|l| l.split_whitespace().skip(4).collect::<Vec<_>>().join(" "))
         .collect();
-    assert!(colours.len() > 3, "{} distinct vertex colours", colours.len());
+    assert!(
+        colours.len() > 3,
+        "{} distinct vertex colours",
+        colours.len()
+    );
 }
 
 #[test]
@@ -605,11 +608,16 @@ fn shell_is_its_own_closed_surface() {
 
 #[test]
 fn gloss_goes_to_the_mtl() {
-    let model = build("body: blob 0,0,0 r=4\nnose: blob 0,-4,0 r=0.5 mode=shell\nremesh 0.3\ncolor #111111 part=nose gloss=0.8");
+    let model = build(
+        "body: blob 0,0,0 r=4\nnose: blob 0,-4,0 r=0.5 mode=shell\nremesh 0.3\ncolor #111111 part=nose gloss=0.8",
+    );
     let path = scratch("gloss.obj");
     gcad::export::export_model(&model, std::path::Path::new("gloss.gcad"), &path).expect("exports");
     let mtl = std::fs::read_to_string(path.replace(".obj", ".mtl")).expect("mtl");
-    assert!(mtl.contains("newmtl nose\nKd 0.0667 0.0667 0.0667\nKs 0.8 0.8 0.8\nNs 802"), "{mtl}");
+    assert!(
+        mtl.contains("newmtl nose\nKd 0.0667 0.0667 0.0667\nKs 0.8 0.8 0.8\nNs 802"),
+        "{mtl}"
+    );
     let error = failure("body: blob 0,0,0 r=4\nremesh 0.5\ncolor red part=body gloss=2");
     assert!(error.contains("gloss goes from 0"), "{error}");
 }
@@ -633,5 +641,9 @@ fn soft_colour_fades_across_the_border() {
     assert!(at(-5.5) < 0.01, "far left {}", at(-5.5));
     let middle = at(0.0);
     assert!((0.3..0.7).contains(&middle), "at the border {middle}");
-    assert!(at(1.0) > middle && at(1.0) < 0.99, "inside the fade {}", at(1.0));
+    assert!(
+        at(1.0) > middle && at(1.0) < 0.99,
+        "inside the fade {}",
+        at(1.0)
+    );
 }

@@ -1146,5 +1146,9 @@ fn cut_where_the_tool_wall_meets_a_corner_fillet_start() {
     let model = build(
         "plane XY\nrect 8.94 7.3 r=0.3\nshell: extrude 3.26\nplane <Y offset=0.5\nrect 8.34 2.56 at=0,1.63 r=1\nmouth: cut 7",
     );
-    assert_volume(&model, 79.565 - 4.0 * (1.0 - PI / 4.0) * 0.09 * 3.26, 5.0e-4);
+    assert_volume(
+        &model,
+        79.565 - 4.0 * (1.0 - PI / 4.0) * 0.09 * 3.26,
+        5.0e-4,
+    );
 }

@@ -200,7 +200,7 @@ fn main() -> Result<()> {
         let mut alternate = material.clone();
         alternate.base_colour = [0.2, 0.4, 0.8, 1.0];
         let scene = Scene {
-            consumer:None,
+            consumer:None, collision: Vec::new(),
             nodes: vec![
                 Node {
                     name: "mirror".into(),
@@ -299,7 +299,7 @@ fn skin_fixture(path: &std::path::Path) -> Result<()> {
     };
     let q = std::f64::consts::FRAC_1_SQRT_2;
     let mut scene = Scene {
-        consumer:None,
+        consumer:None, collision: Vec::new(),
         nodes: vec![
             Node {
                 name: "ribbon".into(),

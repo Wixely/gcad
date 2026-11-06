@@ -107,6 +107,7 @@ OCP: `GCAD_OCP_PYTHON=~/git/cadkit/.venv/bin/python cargo test --release -- --ig
 | thicken a face | supported | `thicken base.side 1` | `features::thicken_face` |
 | union with coplanar faces | supported | same-size box on a face | `features::stack_same_size` |
 | cut with coplanar faces | supported | notch flush with the sides | `features::notch_flush_with_sides` |
+| cut with a wall at the start of a corner fillet | supported | `cut` pocket whose wall sits on a rounded rectangle's fillet tangent | `features::cut_where_the_tool_wall_meets_a_corner_fillet_start` |
 | cut with a circle on a round wall | supported | `circle D` on a ring of diameter D, or on its bore | `features::cut_on_an_outer_wall`, `features::cut_on_a_bore` |
 | coplanar faces fused after a boolean | supported | a boss flush with a wall leaves one face | `inspect::flush_unions_leave_one_face_per_plane` |
 | union flush with some sides | supported | step on top, flush with three sides | `features::step_flush_with_sides` |
@@ -128,6 +129,11 @@ OCP: `GCAD_OCP_PYTHON=~/git/cadkit/.venv/bin/python cargo test --release -- --ig
 | tap drill and heat-set insert holes | supported | `hole M4 x,y fit=tap`, `hole M3 x,y fit=insert` | `holes::tapped_and_insert_holes_for_a_screw` |
 | counterbore or countersink for a screw | supported | `cbore=M3`, `csink=M4` | `holes::counterbore_and_countersink_for_a_screw` |
 | hole fits | supported | `hole 6 x,y fit=H7` | `holes::hole_fit_limits`, `output::drawing_notes_fits_and_taps` |
+| o-ring sizes | supported | AS568 -004 to -284 and ISO 3601-1 1.8 to 7.0 mm series from `src/calc/data` | `calc::as568_dash_numbers_match_the_handbook`, `calc::as568_inside_diameters_agree_with_the_inch_table`, `calc::iso_sizes_are_found_by_id_and_cross_section`, `calc::every_ring_belongs_to_a_cross_section_group`, `calc::gland_tables_cover_every_cross_section` |
+| o-ring calculator | supported | `gcad calc oring piston 50 --pressure 10 --formulas` | `calc::face_seal_squeeze_matches_the_handbook_range`, `calc::piston_gland_uses_the_reciprocating_depth`, `calc::rod_groove_sits_outside_the_rod`, `calc::stretch_over_three_percent_is_rejected`, `calc::fill_over_eighty_five_percent_is_rejected`, `calc::fill_matches_the_area_ratio`, `calc::back_up_ring_is_flagged_above_the_handbook_pressure`, `calc::silicone_halves_the_allowed_clearance`, `calc::a_wide_gap_asks_for_a_back_up_ring`, `calc::lead_in_chamfer_is_twenty_degrees`, `calc::report_has_a_why_line_formulas_and_sources`, `calc::bad_inputs_are_refused`, `calc::calc_oring_prints_a_result_and_a_why_line`, `calc::calc_oring_refuses_a_bad_application` |
+| thread, fit and material calculators | supported | `gcad calc thread M6 --material alu --depth 14`, `gcad calc fit H7/g6 25`, `gcad calc material petg` | `calc_thread::h7_g6_at_25`, `calc_thread::h7_p6_is_an_interference_fit`, `calc_thread::h7_h6_at_10_sits_on_the_band_edge`, `calc_thread::h11_c11_and_f7_h6`, `calc_thread::transition_fit_and_hole_letters_with_delta`, `calc_thread::js_is_symmetric`, `calc_thread::bad_classes_are_refused`, `calc_thread::report_carries_notes_and_sources`, `calc_thread::cli_prints_the_fit`, `calc_thread::m6_dimensions`, `calc_thread::fine_pitch_is_found_by_pitch`, `calc_thread::clearance_and_heads`, `calc_thread::unified_and_pipe_threads`, `calc_thread::torque_for_m6_class_8_8`, `calc_thread::engagement_by_material`, `calc_thread::blind_hole_depth_check`, `calc_thread::cli_thread_report`, `calc_thread::a_hole_shorter_than_one_diameter_is_flagged`, `calc_thread::a_deep_enough_hole_is_not`, `calc_thread::iso_273_clearance_holes_match_two_sources`, `calc_thread::socket_head_counterbores_match_freecad_iso_4762`, `calc_thread::countersunk_and_button_heads`, `calc_thread::fine_pitch_tap_drills_are_diameter_minus_pitch`, `calc_thread::coarse_tap_drills_match_iso_2306`, `calc_thread::pipe_thread_drills_and_pitches`, `calc_thread::unified_drills_are_within_a_sixth_of_a_millimetre_of_freecad`, `calc_thread::proof_stress_gives_iso_898_proof_loads`, `calc_thread::iso_286_limits_at_several_sizes`, `calc_thread::hole_letters_with_delta_match_roymech`, `calc_thread::materials_match_their_sources`, `calc_thread::every_material_has_properties_and_engagement`, `calc_thread::cli_material` |
+| o-ring groove | supported | `oring_groove face 40 pressure=10`, `oring_groove piston 50 offset=10` | `calc::face_groove_volume_matches_the_maths`, `calc::piston_groove_volume_matches_the_maths`, `calc::rod_groove_cuts_the_bore_wall`, `calc::a_groove_the_ring_cannot_fill_is_refused` |
+| o-ring standard part | supported | `part seal oring:214`, `oring:40x2.65` | `calc::oring_standard_part_is_a_torus_of_the_listed_size` |
 
 
 ## Enclosures
@@ -209,6 +215,42 @@ OCP: `GCAD_OCP_PYTHON=~/git/cadkit/.venv/bin/python cargo test --release -- --ig
 | place one body on another | supported | `place lid on=>Z` | `bodies::assembly_mate` |
 | interference check | supported | `measure overlap main b` | `bodies::interference` |
 
+## Meshes
+
+A mesh body is triangles, for organic shapes and game assets. It is blocked out from
+blended primitives, turned into a mesh by `remesh`, and sculpted with `select` and the ops
+after it. Each test checks a volume or bounding box worked out by hand.
+
+| operation | status | syntax | tests |
+|---|---|---|---|
+| ellipsoid blob | supported | `head: blob 0,0,30 r=5,4,6 rz=20` | `mesh::blob_sphere`, `mesh::blob_ellipsoid_turned` |
+| limb through joints | supported | `arm: limb 0,0,0 0,0,20 r=3,2` | `mesh::limb_capsule` |
+| smooth blend between primitives | supported | `blob ... blend=2` | `mesh::blend_fills_the_join` |
+| carve a blob out | supported | `blob ... mode=cut` | `mesh::blob_cut` |
+| mirror a blockout part | supported | `mirror x of=ear_l` | `mesh::mirror_blockout_names_the_other_side` |
+| remesh to triangles | supported | `remesh 0.3` | `mesh::blob_sphere` |
+| select a named part | supported | `select head` | `mesh::select_part_moves_only_that_part`, `mesh::select_unknown_part_lists_the_parts` |
+| select a region with falloff | supported | `select sphere=x,y,z r=4 falloff=6` | `mesh::select_falloff_keeps_far_vertices_still` |
+| select both sides | supported | `select ... mirror=x` | `mesh::select_mirror_edits_both_sides` |
+| move, scale, rotate a selection | supported | `move 0,0,3`, `scale 1.2`, `rotate 30 axis=z` | `mesh::select_part_moves_only_that_part`, `mesh::scale_selection_about_its_centre`, `mesh::rotate_selection` |
+| inflate along normals | supported | `inflate 1` | `mesh::inflate_grows_a_sphere` |
+| smooth | supported | `smooth 10` | `mesh::smooth_rounds_a_box_edge` |
+| refine a region | supported | `refine 0.1` | `mesh::refine_hits_the_edge_length_and_stays_closed`, `mesh::refine_only_inside_the_selection`, `mesh::refine_follows_the_curve` |
+| crease a groove | supported | `crease x,y,z x,y,z depth=0.3 width=0.4` | `mesh::crease_cuts_a_groove_of_the_given_depth`, `mesh::crease_drawn_just_off_the_surface_still_cuts` |
+| pinch toward a point | supported | `pinch 0.5 toward=x,y,z` | `mesh::pinch_draws_vertices_together_along_the_surface`, `mesh::pinch_with_mirror_pulls_each_side_to_its_own_point` |
+| flatten onto a plane | supported | `flatten at=0,0,0 normal=z`, `flatten cut ...` | `mesh::flatten_onto_a_plane`, `mesh::flatten_cut_trues_a_sole_without_crushing_the_paw` |
+| surface noise | supported | `noise 0.2 size=1 seed=3` | `mesh::noise_is_repeatable_and_bounded` |
+| relax triangles | supported | `relax 10` | `mesh::relax_evens_triangles_without_shrinking` |
+| decimate to a budget | supported | `decimate 5000`, `decimate 25%` | `mesh::decimate_to_a_budget_keeps_the_shape`, `mesh::decimate_by_share_leaves_unselected_triangles`, `mesh::decimate_keeps_part_labels`, `mesh::decimate_keeps_the_border_between_parts_fine` |
+| colour a part | supported | `color #ffffff part=chest gloss=0.8` | `mesh::colour_one_part`, `mesh::colour_unknown_part_lists_the_parts`, `mesh::gloss_goes_to_the_mtl`, `mesh::soft_colour_fades_across_the_border`, `mesh::obj_export_writes_soft_colours_per_vertex` |
+| a separate closed shell | supported | `eye_l: blob 1,-5,2 r=0.5 mode=shell` | `mesh::shell_is_its_own_closed_surface` |
+| a game-ready fox | supported | `examples/mesh/fox.gcad` | `mesh::fox_example_fits_a_game_budget` |
+| inspect a view to place detail | supported | `gcad inspect f.gcad out.png --part head --view right --pick 300,412` | `inspect_view::pick_returns_the_surface_point_and_normal`, `inspect_view::pixel_and_world_agree_in_every_view`, `inspect_view::part_frames_just_that_part`, `inspect_view::marks_say_when_the_surface_hides_them`, `inspect_view::unknown_part_lists_the_parts`, `inspect_view::solids_show_too` |
+| import a mesh | supported | `import file.obj mesh` | `mesh::mesh_import_obj` |
+| export a mesh with its parts | supported | `gcad export file.gcad out.obj` | `mesh::mesh_export_obj_keeps_parts` |
+| mesh and solid bodies in one file | supported | `body figure` then `blob` | `mesh::mesh_and_solid_bodies_share_a_file`, `mesh::solid_ops_refuse_a_mesh_body` |
+| a creature, blocked out and sculpted | supported | `examples/mesh/creature.gcad` | `mesh::creature_example` |
+
 ## Assemblies
 
 Assemblies are `.gasm` files. They bring in the bodies of `.gcad` part files and join them.
@@ -260,6 +302,7 @@ Assemblies are `.gasm` files. They bring in the bodies of `.gcad` part files and
 | 3MF export | supported | `gcad export part.gcad part.3mf` | `output::three_mf`, `output::three_mf_names_the_bodies` |
 | SVG drawing | supported | `gcad export part.gcad part.svg` | `output::drawing` |
 | drawing dimensions and hole callouts | supported | overall sizes, `4× ⌀3.2` | `output::drawing_dimensions_and_section` |
+| drawing labels clear of the view | supported | dimension and callout labels do not overlap the part | `output::drawing_labels_sit_clear_of_the_view` |
 | section view | supported | `gcad export part.gcad part.svg --section y=0` | `output::drawing_dimensions_and_section` |
 | STL import | supported | `import part.stl` | `output::stl_import` |
 | drawing sheets | supported | `.gdwg` file: `sheet`, `view`, `section`, `dims`, `dim`, `level`, `callout`, `note`, `cutlist`, exported with `gcad export x.gdwg x.pdf` | `output::drawing_sheets`, `output::drawing_view_that_does_not_fit` |

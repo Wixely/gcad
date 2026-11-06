@@ -1,12 +1,15 @@
 #[cfg(feature = "game-assets")]
 pub mod asset;
 pub mod bom;
+pub mod calc;
 pub mod drafting;
 pub mod drawing;
 pub mod export;
 pub mod flow;
 pub mod geometry;
 pub mod host;
+pub mod inspect;
+pub mod mesh;
 pub mod model;
 pub mod nest;
 pub mod offset;

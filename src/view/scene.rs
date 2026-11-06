@@ -464,7 +464,161 @@ fn describe_source(source: &crate::model::Source) -> String {
     text
 }
 
+fn mesh_surfaces(
+    mesh: &crate::mesh::Mesh,
+    body: usize,
+    tints: &[V3],
+    selected: Option<(&[f64], V3)>,
+    out: &mut Vec<Surface>,
+    info: &mut Vec<FaceInfo>,
+) {
+    let normals = mesh.vertex_normals();
+    let point = |p: crate::mesh::P3| [p[0] as f32, p[1] as f32, p[2] as f32];
+    let mut by_part: Vec<Vec<[u32; 3]>> = vec![Vec::new(); mesh.parts.len().max(1)];
+    let last = by_part.len() - 1;
+    for &t in &mesh.triangles {
+        let label = mesh.labels[t[0] as usize] as usize;
+        by_part[label.min(last)].push(t);
+    }
+    let picked = |t: &[u32; 3]| {
+        selected.is_some_and(|(weights, _)| {
+            t.iter().map(|&i| weights[i as usize]).sum::<f64>() / 3.0 >= 0.5
+        })
+    };
+    for (part, triangles) in by_part.iter().enumerate() {
+        if triangles.is_empty() {
+            continue;
+        }
+        let area: f64 = triangles
+            .iter()
+            .map(|&t| {
+                let [a, b, c] = mesh.corners(t);
+                crate::mesh::length(crate::mesh::cross(
+                    crate::mesh::sub(b, a),
+                    crate::mesh::sub(c, a),
+                )) / 2.0
+            })
+            .sum();
+        let kind = format!(
+            "mesh part `{}`, {} triangles",
+            mesh.parts.get(part).map_or("mesh", |p| p.as_str()),
+            triangles.len()
+        );
+        let colour = tints.get(part).copied().unwrap_or(BODY);
+        for (highlit, tint) in [(false, colour), (true, selected.map_or(colour, |(_, c)| c))] {
+            let mut surface = Surface {
+                colour: tint,
+                material: Ink::Body,
+                group: body,
+                ..Default::default()
+            };
+            for t in triangles.iter().filter(|t| picked(t) == highlit) {
+                for &i in t {
+                    surface.positions.push(point(mesh.positions[i as usize]));
+                    surface.normals.push(point(normals[i as usize]));
+                }
+            }
+            if surface.positions.is_empty() {
+                continue;
+            }
+            out.push(surface);
+            info.push(FaceInfo {
+                body,
+                kind: kind.clone(),
+                area,
+            });
+        }
+    }
+}
+
 pub fn build(
+    model: &Model,
+    highlights: &[Highlight<'_>],
+    marked: &[Edge],
+    marked_colour: V3,
+) -> Scene {
+    let mut scene = build_solids(model, highlights, marked, marked_colour);
+    let meshes = model.mesh_tints();
+    if meshes.is_empty() {
+        return scene;
+    }
+    let current = model.current_body();
+    let selection = model.mesh_body.selection.as_ref();
+    let solid_mesh = std::mem::take(&mut scene.mesh);
+    let solid_mesh = Arc::try_unwrap(solid_mesh).unwrap_or_default();
+    let had_solids = !model.solids().is_empty();
+    let (solid_centre, solid_radius) = (solid_mesh.centre, solid_mesh.radius);
+    let mut surfaces = solid_mesh.surfaces;
+    let mut bounds: Option<(crate::mesh::P3, crate::mesh::P3)> = None;
+    for (name, mesh, tints) in &meshes {
+        let body = scene.parts.len();
+        let tints: Vec<V3> = tints.iter().map(|c| c.map(|v| v as f32)).collect();
+        let colour = model
+            .colours
+            .get(name)
+            .map_or(BODY, |c| c.map(|v| v as f32));
+        let is_current = *name == current;
+        let selected = selection
+            .filter(|s| is_current && s.weights.len() == mesh.positions.len())
+            .map(|s| {
+                (
+                    s.weights.as_slice(),
+                    highlights.last().map_or(BODY, |h| h.colour),
+                )
+            });
+        mesh_surfaces(
+            mesh,
+            body,
+            &tints,
+            selected,
+            &mut surfaces,
+            &mut scene.faces,
+        );
+        if let Some((lo, hi)) = mesh.bounds() {
+            bounds = Some(match bounds {
+                None => (lo, hi),
+                Some((a, b)) => (
+                    std::array::from_fn(|k| a[k].min(lo[k])),
+                    std::array::from_fn(|k| b[k].max(hi[k])),
+                ),
+            });
+        }
+        let (lo, hi) = mesh.bounds().unwrap_or_default();
+        scene.parts.push(Part {
+            name: name.clone(),
+            colour,
+            opacity: model.opacities.get(name).map_or(1.0, |o| *o as f32),
+            volume: mesh.volume(),
+            current: is_current,
+            source: None,
+            material: model
+                .materials
+                .get(name)
+                .map(|m| (m.name.clone(), m.density)),
+            size: std::array::from_fn(|k| hi[k] - lo[k]),
+            hidden: false,
+            role: Role::Body,
+        });
+    }
+    let (mut lo, mut hi) = bounds.unwrap_or_default();
+    if had_solids {
+        let r = solid_radius as f64;
+        let c = solid_centre.map(|v| v as f64);
+        lo = std::array::from_fn(|k| lo[k].min(c[k] - r));
+        hi = std::array::from_fn(|k| hi[k].max(c[k] + r));
+    }
+    scene.mesh = Arc::new(viewer3d::Scene {
+        surfaces,
+        lines: solid_mesh.lines,
+        images: solid_mesh.images,
+        centre: std::array::from_fn(|k| ((lo[k] + hi[k]) / 2.0) as f32),
+        radius: (crate::mesh::length(crate::mesh::sub(hi, lo)) / 2.0).max(1.0e-3) as f32,
+        ..Default::default()
+    });
+    scene
+}
+
+fn build_solids(
     model: &Model,
     highlights: &[Highlight<'_>],
     marked: &[Edge],

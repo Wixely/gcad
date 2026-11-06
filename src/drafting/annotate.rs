@@ -16,7 +16,10 @@ impl Anchor2 {
         }
         let (dx, dy) = (to.0 - self.at.0, to.1 - self.at.1);
         let n = dx.hypot(dy).max(1.0e-9);
-        (self.at.0 + dx / n * self.radius, self.at.1 + dy / n * self.radius)
+        (
+            self.at.0 + dx / n * self.radius,
+            self.at.1 + dy / n * self.radius,
+        )
     }
 }
 
@@ -102,7 +105,11 @@ pub fn mark_rects(mark: &Mark) -> Vec<Rect> {
                 x1 = x1.max(p.0);
                 y1 = y1.max(p.1);
             }
-            if x0 > x1 { Vec::new() } else { vec![(x0, y0, x1, y1)] }
+            if x0 > x1 {
+                Vec::new()
+            } else {
+                vec![(x0, y0, x1, y1)]
+            }
         }
         Mark::Shape { loops, .. } => loops
             .iter()
@@ -326,12 +333,10 @@ fn column(
             .rects
             .iter()
             .all(|r| page.holds(*r) && taken.iter().all(|t| !overlaps(*r, *t)))
-            && drawn
-                .leaders
-                .iter()
-                .all(|l| l.windows(2).all(|w| {
-                    texts.iter().chain(blocks).all(|t| !crosses(w[0], w[1], *t))
-                }));
+            && drawn.leaders.iter().all(|l| {
+                l.windows(2)
+                    .all(|w| texts.iter().chain(blocks).all(|t| !crosses(w[0], w[1], *t)))
+            });
         if free {
             return Some(drawn);
         }
@@ -352,7 +357,11 @@ fn cost(drawn: &Drawn) -> f64 {
     drawn
         .leaders
         .iter()
-        .map(|l| l.windows(2).map(|w| (w[1].0 - w[0].0).hypot(w[1].1 - w[0].1)).sum::<f64>())
+        .map(|l| {
+            l.windows(2)
+                .map(|w| (w[1].0 - w[0].0).hypot(w[1].1 - w[0].1))
+                .sum::<f64>()
+        })
         .sum()
 }
 
@@ -396,7 +405,15 @@ fn place(
     sorted.sort_by(|a, b| key(a).total_cmp(&key(b)));
     let (first, second) = sorted.split_at(sorted.len() / 2);
     let mut out = place(side, first, view, page, taken, texts, blocks)?;
-    out.extend(place(side.opposite(), second, view, page, taken, texts, blocks)?);
+    out.extend(place(
+        side.opposite(),
+        second,
+        view,
+        page,
+        taken,
+        texts,
+        blocks,
+    )?);
     Some(out)
 }
 

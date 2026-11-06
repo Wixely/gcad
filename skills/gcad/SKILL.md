@@ -1,6 +1,6 @@
 ---
 name: gcad
-description: Create game assets with live preview and GLB or FBX/PNG export, and model mechanical parts and assemblies with gcad, a parametric CAD where every line of a `.gcad` part file or `.gasm` assembly file is one operation, like G-code, checked by the `gcad` CLI. Any design with more than one part is a `.gasm` assembly. Use when writing or editing `*.gcad`, `*.gasm` or `*.gsim` files, sketching and extruding parts, adding holes, fillets, shells, gears or text, picking faces with selectors, placing parts with mates, joints, couples and patterns, checking interference, posing an assembly, sizing joint motors with a `.gsim` torque simulation, or exporting STEP, STL, 3MF, SVG drawings and a bill of materials.
+description: Create game assets with live preview and GLB or FBX/PNG export, and model mechanical parts and assemblies with gcad, a parametric CAD where every line of a `.gcad` part file or `.gasm` assembly file is one operation, like G-code, checked by the `gcad` CLI. Any design with more than one part is a `.gasm` assembly. Use when writing or editing `*.gcad`, `*.gasm` or `*.gsim` files, sketching and extruding parts, adding holes, fillets, shells, gears or text, picking faces with selectors, placing parts with mates, joints, couples and patterns, checking interference, posing an assembly, sizing joint motors with a `.gsim` torque simulation, exporting STEP, STL, 3MF, SVG drawings and a bill of materials, or modelling organic mesh shapes such as characters, creatures and game assets from blended blobs and limbs sculpted with selections.
 ---
 
 # gcad
@@ -429,6 +429,51 @@ note "Ø12 silver steel, 131 long|Break all edges 0.5" place=20,20
   `p:feature.side`.
 - PDF text is Latin-1: `Ø`, `⌀`, `×`, `°` and `±` print, other symbols become `?`.
 
+## Meshes
+
+Characters, creatures and other organic game assets are mesh bodies, not solids. Never write
+triangles. Build them in three passes and look between every step.
+
+**1. Blockout.** Labelled `blob` and `limb` lines that `blend` into each other: torso, chest,
+hips, neck, head, muzzle, jaw, limbs with a joint per bend, tail. Model the +x side as `_l`
+and `mirror x of=` it. Get the silhouette right in `gcad render` before anything else:
+proportions are most of the result and sculpting only nudges.
+
+**2. Features as shells.** Eyes, pupils, noses, inner ears, claws, teeth: anything that sits
+on the body is its own `mode=shell` blob. A shell is meshed finer than the body, stays crisp at
+any size and gets its own `color ... part=` and `gloss=`. An eye is three shells: a white or
+amber eyeball, a dark pupil in front of it (`gloss=0.9`), an eyelid crease above. A nose is a
+dark `gloss=0.8` shell. Never make eyes by denting the body: dents read as smudges.
+
+**3. Sculpt and colour.** `select` a part by label, then `move`, `scale`, `rotate`, `inflate`,
+`pinch`, `crease`; `refine` a region before fine work. Colour every part that should differ
+(white chest, dark paws). Fur markings fade, so give them `soft=` (`color #f4efe6 part=chest
+soft=1.5`); hard borders read as stuck-on patches. Markings are their own parts: make a
+`bib`, `sock_l` or `tail_tip` blob that blends into the body and colour that.
+
+Proportions decide most of the result. Legs are long and thin (a fox's leg is as long as its
+body is deep, and about a fifth as thick), the body is slim, paws are small and not boots,
+heads are narrow wedges. Check the side view against those before detailing.
+
+Look between every step, not only at the end:
+- `gcad render file.gcad out.png` for the whole model.
+- `gcad inspect file.gcad out.png --part head --view front|right|top` for any detail: a
+  grid, part names and the surface. Check the face from the front and the side every time
+  it changes, at the size the detail is; a whole-body render hides anything under a few
+  percent of its size.
+- `--pick x,y` on an inspect picture prints the surface point and part under a pixel. Use the
+  numbers for `at=` of shells and for `select sphere=`, `crease` and `pinch`. Never guess
+  coordinates for small features.
+- `--line N` shows what line N selected; `moved 0 vertices` in `gcad check` means a miss.
+
+Spend the budget. A model you looked at three times is a blockout; one you looked at fifteen
+times, fixing what each look showed, is an asset. Stop only when a close-up of the face, a
+side view and a three-quarter view all look right.
+
+- End a game asset with `select all` and `decimate 5000` (or its budget) behind a variable
+  (`if budget>0 decimate budget`) so full detail stays available for renders.
+- Export with `gcad export file.gcad out.obj`: each part is its own `g` group with an `.mtl`.
+
 ## Output
 
 ```sh
@@ -473,6 +518,10 @@ gcad bom asm.gasm --csv
 - `examples/assemblies/enclosure.gasm`: the enclosure's case and lid hinged together, with screws
   mated into the lid and patterned into every hole; the screws stop the hinge.
 - `examples/assemblies/linkage.gasm`: a four-bar linkage, a closed loop of joints.
+- `examples/mesh/creature.gcad`: a creature blocked out of blobs and limbs, mirrored, remeshed
+  and sculpted by part name.
+- `examples/mesh/fox.gcad`: a fox with real anatomy (thighs, hocks, toes, cupped ears, almond
+  eyes, cheek ruffs), part colours, and `--set budget=8000` for a game-ready mesh.
 - `examples/robot/arm.gasm`: a 34-part robot arm. Every joint is a motor on its axis driving a
   planetary reducer whose ring is cut into the housing; suns and planets are coupled at their
   ratios and the planets are patterned. The gripper is two racks on one pinion. Copy its

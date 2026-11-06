@@ -623,16 +623,30 @@ fn materials_follow_parts() {
 #[test]
 fn clearance_between_parts() {
     let parts = [
-        ("case.gcad", "rect 80 50 r=3\nbase: extrude 30\nshell 2 open=base.end\n"),
+        (
+            "case.gcad",
+            "rect 80 50 r=3\nbase: extrude 30\nshell 2 open=base.end\n",
+        ),
         ("lid.gcad", "rect 80 50 r=3\nextrude 2\n"),
         ("board.gcad", "rect 60 40\nextrude 1.6\n"),
     ];
     let placed = "part case case.gcad\npart lid lid.gcad\nmove lid 0,0,30\npart board board.gcad\nmove board 0,0,5\n";
-    let (_, gap) = built("clearance_gap", &format!("{placed}measure clearance board lid\n"), &parts);
+    let (_, gap) = built(
+        "clearance_gap",
+        &format!("{placed}measure clearance board lid\n"),
+        &parts,
+    );
     assert!(gap.starts_with("clearance 23.400 from board"), "{gap}");
-    let (_, space) = built("clearance_space", &format!("{placed}measure space\n"), &parts);
+    let (_, space) = built(
+        "clearance_space",
+        &format!("{placed}measure space\n"),
+        &parts,
+    );
     assert!(space.contains("-z board, +z lid"), "{space}");
-    assert!(space.contains("-x 38.000 case, +x 38.000 case, -y 23.000 case"), "{space}");
+    assert!(
+        space.contains("-x 38.000 case, +x 38.000 case, -y 23.000 case"),
+        "{space}"
+    );
 }
 
 #[test]

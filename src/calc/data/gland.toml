@@ -1,0 +1,158 @@
+# Gland design values in inches, from the Parker O-Ring Handbook ORD 5700
+# https://www.texasseal.com/pdfs/content/products/ORD_5700_parker_O-Ring_handbook_1.pdf
+# static:  Design Chart 4-2 (Industrial O-Ring Static Seal Glands, 103.5 bar max)
+# dynamic: Design Chart 5-2-a (Industrial Reciprocating O-Ring Packing Glands)
+# face:    Design Chart 4-3 (O-Ring Face Seal Glands, liquids column)
+# Pairs are [min, max]. depth is the gland depth L. width is G with no back-up ring,
+# width1 with one back-up ring, width2 with two. clearance is the diametral clearance E.
+# backup_width: back-up ring width max, Design Table 4-1 (AS5857) standard gland width chart
+# Back-up ring threshold: handbook section 4.0, pressures above 103.5 bar (1500 psi).
+
+[backup]
+bar = 103.5
+silicone_clearance_factor = 0.5
+
+[[gland]]
+kind = "static"
+cs = 0.070
+backup_width = 0.056
+tol = 0.003
+depth = [0.050, 0.052]
+width = [0.093, 0.098]
+width1 = [0.138, 0.143]
+width2 = [0.205, 0.210]
+clearance = [0.002, 0.005]
+
+[[gland]]
+kind = "static"
+cs = 0.103
+backup_width = 0.060
+tol = 0.003
+depth = [0.081, 0.083]
+width = [0.140, 0.145]
+width1 = [0.171, 0.176]
+width2 = [0.238, 0.243]
+clearance = [0.002, 0.005]
+
+[[gland]]
+kind = "static"
+cs = 0.139
+backup_width = 0.065
+tol = 0.004
+depth = [0.111, 0.113]
+width = [0.187, 0.192]
+width1 = [0.208, 0.213]
+width2 = [0.275, 0.280]
+clearance = [0.003, 0.006]
+
+[[gland]]
+kind = "static"
+cs = 0.210
+backup_width = 0.090
+tol = 0.005
+depth = [0.170, 0.173]
+width = [0.281, 0.286]
+width1 = [0.311, 0.316]
+width2 = [0.410, 0.415]
+clearance = [0.003, 0.006]
+
+[[gland]]
+kind = "static"
+cs = 0.275
+backup_width = 0.130
+tol = 0.006
+depth = [0.226, 0.229]
+width = [0.375, 0.380]
+width1 = [0.408, 0.413]
+width2 = [0.538, 0.543]
+clearance = [0.004, 0.007]
+
+[[gland]]
+kind = "dynamic"
+cs = 0.070
+backup_width = 0.056
+tol = 0.003
+depth = [0.055, 0.057]
+width = [0.093, 0.098]
+width1 = [0.138, 0.143]
+width2 = [0.205, 0.210]
+clearance = [0.002, 0.005]
+
+[[gland]]
+kind = "dynamic"
+cs = 0.103
+backup_width = 0.060
+tol = 0.003
+depth = [0.088, 0.090]
+width = [0.140, 0.145]
+width1 = [0.171, 0.176]
+width2 = [0.238, 0.243]
+clearance = [0.002, 0.005]
+
+[[gland]]
+kind = "dynamic"
+cs = 0.139
+backup_width = 0.065
+tol = 0.004
+depth = [0.121, 0.123]
+width = [0.187, 0.192]
+width1 = [0.208, 0.213]
+width2 = [0.275, 0.280]
+clearance = [0.003, 0.006]
+
+[[gland]]
+kind = "dynamic"
+cs = 0.210
+backup_width = 0.090
+tol = 0.005
+depth = [0.185, 0.188]
+width = [0.281, 0.286]
+width1 = [0.311, 0.316]
+width2 = [0.410, 0.415]
+clearance = [0.003, 0.006]
+
+[[gland]]
+kind = "dynamic"
+cs = 0.275
+backup_width = 0.130
+tol = 0.006
+depth = [0.237, 0.240]
+width = [0.375, 0.380]
+width1 = [0.408, 0.413]
+width2 = [0.538, 0.543]
+clearance = [0.004, 0.007]
+
+[[gland]]
+kind = "face"
+cs = 0.070
+tol = 0.003
+depth = [0.050, 0.054]
+width = [0.101, 0.107]
+
+[[gland]]
+kind = "face"
+cs = 0.103
+tol = 0.003
+depth = [0.074, 0.080]
+width = [0.136, 0.142]
+
+[[gland]]
+kind = "face"
+cs = 0.139
+tol = 0.004
+depth = [0.101, 0.107]
+width = [0.177, 0.187]
+
+[[gland]]
+kind = "face"
+cs = 0.210
+tol = 0.005
+depth = [0.152, 0.162]
+width = [0.270, 0.290]
+
+[[gland]]
+kind = "face"
+cs = 0.275
+tol = 0.006
+depth = [0.201, 0.211]
+width = [0.342, 0.362]

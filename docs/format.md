@@ -120,6 +120,7 @@ Features:
 | `section` | | stores the sketch as one cross-section for `loft` |
 | `loft` | `smooth` `mode=` | joins the stored sections with ruled faces, or one smooth surface through them all with `smooth`; sections with different edge counts are matched up by splitting edges |
 | `hole` | `d x,y ...` `depth=` `cbore=d,depth` `csink=d,angle` `thread=M4` `fit=` `on=label.side` | drills holes at each point, through unless `depth` is given, with an optional counterbore or countersink; `thread` checks the drill suits the tap and records it; with `on=` the points are angle,height on the side of an extruded circle and the holes go in square to it. `d` can be a screw size, `M2` to `M12`: `hole M3 x,y` is its clearance hole (ISO 273, `fit=normal` unless `fit=close` or `fit=loose`), `fit=tap` its tap drill, threaded like `thread=`, and `fit=insert` the hole for a heat-set insert, blind to the insert's length plus 1 unless `depth` says. `cbore=M3` is the counterbore for an ISO 4762 socket head (DIN 974 diameter, head height plus 0.4 deep) and `csink=M3` the 90 degree countersink for an ISO 10642 flat head, 0.2 wider than the head. For a plain diameter, `fit=H7` (H, G, F, E, D or JS, grades 5 to 11) records an ISO 286 fit: `check` prints its limits and drawings add it to the callout. Holes are always modelled at the nominal size |
+| `oring_groove` | `application d` `at=x,y` `offset=` `pressure=` `material=` `cs=` `ring=` `clearance=` | cuts the o-ring groove that `gcad calc oring` works out: `face` cuts an annulus into the workplane's face with its inner diameter `d`; `static`, `piston` (in a shaft of diameter `d`) and `rod` (in a bore of diameter `d`) cut a groove of the calculated width starting `offset` from the plane, going into the solid. Fails if the best ring breaks the stretch, fill or squeeze limits |
 | `thread` | `size` `on=faces` `pitch=` `left` | cuts an ISO metric thread (`M2` to `M12`) into a round face: a rod gets an outside thread with its crest on the rod, a hole an inside one with its crest on the drill; `pitch` overrides the coarse pitch and `left` makes it left-hand. Each end of the face must be a flat face square to it or a chamfer (or countersink) that goes past the thread's root, which the thread runs out into. Chamfer before threading; a rounded end, or a chamfer after, fails |
 | `shell` | `t` `open=faces,...` | hollows an extrusion (open `label.end`, `label.start` or both) or a full revolve (open its flat `label.caps`) to walls `t` thick; where `fillet` rounded the extrusion's straight edges, the inside is rounded to that radius less `t`, so the walls stay `t` thick |
 | `draft` | `angle faces` `neutral=face` | tilts flat side faces inward by `angle` degrees, hinged where they meet the neutral face; `label.side` of an extrusion that is the whole solid tapers curved sides too |
@@ -378,6 +379,100 @@ units each parameter declares; a property given against temperature takes the va
 `1240 kg/m^3` and `0.000068 m/m/K`. Neither writes yield strength for every material; where it
 is missing the tensile strength is used.
 
+## Meshes
+
+A body can be a mesh instead of a solid: triangles, for organic shapes such as
+characters, creatures and game assets. A mesh is never written as triangles. You block
+it out of primitives that blend into each other, turn that into a mesh with `remesh`,
+then sculpt it by selecting a region and changing it, one line per change, the way a
+solid is built feature by feature. A mesh of 100 000 triangles takes the same lines as
+one of 1000.
+
+```
+torso: blob 0,0,20 r=7,5,8
+head: blob 0,-2,33 r=5 blend=2
+ear_l: blob 3.5,-1,38 r=1.2,0.8,3 ry=20 blend=0.8
+mirror x of=ear_l
+arm_l: limb 7,0,26 12,-1,19 14,-2,12 r=2,1.6,1.3 blend=1.5
+mirror x of=arm_l
+remesh 0.3
+select head falloff=2
+scale 1.1
+eyes: select sphere=2,-6,35 r=1.2 mirror=x falloff=0.6
+inflate -0.5
+```
+
+Blocking out, before `remesh`:
+
+| operation | parameters | does |
+|---|---|---|
+| `blob` | `x,y,z` `r=` `blend=` `mode=add\|cut\|intersect\|shell` `rx=` `ry=` `rz=` | an ellipsoid centred on the point, of radius `r` or radii `rx,ry,rz` along x, y and z, turned by `rx`, `ry`, `rz` degrees about x, then y, then z. `blend` is how far its surface melts into what is already there, as a smooth fillet of about that size (0, a sharp join, unless given). `mode=cut` carves it out and `mode=intersect` keeps only what it shares. `mode=shell` keeps it a closed surface of its own, meshed finer than the body so it stays crisp however small: eyeballs, pupils, noses, claws, inner ears, anything that sits on the body rather than grows out of it |
+| `limb` | `x,y,z x,y,z ...` `r=` `blend=` `mode=` | a tube through two or more joints with rounded ends, its radius `r` at every joint or one radius per joint (`r=2,1.6,1.3`), tapering smoothly between them. Arms, legs, tails, horns, necks |
+| `mirror` | `x\|y\|z` `of=label` `offset=` | adds the mirror image of one labelled blob or limb (or of every one, without `of`) across the plane through `offset` (0) square to the axis. A part named `..._l` comes back `..._r` and the other way round |
+| `remesh` | `cell` | turns the blockout into a closed mesh with triangles about `cell` across, a 120th of its size unless given. Each vertex belongs to the part (the label of the blob or limb) nearest it, so later lines can select `head` or `arm_l`. A sculpting line before any `remesh` remeshes at the default cell first |
+
+Sculpting, after `remesh` or `import`:
+
+| operation | parameters | does |
+|---|---|---|
+| `select` | part names, `all`, a label of an earlier `select`, `sphere=x,y,z r=`, `box=x0,y0,z0,x1,y1,z1`, `falloff=`, `mirror=x\|y\|z` | picks the vertices the next lines change. Several names and shapes add up (`select ear_l,ear_r`). `falloff` fades the change out smoothly to nothing over that distance beyond the selection, measured over the surface for parts and straight for shapes; without it the edge is sharp. `mirror=x` also picks the mirror image across x=0 and changes it the mirrored way, so one line edits both sides. Every vertex outside the selection and its falloff stays exactly where it is. Until the first `select` every line changes the whole mesh |
+| `move` | `x,y,z` | moves the selection |
+| `scale` | `factor` or `x,y,z` `about=x,y,z` | scales the selection about `about`, or about the selection's centre (the centre of a `sphere=`, else the middle of the vertices picked) |
+| `rotate` | `angle` `axis=x\|y\|z\|name` `about=x,y,z` | turns the selection about the axis through `about`, the selection's centre unless given; right-handed, so `rotate 30 axis=z` turns +x toward +y |
+| `inflate` | `by` | pushes the selection out along the surface by `by` (negative pulls it in): fatter limbs, a puffed chest, eye sockets |
+| `smooth` | `passes` | relaxes the selection's surface, 1 pass unless given; 5 to 20 takes out lumps |
+| `refine` | `edge` | splits the selection's triangles until no edge in it is longer than `edge`, placing new vertices on the curve of the surface rather than on the flat triangles. The rest of the mesh keeps its triangles and stays joined. Detail smaller than about two edges cannot be sculpted, so refine where the detail goes (a face, hands) before creasing or adding noise there |
+| `crease` | `x,y,z x,y,z` `depth=` `width=` | cuts a groove along the line between the two points, `depth` deep (0.3, negative raises a ridge) and `width` wide (0.5) on each side, rounded at the bottom: mouths, eyelids, fingers, folds. The line only has to run near the surface, within twice `width`; the groove follows the surface under it. With `select ... mirror=x` the line is mirrored for the other side too |
+| `pinch` | `strength` `toward=x,y,z` | draws the selection along the surface toward a point (the selection's centre unless given), `strength` 1 all the way and negative spreading it out: sharper tips, tighter creases |
+| `flatten` | `cut` `at=x,y,z normal=` | presses the selection onto a plane, the one through `at` square to `normal`, or one fitted to the selection when neither is given. With `cut` only what lies behind the plane (against `normal`) moves onto it and the rest stays, so `flatten cut at=0,0,0.2 normal=z` gives paws a flat sole without crushing them |
+| `noise` | `amplitude` `size=` `seed=` | pushes the selection in and out along the surface by up to about `amplitude`, in lumps about `size` across (1), the same for the same `seed`: fur, bark, rock, skin |
+| `relax` | `passes` | evens out the triangles of the selection by sliding vertices along the surface, so the shape stays where `smooth` would shrink it |
+| `decimate` | `triangles` or `share%` | merges triangles in the selection until the whole mesh has `triangles` of them (or keeps that share of the selection's), choosing the merges that change the shape least and never tearing the surface. Parts keep their names. The last step for a game asset: `select all` then `decimate 5000` |
+| `import` | `file.obj mesh` or `file.stl mesh` | starts the body from a mesh file; an OBJ's `o` and `g` groups become its parts |
+| `color` | as for solids, and `part=name` `gloss=` | colours the whole mesh, or with `part=` one part of it: a white bib, dark socks, black eyes. `gloss` from 0 (matte, the default) to 1 (wet) makes the part shine: 0.8 for eyes and noses, 0.3 for claws. `soft=` fades the part's colour into its neighbours over that distance either side of the border instead of a hard edge: fur markings, a pale belly, dark socks. OBJ export writes colour and shine to an `.mtl` beside it |
+
+The mesh starts as fine as `remesh` made it, the same everywhere. Make detail where it goes
+rather than everywhere: a coarse `remesh`, then `select` the face and `refine` it before
+creasing it, and `decimate` at the end to the triangle budget of the game.
+
+Each sculpting line reports how many vertices it moved, the most any one moved, and the
+new volume, so a line that missed its target shows up as `moved 0 vertices`. A body is a
+mesh or a solid: solid operations (`extrude`, `fillet`, `hole`, ...) refuse a mesh body,
+and `body name` starts a new body of either kind in the same file. `gcad export` writes a
+file with mesh bodies as `.obj` (each part its own `g` group), `.stl` or `.3mf`; solid
+bodies in it are tessellated alongside. Assemblies take solids only.
+
+### Placing detail by eye
+
+`gcad inspect file.gcad out.png` draws one view large enough to place detail from:
+
+```
+gcad inspect fox.gcad head.png --part head --view right
+gcad inspect fox.gcad head.png --part head --view front --pick 300,412 --mark nose=0,-21.7,25.7
+gcad inspect fox.gcad head.png --line 44 --view front
+```
+
+- The surface is coloured by which way it faces in the picture, red to the right, green up,
+  blue toward you, so creases, dents and bulges show as colour changes even where shading is flat.
+- A world grid with labelled coordinates on both axes, a scale bar, and the axes of the view
+  (`right +y, up +z, toward you +x`) in the title. `--grid` sets the spacing.
+- Part borders as dark lines and each part's name on it, so `select` names can be read off.
+- The selection at that line (`--line N`) as a yellow outline where it is at full strength and
+  an orange one where its falloff ends.
+- `--mark x,y,z` (or `name=x,y,z`) draws a red cross at a point, grey if the surface hides it.
+- `--pick x,y` takes a pixel and prints the surface point under it, the part it is on and the
+  surface normal there. Those numbers go straight into `select sphere=`, `crease` and `pinch`.
+- `--part` frames one part, `--at x,y,z --span` frames any region; `--view` is `front`, `back`,
+  `left`, `right`, `top`, `bottom` or `iso` (iso has no grid: use picks).
+
+It prints how pixels map to world coordinates, so a point can also be worked out by hand. The
+loop for fine detail is: inspect the part, pick the spots, write the line with the picked
+coordinates, inspect again with `--line` on it to see what it selected and moved.
+
+Positions, sizes and the selection are in the same millimetres as everything else, so a
+game asset is best modelled at a known scale, 1 unit to 1 cm for instance, and scaled on
+import.
+
 ## Assemblies
 
 A design with more than one part is a `.gasm` file, an assembly: it brings the parts
@@ -428,6 +523,7 @@ Nuts and washers sit on z=0 and go up, inserts hang down from z=0.
 | `standoff:M3x10` | hex standoff, tapped through, standing on z=0 (brass) | `body`, `bore` |
 | `bearing:608` | deep groove ball bearing, solid with shallow seal grooves, standing on z=0: 623 to 626, 695, 688, 698, 608, 609, 6000 to 6005, 6200 to 6204, 6800 to 6804 | `ring` (outer race), `bore`, `seal` |
 | `dowel:4x16` | ISO 8734 dowel pin, chamfered, standing on z=0 | `pin` |
+| `oring:214`, `oring:40x2.65` | nitrile o-ring by AS568 dash number or ISO 3601 inside diameter x cross-section, a torus about z centred on z=0 | `ring` |
 
 Screws are drawn plain, without a modelled thread. The bill of materials lists them by
 standard and size, like `ISO 4762 M3x10`.

@@ -1,0 +1,22 @@
+# ISO metric threads: coarse and fine pitches (ISO 261) and tap drills (ISO 2306, d - P).
+# Source 1: FreeCAD PartDesign Hole tables, ISO 2306 tap drills
+#   https://raw.githubusercontent.com/FreeCAD/FreeCAD/main/src/Mod/PartDesign/App/FeatureHole.cpp
+# Source 2: coarse pitches and drills at https://www.roymech.co.uk/Useful_Tables/Screws/iso-metric-thread-dimensions/
+#   and https://www.engineeringtoolbox.com/iso-metric-thread-drill-tap-size-d_2045.html (coarse tap drills)
+# Every row was compared with source 1.
+# Rows are [major mm, pitch mm, tap drill mm, coarse]
+rows = [
+  [2.0, 0.4, 1.6, true], [2.0, 0.25, 1.75, false],
+  [2.5, 0.45, 2.05, true], [2.5, 0.35, 2.15, false],
+  [3.0, 0.5, 2.5, true], [3.0, 0.35, 2.65, false],
+  [4.0, 0.7, 3.3, true], [4.0, 0.5, 3.5, false],
+  [5.0, 0.8, 4.2, true], [5.0, 0.5, 4.5, false],
+  [6.0, 1.0, 5.0, true], [6.0, 0.75, 5.25, false],
+  [8.0, 1.25, 6.8, true], [8.0, 1.0, 7.0, false],
+  [10.0, 1.5, 8.5, true], [10.0, 1.25, 8.75, false], [10.0, 1.0, 9.0, false],
+  [12.0, 1.75, 10.2, true], [12.0, 1.5, 10.5, false], [12.0, 1.25, 10.75, false],
+  [14.0, 2.0, 12.0, true], [14.0, 1.5, 12.5, false],
+  [16.0, 2.0, 14.0, true], [16.0, 1.5, 14.5, false],
+  [20.0, 2.5, 17.5, true], [20.0, 1.5, 18.5, false],
+  [24.0, 3.0, 21.0, true], [24.0, 2.0, 22.0, false],
+]

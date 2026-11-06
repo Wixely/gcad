@@ -2,6 +2,7 @@ mod args;
 mod assembly;
 mod blends;
 mod bodies;
+mod clearance;
 mod constrain;
 mod enclosure;
 mod exact;
@@ -12,9 +13,10 @@ mod holes;
 mod import;
 pub mod mate;
 pub mod materials;
-mod clearance;
 mod measure;
 mod member;
+mod meshes;
+mod oring;
 mod path;
 mod pattern;
 mod rib;
@@ -27,8 +29,8 @@ mod solids;
 mod standard;
 mod step_raw;
 pub(crate) mod stored;
-mod thread;
 pub mod texture;
+mod thread;
 mod weld;
 mod wrap;
 
@@ -48,6 +50,7 @@ pub use assembly::{
 };
 pub use bodies::{Material, Mechanics};
 pub use measure::{MassProperties, mass_properties};
+pub use meshes::{MESH_OPERATIONS, MeshBody};
 pub use path::SweepPath;
 pub use sheet::{Sheet, flat_dxf};
 
@@ -125,6 +128,11 @@ pub struct Model {
     pub sheet: Option<sheet::Sheet>,
     pub members: Vec<String>,
     pub sim: Option<Box<crate::sim::Spec>>,
+    pub mesh_body: MeshBody,
+    pub mesh_bodies: Vec<(String, std::sync::Arc<crate::mesh::Mesh>)>,
+    pub part_colours: HashMap<(String, String), [f64; 3]>,
+    pub part_gloss: HashMap<(String, String), f64>,
+    pub part_soft: HashMap<(String, String), f64>,
 }
 
 #[derive(Clone)]
@@ -368,6 +376,10 @@ impl CacheEntries {
     }
 }
 
+pub(crate) fn forget_kept() {
+    *KEPT.lock().unwrap_or_else(|e| e.into_inner()) = None;
+}
+
 impl Cache {
     fn kept() -> Cache {
         let mut kept = KEPT.lock().unwrap_or_else(|e| e.into_inner());
@@ -519,6 +531,7 @@ pub const OPERATIONS: &[&str] = &[
     "helix",
     "sweep",
     "hole",
+    "oring_groove",
     "boss",
     "lip",
     "groove",
@@ -556,11 +569,42 @@ pub const OPERATIONS: &[&str] = &[
     "reflect",
     "array",
     "axis",
+    "blob",
+    "limb",
+    "remesh",
+    "select",
+    "inflate",
+    "smooth",
+    "refine",
+    "crease",
+    "pinch",
+    "flatten",
+    "noise",
+    "relax",
+    "decimate",
 ];
 
 const PROFILE_OPS: &[&str] = &[
     "rect", "circle", "poly", "ngon", "gear", "rack", "offset", "slot", "ellipse", "close",
     "spline", "text",
+];
+
+const MESH_SAFE: &[&str] = &[
+    "let",
+    "move",
+    "rotate",
+    "scale",
+    "mirror",
+    "body",
+    "color",
+    "material",
+    "materials",
+    "if",
+    "include",
+    "plane",
+    "axis",
+    "point",
+    "import",
 ];
 
 impl Model {
@@ -665,6 +709,12 @@ impl Model {
     }
 
     fn apply_op(&mut self, line: &Line) -> Result<String> {
+        if self.has_mesh()
+            && !MESH_SAFE.contains(&line.op.as_str())
+            && !MESH_OPERATIONS.contains(&line.op.as_str())
+        {
+            self.mesh_op(&line.op)?;
+        }
         match line.op.as_str() {
             "let" => self.op_let(line),
             "plane" => self.op_plane(line),
@@ -692,6 +742,7 @@ impl Model {
             "helix" => self.op_helix(line),
             "sweep" => self.op_sweep(line),
             "hole" => self.op_hole(line),
+            "oring_groove" => self.op_oring_groove(line),
             "boss" => self.op_boss(line),
             "lip" => self.op_lip(line, false),
             "groove" => self.op_lip(line, true),
@@ -744,6 +795,19 @@ impl Model {
                 )
             }
             "import" => self.op_import(line),
+            "blob" => self.op_blob(line),
+            "limb" => self.op_limb(line),
+            "remesh" => self.op_remesh(line),
+            "select" => self.op_select(line),
+            "inflate" => self.op_inflate(line),
+            "smooth" => self.op_smooth(line),
+            "refine" => self.op_refine(line),
+            "crease" => self.op_crease(line),
+            "pinch" => self.op_pinch(line),
+            "flatten" => self.op_flatten(line),
+            "noise" => self.op_noise(line),
+            "relax" => self.op_relax(line),
+            "decimate" => self.op_decimate(line),
             other => bail!(
                 "unknown operation `{other}`; operations are {}",
                 OPERATIONS.join(", ")
@@ -808,7 +872,7 @@ impl Model {
             (Some(existing), Combine::Remove) => {
                 let tool = solids::clear_flush(&tool, existing);
                 monstertruck::solid::difference_normalized(existing, &tool)
-                    .map_err(|e| anyhow!("cut failed: {e}"))?
+                    .map_err(|error| anyhow!("cut failed: {error}"))?
             }
             (Some(existing), Combine::Common) => {
                 let tool = solids::clear_flush(&tool, existing);
@@ -981,7 +1045,7 @@ pub(crate) fn load_model(
     if let Some(spec) = path.to_str().filter(|text| standard::is_standard(text)) {
         return standard_model(spec);
     }
-    let lasting = !crate::sim::is_sim(path);
+    let lasting = !crate::sim::is_sim(path) && egui_bench::revision::covering(path).is_none();
     if lasting && let Some(model) = stored::fetch(path, vars) {
         return Ok(model);
     }

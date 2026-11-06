@@ -1093,12 +1093,18 @@ fn mitred_frame() {
     );
 }
 
+fn assert_within(started: std::time::Instant, release_limit_s: f64) {
+    let scale = if cfg!(debug_assertions) { 10.0 } else { 1.0 };
+    let elapsed = started.elapsed().as_secs_f64();
+    assert!(elapsed < release_limit_s * scale, "took {elapsed:.1}s");
+}
+
 #[test]
 fn twisted_extrude_with_a_hole() {
     let started = std::time::Instant::now();
     let model = build("rect 20 20\ncircle 8\nextrude 40 twist=720");
     assert_volume(&model, (400.0 - 16.0 * PI) * 40.0, 1.0e-3);
-    assert!(started.elapsed().as_secs_f64() < 5.0);
+    assert_within(started, 5.0);
 }
 
 #[test]
@@ -1112,7 +1118,7 @@ fn boss_on_a_twisted_face() {
         (400.0 - 16.0 * PI) * 40.0 + PI / 4.0 * (144.0 - 81.0) * 10.0,
         1.0e-3,
     );
-    assert!(started.elapsed().as_secs_f64() < 8.0);
+    assert_within(started, 8.0);
 }
 
 #[test]
@@ -1133,4 +1139,16 @@ fn boss_over_an_edge_still_joins() {
     let model =
         build("rect 40 30\nbase: extrude 10\nplane base.end\nrect 20 10 at=15,0\nboss: extrude 5");
     assert_volume(&model, 12000.0 + 200.0 * 5.0, 1.0e-6);
+}
+
+#[test]
+fn cut_where_the_tool_wall_meets_a_corner_fillet_start() {
+    let model = build(
+        "plane XY\nrect 8.94 7.3 r=0.3\nshell: extrude 3.26\nplane <Y offset=0.5\nrect 8.34 2.56 at=0,1.63 r=1\nmouth: cut 7",
+    );
+    assert_volume(
+        &model,
+        79.565 - 4.0 * (1.0 - PI / 4.0) * 0.09 * 3.26,
+        5.0e-4,
+    );
 }

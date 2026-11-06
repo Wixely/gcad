@@ -1,0 +1,31 @@
+# Use and process notes for the common hole-basis ISO 286 fits. The 3D print advice is a rule of thumb
+# for FDM, not from a standard. use and cnc are the usual machining practice for each fit.
+[[fit]]
+name = "H7/g6"
+use = "Precision sliding fit, locating parts that move slowly with accurate guidance"
+cnc = "Ream or bore the hole (H7), finish turn or grind the shaft (g6)"
+print = "FDM cannot hold IT6 or IT7. Print the hole 0.2 to 0.3 mm over and the shaft at nominal, ream the hole for a real fit"
+
+[[fit]]
+name = "H7/p6"
+use = "Light press fit for permanent location, no extra fixing needed for light loads"
+cnc = "Press with a lead-in chamfer and a little oil, or heat the hole. Ream (H7) and finish the shaft (p6)"
+print = "Not achievable by printing. Print the hole 0.1 mm under and ream, or use a heat-set insert or a bushing"
+
+[[fit]]
+name = "H7/h6"
+use = "Locational clearance fit, parts assemble by hand and are held by a fastener"
+cnc = "Ream or bore the hole (H7), finish turn the shaft (h6)"
+print = "Print the hole 0.15 to 0.25 mm over the shaft at nominal, ream if it must be tight"
+
+[[fit]]
+name = "H11/c11"
+use = "Loose running fit for rough work, hinges and parts that must move despite dirt or heat"
+cnc = "Drill the hole (H11) and turn the shaft as machined (c11)"
+print = "Print the hole 0.3 to 0.5 mm over the shaft at nominal, which is well inside the fit anyway"
+
+[[fit]]
+name = "F7/h6"
+use = "Close running fit for plain bearings with light loads and lubrication"
+cnc = "Bore and ream the hole (F7), finish turn the shaft (h6) and keep the surface smooth"
+print = "Print the hole 0.2 to 0.3 mm over and ream, or press in a bronze or PTFE bushing"

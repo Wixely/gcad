@@ -30,6 +30,28 @@ fn parse_price(text: &str) -> std::result::Result<u64, String> {
     Ok((euro * 100.0).round() as u64)
 }
 
+fn parse_point(text: &str) -> std::result::Result<[f64; 3], String> {
+    let v: Vec<f64> = text
+        .split(',')
+        .map(|p| p.trim().parse::<f64>())
+        .collect::<std::result::Result<_, _>>()
+        .map_err(|_| format!("`{text}` is not a point, write x,y,z"))?;
+    v.try_into()
+        .map_err(|_| format!("`{text}` is not a point, write x,y,z"))
+}
+
+fn parse_pixel(text: &str) -> std::result::Result<(f64, f64), String> {
+    let (x, y) = text.split_once(',').ok_or("write a pixel as x,y")?;
+    Ok((
+        x.trim()
+            .parse()
+            .map_err(|_| format!("`{x}` is not a number"))?,
+        y.trim()
+            .parse()
+            .map_err(|_| format!("`{y}` is not a number"))?,
+    ))
+}
+
 fn parse_set(text: &str) -> std::result::Result<(String, f64), String> {
     let (name, value) = text.split_once('=').ok_or("write it as name=value")?;
     let value = value
@@ -438,6 +460,40 @@ enum Command {
         #[arg(long)]
         lines: bool,
     },
+    /// Draw one view with surface normals as colour, a labelled world grid, scale bar, part names and reference marks, and print what each pick hits, for placing detail by eye
+    Inspect {
+        file: String,
+        output: String,
+        /// front, back, right, left, top, bottom or iso
+        #[arg(long, default_value = "front")]
+        view: String,
+        /// Frame this part (a mesh part or a body)
+        #[arg(long)]
+        part: Option<String>,
+        /// Centre the view on this point, x,y,z
+        #[arg(long, value_parser = parse_point)]
+        at: Option<[f64; 3]>,
+        /// Show this many units across
+        #[arg(long)]
+        span: Option<f64>,
+        /// Grid spacing in units (picked to suit the span unless given)
+        #[arg(long)]
+        grid: Option<f64>,
+        /// Mark a point, x,y,z or name=x,y,z (repeatable)
+        #[arg(long)]
+        mark: Vec<String>,
+        /// Report the surface point and normal under this pixel, x,y (repeatable)
+        #[arg(long, value_parser = parse_pixel)]
+        pick: Vec<(f64, f64)>,
+        /// Show the model as it is after this line, with that line's selection
+        #[arg(long)]
+        line: Option<usize>,
+    },
+    /// Design calculators for standard parts, printing a result and a why line
+    Calc {
+        #[command(subcommand)]
+        what: CalcKind,
+    },
     /// Print the format reference: every operation, selector and assembly line
     Docs,
     /// Open the file in a window that rebuilds whenever it is saved
@@ -449,6 +505,75 @@ enum Command {
         /// Show the model as it is after this line
         #[arg(long)]
         line: Option<usize>,
+    },
+}
+
+#[derive(Subcommand)]
+enum CalcKind {
+    /// Pick an o-ring and size its groove: gcad calc oring piston 50 --pressure 10
+    Oring {
+        /// face, static, rod or piston
+        application: gcad::calc::oring::Application,
+        /// Face seal groove diameter, static bore, rod or piston bore diameter, in mm
+        diameter: f64,
+        /// Cross-section in mm (default: from the diameter)
+        #[arg(long)]
+        cs: Option<f64>,
+        /// Working pressure in bar
+        #[arg(long, default_value_t = 0.0)]
+        pressure: f64,
+        /// nitrile, epdm, fkm, polyurethane, silicone or fluorosilicone
+        #[arg(long, default_value = "nitrile")]
+        material: gcad::calc::oring::Material,
+        /// Diametral clearance of the mating parts in mm
+        #[arg(long)]
+        clearance: Option<f64>,
+        /// Check this ring instead of searching: an AS568 dash number like 214 or 40x2.65
+        #[arg(long)]
+        ring: Option<String>,
+        /// Show the formulas and sources
+        #[arg(long)]
+        formulas: bool,
+    },
+    /// Thread sizes, drills, heads, torque and hole depth: gcad calc thread M6 --material alu --depth 14
+    Thread {
+        /// M6, M8x1, #8-32, 1/4-20 or G1/4
+        size: String,
+        /// steel, aluminium, stainless, brass, pla, petg, abs or nylon
+        #[arg(long, default_value = "steel")]
+        material: String,
+        /// Strength class of the screw: 8.8, 10.9, 12.9, 4.6, 5.8, A2-70 or A4-70
+        #[arg(long, default_value = "8.8")]
+        class: String,
+        /// Nut factor K in the torque formula
+        #[arg(long, default_value_t = gcad::calc::thread::DEFAULT_NUT_FACTOR)]
+        nut_factor: f64,
+        /// Check a tapped hole of this depth in mm
+        #[arg(long)]
+        depth: Option<f64>,
+        /// The hole goes right through, so there is no tap runout
+        #[arg(long)]
+        through: bool,
+        /// Show the formulas and sources
+        #[arg(long)]
+        formulas: bool,
+    },
+    /// ISO 286 limits for a hole and shaft pair: gcad calc fit H7/g6 25
+    Fit {
+        /// Hole and shaft class, like H7/g6, H7/p6, H11/c11 or F7/h6
+        pair: String,
+        /// Nominal size in mm, up to 500
+        nominal: f64,
+        /// Show the formulas and sources
+        #[arg(long)]
+        formulas: bool,
+    },
+    /// Properties and thread engagement of a material: gcad calc material alu
+    Material {
+        name: String,
+        /// Show the formulas and sources
+        #[arg(long)]
+        formulas: bool,
     },
 }
 
@@ -520,7 +645,7 @@ fn finished(run: &Run) -> Result<()> {
         spec.target()?;
         return Ok(());
     }
-    if run.model.solids().is_empty() {
+    if run.model.solids().is_empty() && run.model.meshes().is_empty() {
         bail!("the file builds no solid");
     }
     Ok(())
@@ -1518,6 +1643,109 @@ fn main() -> Result<()> {
         }
         Command::Check { file, time } => check(&file, &vars, time),
         Command::Measure { file, what } => measure(&file, &what.join(" "), &vars),
+        Command::Inspect {
+            file,
+            output,
+            view,
+            part,
+            at,
+            span,
+            grid,
+            mark,
+            pick,
+            line,
+        } => {
+            let run = load(&file, line, &vars)?;
+            finished(&run)?;
+            let marks = mark
+                .iter()
+                .enumerate()
+                .map(|(k, text)| {
+                    let (name, point) = match text.split_once('=') {
+                        Some((name, point)) => (name.to_string(), point),
+                        None => (format!("m{}", k + 1), text.as_str()),
+                    };
+                    parse_point(point)
+                        .map(|p| (name, p))
+                        .map_err(|e| anyhow!(e))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let picture = gcad::inspect::inspect(
+                &run.model,
+                &gcad::inspect::Options {
+                    view: gcad::inspect::view(&view)?,
+                    centre: at,
+                    span,
+                    part,
+                    grid,
+                    marks,
+                    picks: pick,
+                },
+            )?;
+            picture.canvas.save(&output)?;
+            print!("{}", picture.report);
+            Ok(())
+        }
+        Command::Calc { what } => {
+            match what {
+                CalcKind::Oring {
+                    application,
+                    diameter,
+                    cs,
+                    pressure,
+                    material,
+                    clearance,
+                    ring,
+                    formulas,
+                } => {
+                    let design = gcad::calc::oring::design(&gcad::calc::oring::Input {
+                        application,
+                        diameter,
+                        cross_section: cs,
+                        pressure_bar: pressure,
+                        material,
+                        clearance,
+                        ring,
+                    })?;
+                    println!("{}", gcad::calc::oring::report(&design).render(formulas));
+                }
+                CalcKind::Thread {
+                    size,
+                    material,
+                    class,
+                    nut_factor,
+                    depth,
+                    through,
+                    formulas,
+                } => {
+                    let report = gcad::calc::thread::report(&gcad::calc::thread::Input {
+                        thread: gcad::calc::thread::find(&size)?,
+                        material: gcad::calc::materials::find(&material)?,
+                        class,
+                        nut_factor,
+                        depth,
+                        through,
+                    })?;
+                    println!("{}", report.render(formulas));
+                }
+                CalcKind::Fit {
+                    pair,
+                    nominal,
+                    formulas,
+                } => {
+                    let fit = gcad::calc::fit::fit(&pair, nominal)?;
+                    println!("{}", gcad::calc::fit::report(&fit).render(formulas));
+                }
+                CalcKind::Material { name, formulas } => {
+                    let material = gcad::calc::materials::find(&name)?;
+                    println!(
+                        "{}",
+                        gcad::calc::materials::report(material).render(formulas)
+                    );
+                }
+            }
+            Ok(())
+        }
         Command::Docs => {
             print!("{}", include_str!("../docs/format.md"));
             Ok(())
@@ -1689,7 +1917,8 @@ fn main() -> Result<()> {
             finished(&run)?;
             let parts = run.model.exploded_parts(if explode { 1.0 } else { 0.0 });
             let parts: Vec<_> = parts.iter().map(|(s, c)| (s, *c)).collect();
-            render::render_coloured(&parts, &output)
+            let meshes = run.model.mesh_shading();
+            render::render_with_meshes(&parts, &meshes, &output)
         }
         Command::View { file, select, line } => {
             gcad::view::run(file.map(Into::into), select, line, vars)

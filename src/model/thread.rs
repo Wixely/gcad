@@ -1098,8 +1098,13 @@ impl Model {
                 .record(&self.body_name(), &label, "faces", surface)
         });
         self.solid = Some(threaded.solid);
+        let warning = if threaded.external {
+            None
+        } else {
+            crate::calc::thread::short_note(name, threaded.length)
+        };
         Ok(format!(
-            "{} {} x {pitch} thread, {:.3} long; {}",
+            "{} {} x {pitch} thread, {:.3} long; {}{}",
             if threaded.external {
                 "outside"
             } else {
@@ -1107,7 +1112,8 @@ impl Model {
             },
             name.to_uppercase(),
             threaded.length,
-            self.describe_solid()?
+            self.describe_solid()?,
+            warning.map(|w| format!("; {w}")).unwrap_or_default()
         ))
     }
 }

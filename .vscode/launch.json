@@ -2,6 +2,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Tests: gcad (pick a suite)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/tests/${input:testSuite}.exe",
+            "args": ["${input:testFilter}", "--test-threads=1", "--nocapture"],
+            "cwd": "${workspaceFolder}",
+            "environment": [{ "name": "RUST_BACKTRACE", "value": "1" }],
+            "preLaunchTask": "Build test binaries (Debug)",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Animated five-map atlas validation (Windows)",
             "type": "cppvsdbg",
             "request": "launch",
@@ -440,6 +451,26 @@
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "Build game asset CLI (Debug)",
             "console": "internalConsole"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "testSuite",
+            "type": "pickString",
+            "description": "Test binary: lib and bin are the unit tests, the rest are tests/*.rs",
+            "default": "lib",
+            "options": [
+                "lib", "bin", "assembly", "assembly_hierarchy", "blends", "bodies", "examples",
+                "fbx_helper_process", "features", "flow", "holes", "input_recording", "inspect",
+                "job_format", "manifest", "ops_doc", "output", "progress", "remote_job",
+                "remote_overview", "simulation", "sketch", "stored", "workplane"
+            ]
+        },
+        {
+            "id": "testFilter",
+            "type": "promptString",
+            "description": "Run only tests whose names contain this (empty runs them all)",
+            "default": ""
         }
     ]
 }

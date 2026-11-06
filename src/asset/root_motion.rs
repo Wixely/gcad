@@ -178,7 +178,7 @@ mod tests {
     use super::*;
     fn scene(interpolation: Interpolation) -> Scene {
         Scene {
-            consumer:None,
+            consumer:None, collision: Vec::new(),
             nodes: vec![
                 Node {
                     name: "root".into(),

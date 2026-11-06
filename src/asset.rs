@@ -42,6 +42,7 @@ pub mod report;
 pub mod root_motion;
 pub mod rigid_motion;
 pub mod scene;
+pub mod collision;
 pub mod consumer;
 pub mod shader;
 #[cfg(not(target_arch = "wasm32"))]

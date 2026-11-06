@@ -125,7 +125,7 @@ fn animations(scene: &super::scene::Scene, buffer: &mut Buffer) -> Result<Vec<Va
 pub fn encode(mesh: &Mesh, material: &Material) -> Result<Vec<u8>> {
     use super::scene::{Node, Primitive, Scene, SceneMesh};
     encode_scene(&Scene {
-        consumer:None,
+        consumer:None, collision: Vec::new(),
         nodes: vec![Node {
             name: "mesh".into(),
             mesh: Some(0),
@@ -429,6 +429,9 @@ pub(crate) fn encode_with_weight_storage(
         if let Some(mesh) = node.mesh {
             value["mesh"] = json!(mesh);
         }
+        if let Some(collision) = scene.collision.iter().find(|c| c.node == node.name) {
+            value["extras"] = json!({"gcad_collision": super::collision::extras(scene, collision)?});
+        }
         if !children[i].is_empty() {
             value["children"] = json!(children[i]);
         }
@@ -519,6 +522,7 @@ pub(crate) fn encode_with_weight_storage(
     if let Some(extras) = extras {
         document["extras"] = extras;
     }
+    super::collision::validate_skins(scene, bindings)?;
     if let Some(profile)=&scene.consumer {
         profile.validate_skins(scene,bindings)?;
         if document.get("extras").is_none(){document["extras"]=json!({});}

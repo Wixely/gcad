@@ -186,6 +186,7 @@ pub struct Node {
 #[derive(Clone, Debug, Default)]
 pub struct Scene {
     pub consumer: Option<super::consumer::Profile>,
+    pub collision: Vec<super::collision::Collision>,
     pub nodes: Vec<Node>,
     pub meshes: Vec<SceneMesh>,
     pub materials: Vec<Material>,
@@ -237,6 +238,7 @@ impl Scene {
         }
         self.world_transforms()?;
         if let Some(profile)=&self.consumer {profile.validate(self)?;}
+        super::collision::validate(self)?;
         Ok(())
     }
 
@@ -349,7 +351,7 @@ pub(crate) mod tests {
 
     pub(crate) fn fixture() -> Scene {
         Scene {
-            consumer:None,
+            consumer:None, collision: Vec::new(),
             nodes: vec![
                 Node {
                     name: "child".into(),

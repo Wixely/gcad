@@ -1,5 +1,5 @@
 //! Visibility controls for explicitly authored consumer roles in the asset UI.
-use super::Frame;
+use super::{Frame, collision_view::CollisionView};
 use crate::asset::author::Asset;
 use std::{collections::HashSet, sync::Arc};
 
@@ -8,6 +8,7 @@ pub(super) struct ConsumerView {
     pub level: Option<usize>,
     pub collision: bool,
     pub boxes: bool,
+    pub physics: CollisionView,
 }
 impl Default for ConsumerView {
     fn default() -> Self {
@@ -15,6 +16,7 @@ impl Default for ConsumerView {
             level: Some(0),
             collision: false,
             boxes: false,
+            physics: CollisionView::Visual,
         }
     }
 }
@@ -60,19 +62,21 @@ impl ConsumerView {
         });
     }
     pub fn apply(self, asset: &Asset, mut frame: Frame) -> Frame {
-        let Some(profile) = &asset.scene.consumer else {
+        if asset.scene.consumer.is_none() && asset.scene.collision.is_empty() {
             return frame;
-        };
-        let mut hidden = HashSet::new();
-        if !self.collision {
-            hidden.extend(profile.colliders.iter().map(|c| c.node.as_str()));
         }
-        if let Some(level) = self.level {
-            for group in &profile.lods {
-                let selected = level.min(group.levels.len() - 1);
-                for (i, entry) in group.levels.iter().enumerate() {
-                    if i != selected {
-                        hidden.extend(entry.nodes.iter().map(String::as_str));
+        let mut hidden = HashSet::new();
+        if let Some(profile) = &asset.scene.consumer {
+            if !self.collision {
+                hidden.extend(profile.colliders.iter().map(|c| c.node.as_str()));
+            }
+            if let Some(level) = self.level {
+                for group in &profile.lods {
+                    let selected = level.min(group.levels.len() - 1);
+                    for (i, entry) in group.levels.iter().enumerate() {
+                        if i != selected {
+                            hidden.extend(entry.nodes.iter().map(String::as_str));
+                        }
                     }
                 }
             }
@@ -85,14 +89,14 @@ impl ConsumerView {
                 }
             }
         }
+        let visible = self.physics.visibility(asset, visible);
         let scene = Arc::get_mut(&mut frame.scene)
             .expect("consumer visibility applies to a newly built frame");
-        let mut index = 0;
-        scene.surfaces.retain(|_| {
-            let keep = visible[index];
-            index += 1;
-            keep
-        });
+        // Groups, not positions: shapes follow the mesh primitives.
+        scene
+            .surfaces
+            .retain(|s| visible.get(s.group).copied().unwrap_or(true));
+        self.physics.style(asset, scene, &mut frame.looks);
         let mut low = [f32::INFINITY; 3];
         let mut high = [f32::NEG_INFINITY; 3];
         for surface in &scene.surfaces {
@@ -145,6 +149,7 @@ mod tests {
             level: Some(1),
             collision: false,
             boxes: false,
+            physics: CollisionView::Visual,
         }
         .apply(&asset, super::super::frame(&asset, None, 0.).unwrap());
         assert_eq!(low.scene.surfaces.len(), 1);
@@ -153,6 +158,7 @@ mod tests {
             level: None,
             collision: true,
             boxes: false,
+            physics: CollisionView::Visual,
         }
         .apply(&asset, super::super::frame(&asset, None, 0.).unwrap());
         assert_eq!(all.scene.surfaces.len(), 3);

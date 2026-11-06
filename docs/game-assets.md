@@ -579,7 +579,9 @@ arbitrary source shader or source normal-map detail.
 
 Explicit socket, collider and LOD authoring/consumer conventions are documented in
 [the experimental consumer profile](game-assets-consumer-profile.md). They are
-opt-in; node names alone do not assign engine roles.
+opt-in; node names alone do not assign engine roles. Engine-neutral collision shapes
+(box, sphere, capsule, capped hull or mesh, per node) are described in
+[collision](game-assets-collision.md).
 
 `asset-prune-joints INPUT.gasset NEW.glb [--keep NAME,...]` removes skin-palette
 entries with no positive vertex influence. It retains every animated joint,

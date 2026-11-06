@@ -47,6 +47,7 @@ pub struct AtlasSettings {
 #[derive(Debug)]
 pub struct Document {
     pub consumer: Option<super::consumer::Profile>,
+    pub collision: Vec<super::collision::Collision>,
     pub face_weights: Vec<FaceWeights>,
     pub face_uvs: Vec<FaceUv>,
     pub face_materials: Vec<FaceMaterial>,
@@ -218,6 +219,7 @@ impl Document {
         let mut project = None;
         let mut motions = Vec::new();
         let mut consumer:Option<super::consumer::Profile>=None;
+        let mut collision = Vec::new();
         for (number, text) in text.lines().enumerate() {
             let text = text.trim();
             if text.is_empty() || text.starts_with('#') {
@@ -259,6 +261,13 @@ impl Document {
                     ensure!(p.len()==1&&named.len()==1&&named.contains_key("shape"),"collider expects NODE shape=box|mesh|convex");
                     let shape=match named["shape"].as_str(){"box"=>super::consumer::Shape::Box,"mesh"=>super::consumer::Shape::Mesh,"convex"=>super::consumer::Shape::Convex,_=>bail!("unknown collider shape")};
                     consumer.as_mut().context("declare consumer before roles")?.colliders.push(super::consumer::Collider{node:p[0].clone(),shape});
+                }
+                "collision" => {
+                    ensure!(
+                        p.len() == 1,
+                        "collision expects NODE shape=box|sphere|capsule|hull|mesh"
+                    );
+                    collision.push(super::collision::Collision::parse(&p[0], &named)?);
                 }
                 "lod_group" => {
                     ensure!(p.len()==1&&named.len()==1&&named.contains_key("root"),"lod_group expects NAME root=NODE");
@@ -753,6 +762,7 @@ impl Document {
             .collect::<Result<_>>()?;
         let mut document = Self {
             consumer,
+            collision,
             face_uvs,
             face_weights,
             face_materials,
@@ -909,7 +919,7 @@ impl Document {
             "each source requires at least one node instance when explicit nodes are used"
         );
         let scene = Scene {
-            consumer:None,
+            consumer:None, collision: Vec::new(),
             nodes,
             meshes: self
                 .sources
@@ -1000,6 +1010,7 @@ fn load_internal(
     let mut scene = Scene {
         nodes: document.scene_nodes()?,
         consumer:document.consumer.clone(),
+        collision: document.collision.clone(),
         clips: document.clips,
         ..Default::default()
     };
@@ -1396,6 +1407,7 @@ fn load_internal(
         asset.face_maps.insert(node, edited.face_maps);
     }
     if let Some(profile)=&asset.scene.consumer {profile.validate_skins(&asset.scene,&asset.skins)?;}
+    super::collision::validate_skins(&asset.scene, &asset.skins)?;
     Ok(asset)
 }
 

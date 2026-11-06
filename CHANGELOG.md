@@ -6,6 +6,16 @@ All notable changes to gcad are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `collision NODE shape=box|sphere|capsule|hull|mesh` in `.gasset` files declares a physics
+  shape for a mesh node without naming an engine. gcad fits boxes, spheres, capsules and
+  capped convex hulls to the node's mesh and writes them to the node's
+  `extras.gcad_collision` in the GLB. Declared nodes are collision only unless they say
+  `render=yes`. Scale clips and skinned meshes are refused because a physics shape cannot
+  follow them. See `docs/game-assets-collision.md`.
+- The asset viewer has Visual, Both and Collision views. Fitted shapes draw as solid
+  surfaces, and clicking one selects its node, with the shape added to the copied reference.
+
 ## [0.5.3] - 2026-11-01
 
 ### Fixed

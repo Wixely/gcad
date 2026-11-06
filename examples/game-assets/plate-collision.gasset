@@ -1,0 +1,21 @@
+asset 1
+# Engine-neutral collision. The rendered plate collides as a box; three
+# collision-only copies show a sphere, a capped hull and the plate's own
+# triangles. The lid turns in a clip and its capsule turns with it.
+source plate ../parts/plate.gcad body=main
+tessellate plate tolerance=0.5
+uv plate projection=box tile=25
+node model translation=10,20,30
+node plate source=plate parent=model
+node ball source=plate parent=model translation=60,0,0
+node rough source=plate parent=model translation=120,0,0
+node exact source=plate parent=model translation=180,0,0
+node lid source=plate parent=model translation=0,60,0
+collision plate shape=box render=yes surface=metal friction=0.6 restitution=0.1
+collision ball shape=sphere
+collision rough shape=hull max_vertices=16
+collision exact shape=mesh
+collision lid shape=capsule render=yes
+clip turn interpolation=linear
+key turn lid time=0 rotation=0,0,0,1
+key turn lid time=1 rotation=0,0,0.7071067811865476,0.7071067811865476

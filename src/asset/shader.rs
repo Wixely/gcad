@@ -196,7 +196,7 @@ mod tests {
         let mesh=Mesh {positions:vec![[0.,0.,0.],[1.,0.,0.],[0.,1.,0.]],normals:vec![[0.,0.,1.];3],
             texcoords:Some(vec![[0.,0.],[1.,0.],[0.,1.]]),tangents:None,triangles:vec![[0,1,2]]}.generate_tangents().unwrap();
         let mut effect=parse(&description()).unwrap();effect.fallback=Fallback::Freeze{seconds:4.};
-        let scene=Scene {consumer:None,nodes:vec![Node{name:"mesh".into(),mesh:Some(0),..Default::default()},
+        let scene=Scene {consumer:None, collision: Vec::new(),nodes:vec![Node{name:"mesh".into(),mesh:Some(0),..Default::default()},
                 Node{name:"base".into(),..Default::default()},Node{name:"tip".into(),parent:Some(1),..Default::default()}],
             meshes:vec![SceneMesh{name:"two materials".into(),primitives:vec![Primitive{geometry:mesh.clone(),material:0},Primitive{geometry:mesh.clone(),material:1}]}],
             materials:vec![Material{shader:Some(effect),..Default::default()},Material::default()],clips:vec![]};

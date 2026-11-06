@@ -23,6 +23,8 @@ mod density;
 mod consumer;
 #[path = "asset_collision.rs"]
 mod collision;
+#[path = "asset_collision_view.rs"]
+mod collision_view;
 #[path = "asset_lod.rs"]
 mod lod;
 #[path = "asset_motion.rs"]
@@ -428,6 +430,7 @@ fn build(asset: &Asset, pose: &[Transform], time: f64) -> Result<Frame> {
             result.surfaces.push(surface);
         }
     }
+    collision_view::add_shapes(asset, &world, &mut result, &mut looks)?;
     ensure!(!result.surfaces.is_empty(), "preview has no surfaces");
     result.centre = std::array::from_fn(|k| low[k] * 0.5 + high[k] * 0.5);
     result.radius = ((high[0] - low[0])
@@ -747,6 +750,7 @@ impl Preview {
             }
             ui.checkbox(&mut self.inspector_open, "Scene inspector");
             self.consumer.controls(ui,&self.asset);
+            self.consumer.physics.controls(ui, &self.asset);
             self.motion.controls(ui, &self.asset, self.clip, self.time);
             lod_changed = self.lod.controls(ui, &self.asset);
             if lod_changed { self.density.invalidate(); }

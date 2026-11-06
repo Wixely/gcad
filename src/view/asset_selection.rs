@@ -7,6 +7,8 @@ pub(super) struct Selection {
     face_mode: bool,
     pub node: Option<String>,
     face: Option<Face>,
+    // The pick landed on a fitted collision shape rather than the node's mesh.
+    shape: bool,
 }
 
 struct Face {
@@ -29,7 +31,13 @@ fn fingerprint(mesh: &crate::asset::Mesh) -> String {
 }
 
 // Surface groups retain their original ordering when consumer visibility removes surfaces.
+// A fitted collision shape belongs to its declaration's node, with no mesh primitive.
 fn owner(asset: &Asset, group: usize) -> Option<(usize, usize)> {
+    if let Some(k) = super::collision_view::shape_of(asset, group) {
+        let name = &asset.scene.collision[k].node;
+        let node = asset.scene.nodes.iter().position(|n| &n.name == name)?;
+        return Some((node, usize::MAX));
+    }
     let mut next = 0;
     for (node, n) in asset.scene.nodes.iter().enumerate() {
         if let Some(mesh) = n.mesh {
@@ -78,6 +86,7 @@ impl Selection {
         if self.node != name {
             self.node = name;
             self.face = None;
+            self.shape = false;
         }
     }
 
@@ -118,17 +127,35 @@ impl Selection {
                         }
                     });
                 }
+                if let Some(c) = asset.scene.collision.iter().find(|c| &c.node == name) {
+                    ui.label(format!(
+                        "Collision {}{}",
+                        c.shape.name(),
+                        if c.render { "" } else { " (collision only)" }
+                    ));
+                }
                 if ui.button("Copy reference").clicked() {
-                    ui.ctx().copy_text(self.reference());
+                    ui.ctx().copy_text(self.reference(asset));
                 }
             }
         });
         ui.small("Click to select; drag to orbit. Face outlines are X-ray. References use zero-based indices; copy again after geometry edits.");
     }
 
-    fn reference(&self) -> String {
+    fn reference(&self, asset: &Asset) -> String {
         let mut value =
             serde_json::json!({"kind":"gcad-viewer-selection","version":1,"node":self.node});
+        if let Some(c) = self
+            .node
+            .as_ref()
+            .and_then(|name| asset.scene.collision.iter().find(|c| &c.node == name))
+        {
+            value["collision"] = serde_json::json!({
+                "shape": c.shape.name(),
+                "render": c.render,
+                "picked": if self.shape { "fitted shape" } else { "mesh" },
+            });
+        }
         if let Some(f) = &self.face {
             value["primitive"] = f.primitive.into();
             value["triangle"] = f.triangle.into();
@@ -148,6 +175,7 @@ impl Selection {
         let Some(hit) = viewer.pick(rect, at) else {
             self.node = None;
             self.face = None;
+            self.shape = false;
             return;
         };
         let surface = &viewer.scene().surfaces[hit.surface];
@@ -156,7 +184,9 @@ impl Selection {
         };
         self.node = Some(asset.scene.nodes[node].name.clone());
         self.face = None;
-        if !self.face_mode {
+        // Shapes have no source faces or triangle numbers to refer to.
+        self.shape = primitive == usize::MAX;
+        if !self.face_mode || self.shape {
             return;
         }
         let (origin, direction) = viewer.projector(rect).ray(at);
@@ -321,7 +351,7 @@ mod tests {
                         assert!(f.source_face.is_none());
                     }
                     let reference: serde_json::Value =
-                        serde_json::from_str(&selection.reference()).unwrap();
+                        serde_json::from_str(&selection.reference(&asset)).unwrap();
                     assert_eq!(reference["node"], asset.scene.nodes[group].name);
                     assert_eq!(reference["mesh_sha256"].as_str().unwrap().len(), 64);
                     selection.invalidate();
@@ -339,6 +369,47 @@ mod tests {
         let viewer = Viewer::new(frame.scene.clone(), Camera::default());
         selection.pick(&asset, &viewer, rect, egui::pos2(-10000., -10000.));
         assert!(selection.node.is_none());
+    }
+
+    #[test]
+    fn collision_view_picks_a_fitted_shape_as_its_node() {
+        let asset = crate::asset::author::load(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("examples/game-assets/plate-collision.gasset"),
+            &[],
+        )
+        .unwrap();
+        let frame = super::super::consumer::ConsumerView {
+            physics: super::super::collision_view::CollisionView::Collision,
+            ..Default::default()
+        }
+        .apply(&asset, super::super::frame(&asset, None, 0.).unwrap());
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800., 800.));
+        let viewer = Viewer::new(frame.scene.clone(), Camera::default()).looks(frame.looks.clone());
+        let ball = asset.scene.collision.iter().position(|c| c.node == "ball").unwrap();
+        let group = super::super::collision_view::primitive_count(&asset) + ball;
+        let surface = frame.scene.surfaces.iter().find(|s| s.group == group).unwrap();
+        let at = surface
+            .positions
+            .chunks_exact(3)
+            .find_map(|t| {
+                let centre = std::array::from_fn(|k| (t[0][k] + t[1][k] + t[2][k]) / 3.);
+                let at = viewer.projector(rect).project(centre)?;
+                let hit = viewer.pick(rect, at)?;
+                (viewer.scene().surfaces[hit.surface].group == group).then_some(at)
+            })
+            .expect("the sphere is in view");
+        let mut selection = Selection::default();
+        selection.face_mode = true;
+        selection.pick(&asset, &viewer, rect, at);
+        assert_eq!(selection.node.as_deref(), Some("ball"));
+        assert!(selection.face.is_none(), "shapes have no faces to refer to");
+        let reference: serde_json::Value =
+            serde_json::from_str(&selection.reference(&asset)).unwrap();
+        assert_eq!(reference["collision"]["shape"], "sphere");
+        assert_eq!(reference["collision"]["render"], false);
+        assert_eq!(reference["collision"]["picked"], "fitted shape");
+        assert!(selection.looks(&asset, &frame)[group].selected);
     }
 
     #[test]
